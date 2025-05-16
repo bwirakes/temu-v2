@@ -1,8 +1,9 @@
 import Link from 'next/link';
-import Image from 'next/image';
 import { db } from '@/lib/db';
 import { eq, count, gt } from 'drizzle-orm';
 import { employers, jobs } from '@/lib/db';
+import SearchBar from './components/search-bar';
+import EmployerLogo from './components/employer-logo';
 
 // Add export config for ISR
 export const revalidate = 3600; // Revalidate every hour
@@ -42,85 +43,101 @@ export default async function CareersPage() {
   const employersWithJobs = await getEmployersWithJobCounts();
 
   return (
-    <div className="bg-gray-50 min-h-screen">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+    <div className="bg-notion-background min-h-screen">
+      {/* Add padding to account for fixed header */}
+      <div className="pt-16"></div>
+      
+      <div className="notion-container py-16">
         {/* Hero section */}
-        <div className="text-center mb-12">
-          <h1 className="text-4xl font-extrabold text-gray-900 sm:text-5xl sm:tracking-tight lg:text-6xl">
-            Find Your Next Career
+        <div className="mb-16 animate-fade-in">
+          <h1 className="text-notion-title mb-6">
+            Job Fair Nasional Tahun 2025
           </h1>
-          <p className="mt-5 max-w-xl mx-auto text-xl text-gray-500">
-            Browse job opportunities from top employers and take the next step in your career journey.
+          <p className="text-lg text-notion-text-light max-w-2xl animation-delay-100 animate-fade-in">
+            Jelajahi peluang kerja dari perusahaan terkemuka dan ambil langkah selanjutnya dalam perjalanan karir Anda.
           </p>
+          
+          {/* Search bar */}
+          <div className="mt-10 max-w-md animation-delay-200 animate-fade-in">
+            <SearchBar />
+          </div>
         </div>
 
         {/* Employers section */}
-        <h2 className="text-2xl font-bold text-gray-900 mb-6">Companies Hiring Now</h2>
-
-        {employersWithJobs.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {employersWithJobs.map((employer) => (
-              <Link
-                key={employer.id}
-                href={`/careers/${employer.id}`}
-                className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow duration-300"
-              >
-                <div className="flex items-start space-x-4">
-                  {employer.logoUrl ? (
-                    <div className="w-16 h-16 relative flex-shrink-0">
-                      <Image
-                        src={employer.logoUrl}
-                        alt={employer.namaPerusahaan}
-                        fill
-                        className="object-contain rounded-md"
-                      />
-                    </div>
-                  ) : (
-                    <div className="w-16 h-16 bg-gray-200 rounded-md flex items-center justify-center flex-shrink-0">
-                      <span className="text-xl font-bold text-gray-500">
-                        {employer.namaPerusahaan.substring(0, 2).toUpperCase()}
-                      </span>
-                    </div>
-                  )}
-                  <div>
-                    <h3 className="text-lg font-medium text-gray-900">
-                      {employer.namaPerusahaan}
-                      {employer.merekUsaha && ` (${employer.merekUsaha})`}
-                    </h3>
-                    <p className="text-sm text-gray-500 mb-2">{employer.industri}</p>
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                      {employer.jobCount} open position{employer.jobCount !== 1 ? 's' : ''}
-                    </span>
-                  </div>
-                </div>
-              </Link>
-            ))}
-          </div>
-        ) : (
-          <div className="bg-white rounded-lg shadow-md p-8 text-center">
-            <h3 className="text-xl font-medium text-gray-900 mb-2">No employers currently hiring</h3>
-            <p className="text-gray-600">
-              There are currently no job openings available. Please check back later.
+        <div className="mb-20 animation-delay-300 animate-fade-in">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8">
+            <h2 className="text-xl font-medium text-notion-text">Perusahaan yang Sedang Merekrut</h2>
+            <p className="text-sm text-notion-text-light mt-1 sm:mt-0">
+              {employersWithJobs.length} {employersWithJobs.length === 1 ? 'perusahaan' : 'perusahaan'} dengan posisi terbuka
             </p>
           </div>
-        )}
+
+          {employersWithJobs.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {employersWithJobs.map((employer, index) => (
+                <div 
+                  key={employer.id}
+                  className={`notion-card card-hover animation-delay-${(index % 5) * 100} animate-fade-in`}
+                >
+                  <div className="p-4">
+                    <div className="flex items-start space-x-4">
+                      <EmployerLogo 
+                        logoUrl={employer.logoUrl} 
+                        companyName={employer.namaPerusahaan} 
+                        size="sm"
+                      />
+                      <div>
+                        <h3 className="text-base font-medium text-notion-text">
+                          {employer.namaPerusahaan}
+                          {employer.merekUsaha && ` (${employer.merekUsaha})`}
+                        </h3>
+                        <p className="text-sm text-notion-text-light mb-2">{employer.industri}</p>
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-notion text-xs font-medium bg-notion-highlight-blue text-notion-text">
+                          {employer.jobCount} posisi {employer.jobCount !== 1 ? 'terbuka' : 'terbuka'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="border-t border-notion-border p-4 mt-2">
+                    <Link
+                      href={`/careers/${employer.id}`}
+                      className="notion-button w-full flex justify-center"
+                    >
+                      Lihat Lowongan
+                    </Link>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="notion-card p-8 text-center animation-delay-300 animate-fade-in">
+              <h3 className="text-lg font-medium text-notion-text mb-2">Tidak ada perusahaan yang sedang merekrut</h3>
+              <p className="text-notion-text-light">
+                Saat ini tidak ada lowongan pekerjaan yang tersedia. Silakan periksa kembali nanti.
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Notion-style divider */}
+        <div className="notion-divider animation-delay-400 animate-fade-in"></div>
 
         {/* Call to action */}
-        <div className="mt-16 bg-blue-600 rounded-lg shadow-xl overflow-hidden">
-          <div className="px-6 py-12 sm:px-12 lg:px-16">
-            <div className="max-w-3xl mx-auto text-center">
-              <h2 className="text-3xl font-extrabold text-white">
-                Are you an employer looking to hire?
+        <div className="my-16 animation-delay-500 animate-fade-in">
+          <div className="bg-notion-background-gray rounded-notion border border-notion-border p-8 md:p-12">
+            <div className="max-w-2xl mx-auto text-center">
+              <h2 className="text-xl font-medium text-notion-text mb-4">
+                <span className="notion-highlight">Apakah Anda perusahaan yang ingin merekrut?</span>
               </h2>
-              <p className="mt-4 text-lg leading-6 text-blue-100">
-                Post your job openings and reach thousands of qualified candidates.
+              <p className="text-notion-text-light mb-8">
+                Posting lowongan pekerjaan Anda dan jangkau ribuan kandidat berkualitas.
               </p>
-              <div className="mt-8">
+              <div>
                 <Link
                   href="/employer/register"
-                  className="inline-flex items-center justify-center px-5 py-3 border border-transparent text-base font-medium rounded-md text-blue-600 bg-white hover:bg-blue-50"
+                  className="notion-button"
                 >
-                  Register as Employer
+                  Daftar sebagai Perusahaan
                 </Link>
               </div>
             </div>

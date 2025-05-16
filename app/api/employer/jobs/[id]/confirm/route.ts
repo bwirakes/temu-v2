@@ -1,39 +1,54 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getJobById, updateJob, getEmployerById } from "@/lib/db";
+import { getJobById, updateJob, getEmployerByUserId } from "@/lib/db";
+import { auth } from '@/lib/auth';
+
+// Define the custom session type to match what's in lib/auth.ts
+interface CustomSession {
+  user?: {
+    id?: string;
+    name?: string | null;
+    email?: string | null;
+    image?: string | null;
+    userType?: 'job_seeker' | 'employer';
+  };
+}
 
 /**
  * PATCH handler for updating job confirmation status
  */
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { employerId: string; jobId: string } }
+  { params }: { params: { id: string } }
 ) {
   try {
-    // Extract parameters
-    const { employerId, jobId } = params;
+    // Extract job ID from params asynchronously
+    const { id: jobId } = params;
 
-    // Validate parameters
-    if (!employerId || !jobId) {
+    // Validate job ID
+    if (!jobId) {
       return NextResponse.json(
-        { error: "Employer ID and Job ID are required" },
+        { error: "ID lowongan diperlukan" },
         { status: 400 }
       );
     }
 
-    // Validate UUID format
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (!uuidRegex.test(employerId) || !uuidRegex.test(jobId)) {
+    // Get the authenticated user's session
+    const session = await auth() as CustomSession;
+    
+    // Check if the user is authenticated
+    if (!session?.user?.id) {
       return NextResponse.json(
-        { error: "Invalid ID format" },
-        { status: 400 }
+        { error: 'Unauthorized: Anda harus login terlebih dahulu' },
+        { status: 401 }
       );
     }
 
-    // Check if employer exists
-    const employer = await getEmployerById(employerId);
+    // Get employer ID from the user ID
+    const employer = await getEmployerByUserId(session.user.id);
+    
     if (!employer) {
       return NextResponse.json(
-        { error: "Employer not found" },
+        { error: 'Tidak ditemukan: Akun employer tidak ditemukan' },
         { status: 404 }
       );
     }
@@ -42,15 +57,15 @@ export async function PATCH(
     const job = await getJobById(jobId);
     if (!job) {
       return NextResponse.json(
-        { error: "Job not found" },
+        { error: "Lowongan tidak ditemukan" },
         { status: 404 }
       );
     }
 
-    // Verify that the job belongs to the specified employer
-    if (job.employerId !== employerId) {
+    // Verify that the job belongs to the authenticated employer
+    if (job.employerId !== employer.id) {
       return NextResponse.json(
-        { error: "Job does not belong to the specified employer" },
+        { error: "Anda tidak memiliki akses ke lowongan ini" },
         { status: 403 }
       );
     }
@@ -62,7 +77,7 @@ export async function PATCH(
     // Validate isConfirmed field
     if (typeof isConfirmed !== 'boolean') {
       return NextResponse.json(
-        { error: "isConfirmed must be a boolean value" },
+        { error: "isConfirmed harus berupa nilai boolean" },
         { status: 400 }
       );
     }
@@ -75,7 +90,7 @@ export async function PATCH(
   } catch (error) {
     console.error("Error updating job confirmation status:", error);
     return NextResponse.json(
-      { error: "Failed to update job confirmation status" },
+      { error: "Gagal memperbarui status konfirmasi lowongan" },
       { status: 500 }
     );
   }

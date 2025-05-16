@@ -29,7 +29,9 @@ import {
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
-import { ContractType } from "@/lib/context/JobPostingContext";
+
+// Define contract type locally
+type ContractType = "FULL_TIME" | "PART_TIME" | "CONTRACT" | "INTERNSHIP" | "FREELANCE";
 
 // Define the schema for the form
 const jobSchema = z.object({
@@ -639,16 +641,22 @@ export default function JobEditForm({ jobId, onSave, onCancel }: JobEditFormProp
           <div className="space-y-2">
             <LabelText htmlFor="contractType">Jenis Kontrak Kerja</LabelText>
             <Select
-              value={form.watch("contractType") || ""}
-              onValueChange={(value) => 
-                form.setValue("contractType", value as ContractType || undefined)
-              }
+              value={form.watch("contractType") || "none"}
+              onValueChange={(value) => {
+                if (value === "none") {
+                  form.setValue("contractType", undefined);
+                } else {
+                  // Type assertion to ensure value is a valid ContractType
+                  const contractType = value as ContractType;
+                  form.setValue("contractType", contractType);
+                }
+              }}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Pilih Jenis Kontrak" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Pilih Jenis Kontrak</SelectItem>
+                <SelectItem value="none">Pilih Jenis Kontrak</SelectItem>
                 <SelectItem value="FULL_TIME">Full Time</SelectItem>
                 <SelectItem value="PART_TIME">Part Time</SelectItem>
                 <SelectItem value="CONTRACT">Kontrak</SelectItem>

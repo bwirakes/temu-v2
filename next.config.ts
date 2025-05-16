@@ -20,6 +20,11 @@ export default {
         protocol: 'https',
         hostname: 'via.placeholder.com',
         search: ''
+      },
+      {
+        protocol: 'https',
+        hostname: 'ui-avatars.com',
+        search: ''
       }
     ]
   }

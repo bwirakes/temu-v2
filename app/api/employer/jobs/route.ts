@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createJob, getEmployerByUserId } from "@/lib/db";
+import { createJob, getEmployerByUserId, getJobsByEmployerId } from "@/lib/db";
 import { z } from "zod";
-// Assuming you have an auth function like NextAuth's auth()
-import { auth } from '@/lib/auth';// Adjust import based on your auth setup
+import { auth } from '@/lib/auth';
 
 /**
  * Schema for validating job posting data
@@ -56,11 +55,12 @@ const jobPostingSchema = z.object({
  */
 export async function POST(request: NextRequest) {
   try {
-    // Get the authenticated user session
-    const session = await auth();
+    // Get the authenticated user session using Auth.js 5.0
+    const session = await auth() as CustomSession;
+    
     if (!session?.user?.id) {
       return NextResponse.json(
-        { error: "Unauthorized" },
+        { error: "Unauthorized: Anda harus login terlebih dahulu" },
         { status: 401 }
       );
     }
@@ -71,12 +71,11 @@ export async function POST(request: NextRequest) {
        // This might happen if a user is authenticated but not set up as an employer
        // or if the employer record was deleted.
       return NextResponse.json(
-        { error: "Employer profile not found for this user" },
+        { error: "Profil employer tidak ditemukan untuk pengguna ini" },
         { status: 404 }
       );
     }
     const employerId = employer.id;
-
 
     // Parse request body
     const body = await request.json();
@@ -86,7 +85,7 @@ export async function POST(request: NextRequest) {
     if (!validationResult.success) {
       const errors = validationResult.error.format();
       return NextResponse.json(
-        { error: "Validation failed", details: errors },
+        { error: "Validasi gagal", details: errors },
         { status: 400 }
       );
     }
@@ -112,10 +111,8 @@ export async function POST(request: NextRequest) {
     // Handle specific database errors if possible
     if (error instanceof Error) {
       if (error.message.includes("foreign key constraint")) {
-        // This specific error handling might be less relevant now if employerId is fetched internally
-        // but keeping it as an example.
         return NextResponse.json(
-          { error: "Database constraint error" },
+          { error: "Kesalahan batasan database" },
           { status: 400 }
         );
       }
@@ -123,20 +120,63 @@ export async function POST(request: NextRequest) {
 
     // Generic error response
     return NextResponse.json(
-      { error: "Failed to create job posting. Please try again later." },
+      { error: "Gagal membuat lowongan pekerjaan. Silakan coba lagi nanti." },
       { status: 500 }
     );
   }
 }
 
-/**
- * Handle other HTTP methods
- */
-export async function GET() {
-  return NextResponse.json(
-    { error: "Method not allowed" },
-    { status: 405 }
-  );
+// Define the custom session type to match what's in lib/auth.ts
+interface CustomSession {
+  user?: {
+    id?: string;
+    name?: string | null;
+    email?: string | null;
+    image?: string | null;
+    userType?: 'job_seeker' | 'employer';
+  };
+}
+
+export async function GET(req: NextRequest) {
+  try {
+    // Get the authenticated user's session using Auth.js 5.0
+    const session = await auth() as CustomSession;
+    
+    // Check if the user is authenticated
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { error: 'Unauthorized: Anda harus login terlebih dahulu' },
+        { status: 401 }
+      );
+    }
+
+    // Get employer ID from the user ID
+    const employer = await getEmployerByUserId(session.user.id);
+    
+    if (!employer) {
+      return NextResponse.json(
+        { error: 'Tidak ditemukan: Akun employer tidak ditemukan' },
+        { status: 404 }
+      );
+    }
+
+    // Get all jobs for this employer
+    const jobs = await getJobsByEmployerId(employer.id);
+    
+    // Count applications for each job (placeholder - in real implementation, you'd fetch this from DB)
+    const jobsWithApplicationCounts = jobs.map(job => ({
+      ...job,
+      applicationCount: Math.floor(Math.random() * 50) // Mock data - replace with actual count
+    }));
+
+    return NextResponse.json({ jobs: jobsWithApplicationCounts });
+  } catch (error) {
+    console.error('Error fetching employer jobs:', error);
+    return NextResponse.json(
+      { error: 'Terjadi kesalahan saat mengambil data lowongan' },
+      { status: 500 }
+    );
+  }
 }
 
 export async function PUT() {

@@ -13,7 +13,8 @@ import {
   Users,
   Clock,
   Briefcase,
-  Globe
+  Globe,
+  FileText
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,74 +25,31 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
+import { format } from "date-fns";
+import { id } from "date-fns/locale";
 
-// Mock data for job listings
-interface JobListing {
+// Job interface matching our database schema
+interface Job {
   id: string;
-  title: string;
-  positions: number;
-  locations: string[];
+  employerId: string;
+  jobTitle: string;
   contractType: string;
-  createdAt: string;
-  status: "active" | "draft" | "expired" | "closed";
+  salaryRange: {
+    min?: number;
+    max?: number;
+    isNegotiable: boolean;
+  };
+  minWorkExperience: number;
+  applicationDeadline: string | null;
+  requirements: string[];
+  responsibilities: string[];
+  description: string | null;
+  postedDate: string;
+  numberOfPositions: number | null;
+  workingHours: string | null;
+  isConfirmed: boolean;
+  applicationCount: number;
 }
-
-const jobListings: JobListing[] = [
-  {
-    id: "JOB-2023-001",
-    title: "Senior Frontend Developer",
-    positions: 2,
-    locations: ["Jakarta (Remote)", "Bandung"],
-    contractType: "FULL_TIME",
-    createdAt: "2023-10-15",
-    status: "active"
-  },
-  {
-    id: "JOB-2023-002",
-    title: "UI/UX Designer",
-    positions: 1,
-    locations: ["Jakarta"],
-    contractType: "FULL_TIME",
-    createdAt: "2023-10-20",
-    status: "active"
-  },
-  {
-    id: "JOB-2023-003",
-    title: "Backend Developer",
-    positions: 3,
-    locations: ["Surabaya", "Remote"],
-    contractType: "CONTRACT",
-    createdAt: "2023-11-05",
-    status: "active"
-  },
-  {
-    id: "JOB-2023-004",
-    title: "Data Analyst",
-    positions: 2,
-    locations: ["Jakarta"],
-    contractType: "FULL_TIME",
-    createdAt: "2023-11-10",
-    status: "draft"
-  },
-  {
-    id: "JOB-2023-005",
-    title: "DevOps Engineer",
-    positions: 1,
-    locations: ["Bandung"],
-    contractType: "FULL_TIME",
-    createdAt: "2023-11-15",
-    status: "active"
-  },
-  {
-    id: "JOB-2023-006",
-    title: "Content Writer",
-    positions: 2,
-    locations: ["Remote"],
-    contractType: "PART_TIME",
-    createdAt: "2023-11-20",
-    status: "expired"
-  }
-];
 
 const getContractTypeLabel = (type: string): string => {
   switch (type) {
@@ -110,27 +68,22 @@ const getContractTypeLabel = (type: string): string => {
   }
 };
 
-const getStatusBadge = (status: string) => {
-  switch (status) {
-    case "active":
-      return <Badge className="bg-green-100 text-green-800 hover:bg-green-200">Aktif</Badge>;
-    case "draft":
-      return <Badge className="bg-gray-100 text-gray-800 hover:bg-gray-200">Draft</Badge>;
-    case "expired":
-      return <Badge className="bg-red-100 text-red-800 hover:bg-red-200">Kedaluwarsa</Badge>;
-    case "closed":
-      return <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-200">Ditutup</Badge>;
-    default:
-      return <Badge>{status}</Badge>;
+const getStatusBadge = (isConfirmed: boolean) => {
+  if (isConfirmed) {
+    return <Badge className="bg-green-100 text-green-800 hover:bg-green-200">Aktif</Badge>;
+  } else {
+    return <Badge className="bg-gray-100 text-gray-800 hover:bg-gray-200">Draft</Badge>;
   }
 };
 
 export default function JobsPage() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
+  const [selectedStatus, setSelectedStatus] = useState<boolean | null>(null);
   const [employerId, setEmployerId] = useState<string | null>(null);
-  const [isLoadingEmployerId, setIsLoadingEmployerId] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
+  const [jobs, setJobs] = useState<Job[]>([]);
+  const [error, setError] = useState<string | null>(null);
   
   useEffect(() => {
     async function fetchEmployerId() {
@@ -142,24 +95,48 @@ export default function JobsPage() {
         }
       } catch (error) {
         console.error('Error fetching employer ID:', error);
+      }
+    }
+
+    async function fetchJobs() {
+      setIsLoading(true);
+      try {
+        const response = await fetch('/api/employer/jobs');
+        if (!response.ok) {
+          throw new Error('Gagal mengambil data lowongan');
+        }
+        const data = await response.json();
+        setJobs(data.jobs || []);
+      } catch (error) {
+        console.error('Error fetching jobs:', error);
+        setError('Terjadi kesalahan saat mengambil data lowongan');
       } finally {
-        setIsLoadingEmployerId(false);
+        setIsLoading(false);
       }
     }
 
     fetchEmployerId();
+    fetchJobs();
   }, []);
   
   // Filter jobs based on search query and selected status
-  const filteredJobs = jobListings.filter(job => {
-    const matchesSearch = job.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+  const filteredJobs = jobs.filter(job => {
+    const matchesSearch = job.jobTitle.toLowerCase().includes(searchQuery.toLowerCase()) || 
                          job.id.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus = selectedStatus === null || job.status === selectedStatus;
+    const matchesStatus = selectedStatus === null || job.isConfirmed === selectedStatus;
     return matchesSearch && matchesStatus;
   });
 
   const handleEditJob = (jobId: string) => {
     router.push(`/employer/job-posting/edit/${jobId}`);
+  };
+
+  const formatDate = (dateString: string) => {
+    try {
+      return format(new Date(dateString), 'dd MMMM yyyy', { locale: id });
+    } catch (e) {
+      return dateString;
+    }
   };
 
   return (
@@ -199,7 +176,7 @@ export default function JobsPage() {
                       Daftar Lowongan
                     </h2>
                     <p className="text-sm text-gray-600">
-                      Menampilkan {filteredJobs.length} dari {jobListings.length} lowongan
+                      Menampilkan {filteredJobs.length} dari {jobs.length} lowongan
                     </p>
                   </div>
 
@@ -218,9 +195,9 @@ export default function JobsPage() {
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button variant="outline" className="h-10">
-                            {selectedStatus ? (
+                            {selectedStatus !== null ? (
                               <>
-                                Status: {selectedStatus.charAt(0).toUpperCase() + selectedStatus.slice(1)}
+                                Status: {selectedStatus ? 'Aktif' : 'Draft'}
                               </>
                             ) : (
                               <>Semua Status</>
@@ -231,17 +208,11 @@ export default function JobsPage() {
                           <DropdownMenuItem onClick={() => setSelectedStatus(null)}>
                             Semua Status
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => setSelectedStatus("active")}>
+                          <DropdownMenuItem onClick={() => setSelectedStatus(true)}>
                             Aktif
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => setSelectedStatus("draft")}>
+                          <DropdownMenuItem onClick={() => setSelectedStatus(false)}>
                             Draft
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => setSelectedStatus("expired")}>
-                            Kedaluwarsa
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => setSelectedStatus("closed")}>
-                            Ditutup
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -255,164 +226,138 @@ export default function JobsPage() {
                   </div>
                 </div>
 
-                {/* Mobile Table View */}
-                <div className="block md:hidden">
-                  {filteredJobs.map((job) => (
-                    <div key={job.id} className="border-b border-gray-200 p-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <h3 className="text-sm font-medium text-gray-900">{job.title}</h3>
-                            {getStatusBadge(job.status)}
-                          </div>
-                          <div className="text-xs text-gray-500">{job.id}</div>
-                        </div>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                              <MoreVertical className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem asChild>
-                              <Link href={`/job-application?id=${job.id}`} className="flex items-center">
-                                <Eye className="mr-2 h-4 w-4" />
-                                <span>Lihat Posting</span>
-                              </Link>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleEditJob(job.id)}>
-                              <Edit className="mr-2 h-4 w-4" />
-                              <span>Edit Posting</span>
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                      <div className="grid grid-cols-2 gap-2 text-xs">
-                        <div className="flex items-center">
-                          <Users className="h-3.5 w-3.5 mr-1 text-gray-500" />
-                          <span>{job.positions} posisi</span>
-                        </div>
-                        <div className="flex items-center">
-                          <MapPin className="h-3.5 w-3.5 mr-1 text-gray-500" />
-                          <span>{job.locations.join(", ")}</span>
-                        </div>
-                        <div className="flex items-center">
-                          <Briefcase className="h-3.5 w-3.5 mr-1 text-gray-500" />
-                          <span>{getContractTypeLabel(job.contractType)}</span>
-                        </div>
-                        <div className="flex items-center">
-                          <Clock className="h-3.5 w-3.5 mr-1 text-gray-500" />
-                          <span>Dibuat: {job.createdAt}</span>
-                        </div>
-                      </div>
+                {/* Loading State */}
+                {isLoading && (
+                  <div className="py-10 px-4 text-center">
+                    <div className="mx-auto h-16 w-16 rounded-full bg-blue-50 flex items-center justify-center mb-4">
+                      <div className="h-8 w-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
                     </div>
-                  ))}
-                </div>
+                    <h3 className="text-lg font-medium text-gray-900">Memuat data lowongan</h3>
+                    <p className="mt-1 text-sm text-gray-500">
+                      Mohon tunggu sebentar...
+                    </p>
+                  </div>
+                )}
 
-                {/* Desktop Table View */}
-                <div className="hidden md:block">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th scope="col" className="px-6 py-3 text-start">
-                          <span className="text-xs font-semibold uppercase text-gray-800">
-                            Job ID
-                          </span>
-                        </th>
-                        <th scope="col" className="px-6 py-3 text-start">
-                          <span className="text-xs font-semibold uppercase text-gray-800">
-                            Jenis Pekerjaan
-                          </span>
-                        </th>
-                        <th scope="col" className="px-6 py-3 text-start">
-                          <span className="text-xs font-semibold uppercase text-gray-800">
-                            Jumlah Yang Dicari
-                          </span>
-                        </th>
-                        <th scope="col" className="px-6 py-3 text-start">
-                          <span className="text-xs font-semibold uppercase text-gray-800">
-                            Lokasi
-                          </span>
-                        </th>
-                        <th scope="col" className="px-6 py-3 text-start">
-                          <span className="text-xs font-semibold uppercase text-gray-800">
-                            Status
-                          </span>
-                        </th>
-                        <th scope="col" className="px-6 py-3 text-end">
-                          <span className="text-xs font-semibold uppercase text-gray-800">
-                            Aksi
-                          </span>
-                        </th>
-                      </tr>
-                    </thead>
+                {/* Error State */}
+                {!isLoading && error && (
+                  <div className="py-10 px-4 text-center">
+                    <div className="mx-auto h-16 w-16 rounded-full bg-red-50 flex items-center justify-center mb-4">
+                      <svg className="h-8 w-8 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                    <h3 className="text-lg font-medium text-gray-900">Terjadi kesalahan</h3>
+                    <p className="mt-1 text-sm text-gray-500">
+                      {error}
+                    </p>
+                    <div className="mt-4">
+                      <Button 
+                        variant="outline" 
+                        onClick={() => window.location.reload()}
+                      >
+                        Coba Lagi
+                      </Button>
+                    </div>
+                  </div>
+                )}
 
-                    <tbody className="divide-y divide-gray-200">
-                      {filteredJobs.map((job) => (
-                        <tr key={job.id} className="hover:bg-gray-50">
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-800">
-                            {job.id}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="flex items-center">
-                              <div className="h-10 w-10 flex-shrink-0 rounded-full bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center">
-                                <Briefcase className="h-5 w-5 text-blue-600" />
-                              </div>
-                              <div className="ml-4">
-                                <div className="text-sm font-medium text-gray-900">{job.title}</div>
-                                <div className="text-sm text-gray-500">{getContractTypeLabel(job.contractType)}</div>
-                              </div>
+                {/* Job Cards Grid */}
+                {!isLoading && !error && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
+                    {filteredJobs.map((job) => (
+                      <div 
+                        key={job.id} 
+                        className="bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200 cursor-pointer"
+                        onClick={() => router.push(`/employer/jobs/${job.id}`)}
+                      >
+                        <div className="p-5">
+                          <div className="flex justify-between items-start mb-3">
+                            <div className="flex-1">
+                              <h3 className="text-lg font-semibold text-gray-900 line-clamp-2">{job.jobTitle}</h3>
+                              <p className="text-sm text-gray-600 mt-1">{getContractTypeLabel(job.contractType)}</p>
                             </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-900">{job.positions} posisi</div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-900">{job.locations.join(", ")}</div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            {getStatusBadge(job.status)}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <div>
+                              {getStatusBadge(job.isConfirmed)}
+                            </div>
+                          </div>
+                          
+                          <div className="grid grid-cols-2 gap-3 my-4">
+                            <div className="flex items-center">
+                              <Users className="h-4 w-4 mr-2 text-gray-500" />
+                              <span className="text-sm">{job.numberOfPositions || 1} posisi</span>
+                            </div>
+                            <div className="flex items-center">
+                              <FileText className="h-4 w-4 mr-2 text-gray-500" />
+                              <span className="text-sm">{job.applicationCount} pelamar</span>
+                            </div>
+                            <div className="flex items-center col-span-2">
+                              <Clock className="h-4 w-4 mr-2 text-gray-500" />
+                              <span className="text-sm">Diposting: {formatDate(job.postedDate)}</span>
+                            </div>
+                          </div>
+                          
+                          <div className="mt-4 pt-4 border-t border-gray-100 flex justify-between">
+                            <Link 
+                              href={`/employer/jobs/${job.id}`}
+                              className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              Lihat Pelamar
+                            </Link>
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm" 
+                                  className="h-8 w-8 p-0"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
                                   <MoreVertical className="h-4 w-4" />
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
                                 <DropdownMenuItem asChild>
-                                  <Link href={`/job-application?id=${job.id}`} className="flex items-center">
+                                  <Link 
+                                    href={`/job-detail/${job.id}`} 
+                                    className="flex items-center"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
                                     <Eye className="mr-2 h-4 w-4" />
                                     <span>Lihat Posting</span>
                                   </Link>
                                 </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleEditJob(job.id)}>
+                                <DropdownMenuItem 
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleEditJob(job.id);
+                                  }}
+                                >
                                   <Edit className="mr-2 h-4 w-4" />
                                   <span>Edit Posting</span>
                                 </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
 
                 {/* Empty State */}
-                {filteredJobs.length === 0 && (
+                {!isLoading && !error && filteredJobs.length === 0 && (
                   <div className="py-10 px-4 text-center">
                     <div className="mx-auto h-16 w-16 rounded-full bg-blue-50 flex items-center justify-center mb-4">
                       <Briefcase className="h-8 w-8 text-blue-500" />
                     </div>
                     <h3 className="text-lg font-medium text-gray-900">Tidak ada lowongan ditemukan</h3>
                     <p className="mt-1 text-sm text-gray-500">
-                      {searchQuery || selectedStatus ? 
+                      {searchQuery || selectedStatus !== null ? 
                         "Tidak ada lowongan yang cocok dengan filter Anda. Coba ubah filter pencarian." : 
                         "Anda belum membuat lowongan pekerjaan. Klik tombol 'Tambah Lowongan' untuk mulai."}
                     </p>
-                    {(searchQuery || selectedStatus) && (
+                    {(searchQuery || selectedStatus !== null) && (
                       <div className="mt-4">
                         <Button 
                           variant="outline" 
@@ -428,31 +373,13 @@ export default function JobsPage() {
                   </div>
                 )}
 
-                {/* Pagination */}
-                {filteredJobs.length > 0 && (
+                {/* Pagination - Only show if we have data and it's paginated */}
+                {!isLoading && !error && filteredJobs.length > 0 && (
                   <div className="px-4 md:px-6 py-4 grid gap-3 md:flex md:justify-between md:items-center border-t border-gray-200">
                     <div>
                       <p className="text-sm text-gray-600">
                         Menampilkan <span className="font-semibold text-gray-800">1-{filteredJobs.length}</span> dari <span className="font-semibold text-gray-800">{filteredJobs.length}</span> hasil
                       </p>
-                    </div>
-
-                    <div>
-                      <div className="inline-flex gap-x-2">
-                        <Button variant="outline" size="sm" disabled>
-                          <svg className="w-4 h-4" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                            <path fillRule="evenodd" d="M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0z"/>
-                          </svg>
-                          Sebelumnya
-                        </Button>
-
-                        <Button variant="outline" size="sm" disabled>
-                          Selanjutnya
-                          <svg className="w-4 h-4" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                            <path fillRule="evenodd" d="M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z"/>
-                          </svg>
-                        </Button>
-                      </div>
                     </div>
                   </div>
                 )}

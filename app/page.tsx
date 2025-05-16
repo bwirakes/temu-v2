@@ -1,174 +1,179 @@
 import Link from 'next/link';
-import { auth } from '@/lib/auth';
+import Image from 'next/image';
+import CharacterAnimation from './components/character-animation';
 
-export default async function Home() {
-  const session = await auth();
-  const isAuthenticated = !!session?.user;
-
+export default function HomePage() {
   return (
-    <div className="container mx-auto py-12 px-4 md:px-8">
-      <header className="mb-16">
-        <div className="flex justify-between items-center mb-12">
-          <div className="flex items-center gap-2">
-            <div className="flex">
-              <span className="h-8 w-8 bg-temu-logo-red rounded-full"></span>
-              <span className="h-8 w-8 bg-temu-logo-green rounded-full -ml-2"></span>
-              <span className="h-8 w-8 bg-temu-logo-yellow rounded-full -ml-2"></span>
-              <span className="h-8 w-8 bg-temu-logo-blue rounded-full -ml-2"></span>
-            </div>
-            <h1 className="text-2xl font-bold ml-2">TEMU</h1>
-          </div>
-          <nav>
-            <ul className="flex gap-4">
-              <li><Link href="#" className="nav-link">Home</Link></li>
-              <li><Link href="#" className="nav-link">Jobs</Link></li>
-              <li><Link href="#" className="nav-link">About</Link></li>
-              <li><Link href="#" className="nav-link">Contact</Link></li>
-            </ul>
-          </nav>
-          <div className="flex gap-4">
-            <button className="btn-outline">Sign In</button>
-            <button className="btn-filled">Sign Up</button>
-          </div>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
-          <div>
-            <h1 className="text-hero-medium md:text-hero-large mb-6">Talent Empowerment Platform</h1>
-            <p className="text-xl mb-8">Connecting talented individuals with opportunities that matter.</p>
-            <div className="flex gap-4">
-              <button className="btn-filled">Find Jobs</button>
-              <button className="btn-outline">For Employers</button>
-            </div>
-          </div>
-          <div className="bg-temu-medium-blue rounded-4xl p-8 aspect-square flex items-center justify-center">
-            <div className="text-center">
-              <p className="text-2xl font-semibold mb-4">Ready to get started?</p>
-              <p className="mb-6">Create your profile and start your journey today.</p>
-              <button className="btn-filled">Create Profile</button>
-            </div>
+    <div className="bg-notion-background">
+      {/* Add padding to account for fixed header */}
+      <div className="pt-16"></div>
+      
+      {/* Hero Section */}
+      <section className="notion-container pt-20 pb-16">
+        <div className="max-w-3xl mx-auto">
+          <CharacterAnimation 
+            text="Satu platform untuk karir dan rekrutmen"
+            tag="h1"
+            className="text-notion-title mb-6"
+            delay={300}
+          />
+          <p className="text-lg text-notion-text-light animation-delay-100 animate-fade-in mb-10">
+            Temu adalah platform yang menghubungkan pencari kerja dengan perusahaan terkemuka di Indonesia. Temukan peluang karir Anda atau rekrut talenta terbaik untuk tim Anda.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-4 animation-delay-200 animate-fade-in">
+            <Link href="/careers" className="notion-button">
+              Cari Pekerjaan
+            </Link>
+            <Link href="/employer/register" className="notion-button-outline">
+              Rekrut Talenta
+            </Link>
           </div>
         </div>
-      </header>
-
-      <section className="mb-16">
-        <h2 className="text-3xl mb-8">Style Showcase</h2>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {/* Typography */}
-          <div className="bg-white p-6 rounded-lg shadow">
-            <h3 className="mb-4">Typography</h3>
-            <h1 className="text-3xl mb-2">Heading 1</h1>
-            <h2 className="text-2xl mb-2">Heading 2</h2>
-            <h3 className="text-xl mb-2">Heading 3</h3>
-            <h4 className="text-lg mb-2">Heading 4</h4>
-            <h5 className="text-base mb-2">Heading 5</h5>
-            <p className="mb-2">Regular paragraph text</p>
-            <p className="text-sm">Small text</p>
+        {/* Hero Image */}
+        <div className="mt-16 animation-delay-300 animate-fade-in">
+          <div className="relative h-[400px] rounded-notion border border-notion-border overflow-hidden shadow-notion-card">
+            <Image
+              src="/images/hero-dashboard.png"
+              alt="Temu Platform Dashboard"
+              fill
+              sizes="(max-width: 768px) 100vw, 1200px"
+              className="object-cover"
+              priority
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* Features Section */}
+      <section className="notion-container py-20 border-t border-notion-border">
+        <CharacterAnimation 
+          text="Fitur yang memudahkan perjalanan karir Anda"
+          tag="h2"
+          className="text-notion-subtitle text-center mb-16 animation-delay-400"
+          delay={600}
+        />
+        
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          {/* Feature 1 */}
+          <div className="notion-card animation-delay-100 animate-fade-in">
+            <div className="p-6">
+              <div className="h-12 w-12 rounded-notion bg-notion-highlight-blue flex items-center justify-center mb-4">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-medium mb-2">Pencarian Cerdas</h3>
+              <p className="text-notion-text-light">
+                Temukan pekerjaan yang sesuai dengan keterampilan, pengalaman, dan preferensi lokasi Anda dengan mudah.
+              </p>
+            </div>
           </div>
           
-          {/* Buttons */}
-          <div className="bg-white p-6 rounded-lg shadow">
-            <h3 className="mb-4">Buttons</h3>
-            <div className="flex flex-col gap-4">
-              <button className="btn-filled">Primary Button</button>
-              <button className="btn-outline">Secondary Button</button>
-              <button className="btn-filled bg-temu-logo-red border-temu-logo-red">Red Button</button>
-              <button className="btn-outline border-temu-logo-blue text-temu-logo-blue hover:bg-temu-logo-blue hover:text-white">Blue Outline</button>
+          {/* Feature 2 */}
+          <div className="notion-card animation-delay-200 animate-fade-in">
+            <div className="p-6">
+              <div className="h-12 w-12 rounded-notion bg-notion-highlight-green flex items-center justify-center mb-4">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 01-1.043 3.296 3.745 3.745 0 01-3.296 1.043A3.745 3.745 0 0112 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 01-3.296-1.043 3.745 3.745 0 01-1.043-3.296A3.745 3.745 0 013 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 011.043-3.296 3.746 3.746 0 013.296-1.043A3.746 3.746 0 0112 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 013.296 1.043 3.746 3.746 0 011.043 3.296A3.745 3.745 0 0121 12z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-medium mb-2">Profil Terverifikasi</h3>
+              <p className="text-notion-text-light">
+                Perusahaan dan pencari kerja yang terverifikasi untuk memastikan pengalaman rekrutmen yang aman dan terpercaya.
+              </p>
             </div>
           </div>
           
-          {/* Form Elements */}
-          <div className="bg-white p-6 rounded-lg shadow">
-            <h3 className="mb-4">Form Elements</h3>
-            <div className="mb-4">
-              <label htmlFor="name" className="form-label">Name</label>
-              <input type="text" id="name" className="form-field" placeholder="Enter your name" />
-            </div>
-            <div className="mb-4">
-              <label htmlFor="email" className="form-label">Email</label>
-              <input type="email" id="email" className="form-field" placeholder="Enter your email" />
-            </div>
-            <div>
-              <label htmlFor="message" className="form-label">Message</label>
-              <textarea id="message" rows={3} className="form-field" placeholder="Your message"></textarea>
+          {/* Feature 3 */}
+          <div className="notion-card animation-delay-300 animate-fade-in">
+            <div className="p-6">
+              <div className="h-12 w-12 rounded-notion bg-notion-highlight-orange flex items-center justify-center mb-4">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-medium mb-2">Job Fair Virtual</h3>
+              <p className="text-notion-text-light">
+                Ikuti job fair virtual untuk bertemu langsung dengan perusahaan dan mempercepat proses rekrutmen Anda.
+              </p>
             </div>
           </div>
         </div>
       </section>
 
-      <section className="mb-16">
-        <h2 className="text-3xl mb-8">Color Palette</h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
-          <div className="aspect-square bg-temu-black rounded-lg flex items-end p-3">
-            <span className="text-white text-sm">Black</span>
-          </div>
-          <div className="aspect-square bg-temu-light-blue rounded-lg flex items-end p-3">
-            <span className="text-black text-sm">Light Blue</span>
-          </div>
-          <div className="aspect-square bg-temu-medium-blue rounded-lg flex items-end p-3">
-            <span className="text-black text-sm">Medium Blue</span>
-          </div>
-          <div className="aspect-square bg-temu-form-green rounded-lg flex items-end p-3">
-            <span className="text-black text-sm">Form Green</span>
-          </div>
-          <div className="aspect-square bg-temu-form-yellow rounded-lg flex items-end p-3">
-            <span className="text-black text-sm">Form Yellow</span>
-          </div>
-          <div className="aspect-square bg-temu-form-pink rounded-lg flex items-end p-3">
-            <span className="text-black text-sm">Form Pink</span>
-          </div>
-          <div className="aspect-square bg-temu-logo-red rounded-lg flex items-end p-3">
-            <span className="text-white text-sm">Logo Red</span>
-          </div>
-          <div className="aspect-square bg-temu-logo-green rounded-lg flex items-end p-3">
-            <span className="text-white text-sm">Logo Green</span>
-          </div>
-          <div className="aspect-square bg-temu-logo-yellow rounded-lg flex items-end p-3">
-            <span className="text-black text-sm">Logo Yellow</span>
-          </div>
-          <div className="aspect-square bg-temu-logo-blue rounded-lg flex items-end p-3">
-            <span className="text-white text-sm">Logo Blue</span>
+      {/* Testimonials Section */}
+      <section className="bg-notion-background-gray py-20">
+        <div className="notion-container">
+          <CharacterAnimation 
+            text="Apa kata pengguna kami"
+            tag="h2"
+            className="text-notion-subtitle text-center mb-16 animation-delay-400"
+            delay={800}
+          />
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {/* Testimonial 1 */}
+            <div className="notion-card animation-delay-100 animate-fade-in">
+              <div className="p-6">
+                <p className="text-notion-text-light mb-6">
+                  "Temu membantu saya menemukan pekerjaan impian saya dalam waktu kurang dari sebulan. Antarmuka yang intuitif dan fitur pencarian yang canggih membuat proses pencarian kerja menjadi menyenangkan."
+                </p>
+                <div className="flex items-center">
+                  <div className="h-10 w-10 rounded-full bg-notion-highlight-pink flex items-center justify-center mr-3">
+                    <span className="font-medium">AS</span>
+                  </div>
+                  <div>
+                    <h4 className="font-medium">Andi Surya</h4>
+                    <p className="text-sm text-notion-text-light">UI/UX Designer</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Testimonial 2 */}
+            <div className="notion-card animation-delay-200 animate-fade-in">
+              <div className="p-6">
+                <p className="text-notion-text-light mb-6">
+                  "Sebagai HRD, Temu memudahkan saya untuk menemukan kandidat berkualitas dengan cepat. Fitur filter yang detail membantu kami menemukan talenta yang sesuai dengan kebutuhan perusahaan."
+                </p>
+                <div className="flex items-center">
+                  <div className="h-10 w-10 rounded-full bg-notion-highlight-blue flex items-center justify-center mr-3">
+                    <span className="font-medium">DP</span>
+                  </div>
+                  <div>
+                    <h4 className="font-medium">Dewi Pratiwi</h4>
+                    <p className="text-sm text-notion-text-light">HR Manager</p>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
-      <footer className="border-t pt-8">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-          <div>
-            <h5 className="mb-4">TEMU</h5>
-            <p className="text-sm text-gray-600 mb-4">Talent Empowerment Platform connecting talented individuals with opportunities that matter.</p>
-          </div>
-          <div>
-            <h5 className="mb-4">For Job Seekers</h5>
-            <ul className="text-sm space-y-2">
-              <li><Link href="#" className="hover:underline">Browse Jobs</Link></li>
-              <li><Link href="#" className="hover:underline">Create Profile</Link></li>
-              <li><Link href="#" className="hover:underline">CV Builder</Link></li>
-              <li><Link href="#" className="hover:underline">Job Alerts</Link></li>
-            </ul>
-          </div>
-          <div>
-            <h5 className="mb-4">For Employers</h5>
-            <ul className="text-sm space-y-2">
-              <li><Link href="#" className="hover:underline">Post a Job</Link></li>
-              <li><Link href="#" className="hover:underline">Browse Candidates</Link></li>
-              <li><Link href="#" className="hover:underline">Pricing</Link></li>
-              <li><Link href="#" className="hover:underline">Enterprise Solutions</Link></li>
-            </ul>
-          </div>
-          <div>
-            <h5 className="mb-4">Contact</h5>
-            <ul className="text-sm space-y-2">
-              <li>Email: info@temu.com</li>
-              <li>Phone: +1 (555) 123-4567</li>
-              <li>Address: 123 Tech Street, San Francisco, CA 94107</li>
-            </ul>
+      {/* CTA Section */}
+      <section className="notion-container py-20">
+        <div className="max-w-2xl mx-auto text-center animation-delay-500 animate-fade-in">
+          <CharacterAnimation 
+            text="Mulai perjalanan karir Anda hari ini"
+            tag="h2"
+            className="text-notion-subtitle mb-6"
+            delay={1000}
+          />
+          <p className="text-notion-text-light mb-8">
+            Bergabunglah dengan ribuan pencari kerja dan perusahaan yang telah menggunakan Temu untuk menemukan kesempatan terbaik.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Link href="/careers" className="notion-button">
+              Jelajahi Lowongan
+            </Link>
+            <Link href="/register" className="notion-button-outline">
+              Buat Akun
+            </Link>
           </div>
         </div>
-        <div className="mt-8 pt-8 border-t text-center text-sm text-gray-600">
-          <p>© {new Date().getFullYear()} TEMU. All rights reserved.</p>
-      </div>
-      </footer>
+      </section>
     </div>
   );
 } 

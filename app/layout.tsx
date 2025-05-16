@@ -1,29 +1,34 @@
 import './globals.css';
 import type { Metadata } from 'next';
-import { Montserrat } from 'next/font/google';
+import { Inter } from 'next/font/google';
 import { SessionProvider } from '@/components/session-provider';
 import { ToastProvider } from '@/components/providers/ToastProvider';
+import NotionHeader from './components/notion-header';
+import NotionFooter from './components/notion-footer';
 
-const montserrat = Montserrat({
+const inter = Inter({
   subsets: ['latin'],
-  variable: '--font-montserrat',
+  display: 'swap',
+  variable: '--font-inter',
 });
 
 export const metadata: Metadata = {
-  title: 'Temu - Talent Empowerment Platform',
-  description: 'A platform connecting talent with opportunities',
+  title: 'TEMU - Talent Empowerment Platform',
+  description: 'Connecting talented individuals with opportunities that matter.',
 };
 
 export default function RootLayout({
   children,
-}: {
+}: Readonly<{
   children: React.ReactNode;
-}) {
+}>) {
   return (
-    <html lang="en" className={montserrat.variable}>
-      <body className="min-h-screen">
+    <html lang="id" className={inter.variable}>
+      <body>
         <SessionProvider>
-          {children}
+          <NotionHeader />
+          <main className="min-h-screen">{children}</main>
+          <NotionFooter />
           <ToastProvider />
         </SessionProvider>
       </body>
