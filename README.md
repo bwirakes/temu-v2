@@ -1,64 +1,156 @@
-<div align="center"><strong>Next.js 15 Admin Dashboard Template</strong></div>
-<div align="center">Built with the Next.js App Router</div>
-<br />
-<div align="center">
-<a href="https://next-admin-dash.vercel.app/">Demo</a>
-<span> · </span>
-<a href="https://vercel.com/templates/next.js/admin-dashboard-tailwind-postgres-react-nextjs">Clone & Deploy</a>
-<span>
-</div>
+# Next.js Authentication Example
 
-## Overview
+A complete authentication solution built with:
 
-This is a starter template using the following stack:
+- Next.js 15 (App Router)
+- NextAuth.js 5.0
+- PostgreSQL with Drizzle ORM
+- Tailwind CSS
+- TypeScript
+- React Hook Form + Zod Validation
 
-- Framework - [Next.js (App Router)](https://nextjs.org)
-- Language - [TypeScript](https://www.typescriptlang.org)
-- Auth - [Auth.js](https://authjs.dev)
-- Database - [Postgres](https://vercel.com/postgres)
-- Deployment - [Vercel](https://vercel.com/docs/concepts/next.js/overview)
-- Styling - [Tailwind CSS](https://tailwindcss.com)
-- Components - [Shadcn UI](https://ui.shadcn.com/)
-- Analytics - [Vercel Analytics](https://vercel.com/analytics)
-- Formatting - [Prettier](https://prettier.io)
+## Features
 
-This template uses the new Next.js App Router. This includes support for enhanced layouts, colocation of components, tests, and styles, component-level data fetching, and more.
+- Email/Password Authentication
+- OAuth Authentication (Google, GitHub)
+- Form Validation with Zod
+- Responsive UI with Tailwind CSS
+- Protected Routes
+- TypeScript Type Safety
+- Domain-driven routing structure for job seekers and employers
 
 ## Getting Started
 
-During the deployment, Vercel will prompt you to create a new Postgres database. This will add the necessary environment variables to your project.
+### Prerequisites
 
-Inside the Vercel Postgres dashboard, create a table based on the schema defined in this repository.
+- Node.js 18+ and npm/pnpm/yarn
+- PostgreSQL database (or Neon.tech serverless Postgres)
 
-```
-CREATE TYPE status AS ENUM ('active', 'inactive', 'archived');
+### Environment Setup
 
-CREATE TABLE products (
-  id SERIAL PRIMARY KEY,
-  image_url TEXT NOT NULL,
-  name TEXT NOT NULL,
-  status status NOT NULL,
-  price NUMERIC(10, 2) NOT NULL,
-  stock INTEGER NOT NULL,
-  available_at TIMESTAMP NOT NULL
-);
-```
-
-Then, uncomment `app/api/seed.ts` and hit `http://localhost:3000/api/seed` to seed the database with products.
-
-Next, copy the `.env.example` file to `.env` and update the values. Follow the instructions in the `.env.example` file to set up your GitHub OAuth application.
+1. Clone the repository
+2. Copy `.env.example` to `.env` and fill in your database and OAuth credentials:
 
 ```bash
-npm i -g vercel
-vercel link
-vercel env pull
+cp .env.example .env
 ```
 
-Finally, run the following commands to start the development server:
+3. Update the `.env` file with your database URL and a secure AUTH_SECRET:
 
 ```
+# Database connection
+POSTGRES_URL=postgres://user:password@localhost:5432/mydb
+
+# NextAuth Configuration
+NEXTAUTH_URL=http://localhost:3000
+AUTH_SECRET=your-secret-key-at-least-32-chars
+
+# OAuth Providers (optional)
+AUTH_GITHUB_ID=your_github_client_id
+AUTH_GITHUB_SECRET=your_github_client_secret
+AUTH_GOOGLE_ID=your_google_client_id
+AUTH_GOOGLE_SECRET=your_google_client_secret
+```
+
+### Installation
+
+Install the dependencies:
+
+```bash
+npm install
+# or
+yarn install
+# or
 pnpm install
-pnpm dev
 ```
 
-You should now be able to access the application at http://localhost:3000.
+### Database Setup
+
+1. Generate the SQL migrations:
+
+```bash
+npm run generate
+```
+
+2. Apply the migrations to your database:
+
+```bash
+npm run migrate
+```
+
+3. (Optional) Explore your database with Drizzle Studio:
+
+```bash
+npm run studio
+```
+
+### Development
+
+Start the development server:
+
+```bash
+npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) in your browser to see the application.
+
+## Project Structure
+
+```
+├── app/                  # Next.js App Router
+│   ├── api/              # API Routes
+│   │   ├── auth/         # Auth API Routes
+│   │   ├── job-seeker/   # Job Seeker API Routes
+│   │   │   ├── onboarding/ # Onboarding API
+│   │   │   └── cv/       # CV Management API
+│   │   ├── employer/     # Employer API Routes
+│   │   │   ├── onboarding/ # Onboarding API
+│   │   │   └── jobs/     # Job Management API
+│   │   └── ...
+│   ├── auth/             # Auth Pages
+│   │   ├── signin/       # Sign In Page
+│   │   ├── signup/       # Sign Up Page
+│   │   └── error/        # Auth Error Page
+│   ├── job-seeker/       # Job Seeker Pages
+│   │   ├── onboarding/   # Onboarding Flow
+│   │   ├── cv-builder/   # CV Builder Tool
+│   │   └── ...
+│   ├── employer/         # Employer Pages
+│   │   ├── onboarding/   # Onboarding Flow
+│   │   └── ...
+│   └── ...
+├── components/           # React Components
+├── lib/                  # Utility Functions
+│   ├── auth.ts           # NextAuth Configuration
+│   ├── db.ts             # Database Schema & Queries
+│   └── ...
+├── public/               # Static Assets
+├── scripts/              # Utility Scripts
+│   └── migrate.ts        # Database Migration Script
+└── ...
+```
+
+## Application Routing
+
+The application follows a domain-driven routing structure organized around two main user types:
+
+1. **Job Seekers** - Routes under `/job-seeker/*`
+2. **Employers** - Routes under `/employer/*`
+
+For detailed information about the routing structure, please see [ROUTING.md](./ROUTING.md).
+
+## Deployment
+
+This application can be deployed to Vercel, Netlify, or any other Next.js-compatible hosting platform.
+
+For Vercel deployment:
+
+1. Push your code to a GitHub repository
+2. Import the project in Vercel
+3. Set up the environment variables
+4. Deploy!
+
+## License
+
+MIT
+# temu-jobfair
