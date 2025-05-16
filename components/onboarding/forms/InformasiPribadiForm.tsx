@@ -128,7 +128,7 @@ export default function InformasiPribadiForm() {
     setTimeout(() => {
       setIsSubmitting(false);
       setCurrentStep(2);
-      router.push("/onboarding/pengalaman-kerja");
+      router.push("/job-seeker/onboarding/pengalaman-kerja");
     }, 500);
   };
 

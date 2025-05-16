@@ -38,7 +38,7 @@ export default function RingkasanProfil() {
       await saveStep(14);
       
       // Submit the completed profile
-      const response = await fetch("/api/onboarding/submit", {
+      const response = await fetch("/api/job-seeker/onboarding/submit", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

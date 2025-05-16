@@ -104,7 +104,7 @@ export default function AlamatForm() {
     setTimeout(() => {
       setIsSubmitting(false);
       setCurrentStep(4);
-      router.push("/onboarding/social-media");
+      router.push("/job-seeker/onboarding/social-media");
     }, 500);
   };
 

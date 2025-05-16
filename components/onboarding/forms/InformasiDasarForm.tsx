@@ -104,7 +104,7 @@ export default function InformasiDasarForm({ userName, userEmail }: InformasiDas
       
       // Navigate to next step
       setCurrentStep(2);
-      router.push("/onboarding/informasi-lanjutan");
+      router.push("/job-seeker/onboarding/informasi-lanjutan");
     } catch (error) {
       console.error("Error saving data:", error);
       toast.error("Gagal menyimpan data");

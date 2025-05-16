@@ -1,7 +1,6 @@
 import { ReactNode } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import ClientScript from './components/client-script';
 
 export const metadata = {
   title: 'Job Fair Nasional Tahun 2025',

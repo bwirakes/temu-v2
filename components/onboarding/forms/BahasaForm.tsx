@@ -53,7 +53,7 @@ export default function BahasaForm() {
       setTimeout(() => {
         setIsSubmitting(false);
         setCurrentStep(11);
-        router.push("/onboarding/informasi-tambahan");
+        router.push("/job-seeker/onboarding/informasi-tambahan");
       }, 500);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal menyimpan data");

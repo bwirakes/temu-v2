@@ -49,7 +49,7 @@ export default function LevelPengalamanForm() {
     setTimeout(() => {
       setIsSubmitting(false);
       setCurrentStep(7);
-      router.push("/onboarding/pengalaman-kerja");
+      router.push("/job-seeker/onboarding/pengalaman-kerja");
     }, 500);
   };
 

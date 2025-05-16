@@ -25,7 +25,7 @@ export function useOnboardingApi() {
       // Extract only the relevant data for this step
       const relevantData = extractStepData(step, dataToSave);
 
-      const response = await fetch("/api/onboarding", {
+      const response = await fetch("/api/job-seeker/onboarding", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

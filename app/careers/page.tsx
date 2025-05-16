@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { db } from '@/lib/db';
-import { eq, count, gt } from 'drizzle-orm';
+import { eq, count, gt, desc } from 'drizzle-orm';
 import { employers, jobs } from '@/lib/db';
 import SearchBar from './components/search-bar';
 import EmployerLogo from './components/employer-logo';
@@ -34,7 +34,7 @@ async function getEmployersWithJobCounts(): Promise<EmployerWithJobCount[]> {
     .where(eq(jobs.isConfirmed, true))
     .groupBy(employers.id)
     .having(gt(count(jobs.id), 0))
-    .orderBy(count(jobs.id));
+    .orderBy(desc(count(jobs.id)));
 
   return employersWithJobs;
 }
@@ -68,7 +68,7 @@ export default async function CareersPage() {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8">
             <h2 className="text-xl font-medium text-notion-text">Perusahaan yang Sedang Merekrut</h2>
             <p className="text-sm text-notion-text-light mt-1 sm:mt-0">
-              {employersWithJobs.length} {employersWithJobs.length === 1 ? 'perusahaan' : 'perusahaan'} dengan posisi terbuka
+              {employersWithJobs.length} perusahaan dengan posisi terbuka
             </p>
           </div>
 
@@ -79,13 +79,15 @@ export default async function CareersPage() {
                   key={employer.id}
                   className={`notion-card card-hover animation-delay-${(index % 5) * 100} animate-fade-in`}
                 >
-                  <div className="p-4">
+                  <div className="p-6 border-b border-notion-border">
                     <div className="flex items-start space-x-4">
-                      <EmployerLogo 
-                        logoUrl={employer.logoUrl} 
-                        companyName={employer.namaPerusahaan} 
-                        size="sm"
-                      />
+                      <div className="flex-shrink-0">
+                        <EmployerLogo 
+                          logoUrl={employer.logoUrl} 
+                          companyName={employer.namaPerusahaan} 
+                          size="sm"
+                        />
+                      </div>
                       <div>
                         <h3 className="text-base font-medium text-notion-text">
                           {employer.namaPerusahaan}
@@ -93,12 +95,12 @@ export default async function CareersPage() {
                         </h3>
                         <p className="text-sm text-notion-text-light mb-2">{employer.industri}</p>
                         <span className="inline-flex items-center px-2 py-0.5 rounded-notion text-xs font-medium bg-notion-highlight-blue text-notion-text">
-                          {employer.jobCount} posisi {employer.jobCount !== 1 ? 'terbuka' : 'terbuka'}
+                          {employer.jobCount} posisi terbuka
                         </span>
                       </div>
                     </div>
                   </div>
-                  <div className="border-t border-notion-border p-4 mt-2">
+                  <div className="p-4">
                     <Link
                       href={`/careers/${employer.id}`}
                       className="notion-button w-full flex justify-center"

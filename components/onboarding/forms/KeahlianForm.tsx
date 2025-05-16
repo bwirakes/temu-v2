@@ -63,7 +63,7 @@ export default function KeahlianForm() {
     setTimeout(() => {
       setIsSubmitting(false);
       setCurrentStep(9);
-      router.push("/onboarding/sertifikasi");
+      router.push("/job-seeker/onboarding/sertifikasi");
     }, 500);
   };
   

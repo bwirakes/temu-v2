@@ -73,7 +73,7 @@ export default function PengalamanKerjaForm() {
     setTimeout(() => {
       setIsSubmitting(false);
       setCurrentStep(3);
-      router.push("/onboarding/pendidikan");
+      router.push("/job-seeker/onboarding/pendidikan");
     }, 500);
   };
   

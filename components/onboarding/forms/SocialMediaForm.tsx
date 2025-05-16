@@ -57,7 +57,7 @@ export default function SocialMediaForm() {
     setTimeout(() => {
       setIsSubmitting(false);
       setCurrentStep(5);
-      router.push("/onboarding/upload-foto");
+      router.push("/job-seeker/onboarding/upload-foto");
     }, 500);
   };
 

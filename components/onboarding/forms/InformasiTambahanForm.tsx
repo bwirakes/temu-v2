@@ -44,7 +44,7 @@ export default function InformasiTambahanForm() {
     setTimeout(() => {
       setIsSubmitting(false);
       setCurrentStep(12);
-      router.push("/onboarding/ekspektasi-kerja");
+      router.push("/job-seeker/onboarding/ekspektasi-kerja");
     }, 500);
   }
 

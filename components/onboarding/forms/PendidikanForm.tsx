@@ -71,7 +71,7 @@ export default function PendidikanForm() {
     setTimeout(() => {
       setIsSubmitting(false);
       setCurrentStep(4);
-      router.push("/onboarding/keahlian");
+      router.push("/job-seeker/onboarding/keahlian");
     }, 500);
   };
   

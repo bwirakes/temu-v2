@@ -184,7 +184,7 @@ export default function InformasiLanjutanForm() {
     setTimeout(() => {
       setIsSubmitting(false);
       setCurrentStep(3);
-      router.push("/onboarding/alamat");
+      router.push("/job-seeker/onboarding/alamat");
     }, 500);
   };
 

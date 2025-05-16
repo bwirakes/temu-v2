@@ -42,7 +42,7 @@ export default function OnboardingFormActions({
       if (nextStep) {
         router.push(nextStep);
       } else if (isLastStep) {
-        router.push("/onboarding/success");
+        router.push("/job-seeker/onboarding/success");
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save data");

@@ -9,9 +9,8 @@ import { useSession } from 'next-auth/react';
 export default function NotionHeader() {
   const [scrolled, setScrolled] = useState(false);
   const pathname = usePathname();
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   
-  const isLoggedIn = !!session?.user;
   const isEmployerArea = pathname?.startsWith('/employer') && pathname !== '/employer/register';
   const isJobSeekerArea = pathname?.startsWith('/job-seeker') && pathname !== '/job-seeker/register';
   
@@ -92,7 +91,9 @@ export default function NotionHeader() {
         </div>
         
         <div className="flex items-center gap-2">
-          {isLoggedIn ? (
+          {status === 'loading' ? (
+            <div className="w-20 h-9"></div> // Empty placeholder during loading to prevent layout shift
+          ) : status === 'authenticated' ? (
             <>
               <Link 
                 href={dashboardLink} 

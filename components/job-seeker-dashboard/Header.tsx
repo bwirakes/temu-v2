@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
-import { User, Menu, X, Briefcase } from "lucide-react";
+import Image from "next/image";
+import { usePathname } from "next/navigation";
+import { User, Menu, X } from "lucide-react";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
 import { 
@@ -22,74 +24,104 @@ interface HeaderProps {
 
 export default function JobSeekerHeader({ toggleSidebar, isSidebarOpen, userName }: HeaderProps) {
   const { theme, setTheme } = useTheme();
+  const [scrolled, setScrolled] = useState(false);
+  const pathname = usePathname();
+  
+  useEffect(() => {
+    const handleScroll = () => {
+      const isScrolled = window.scrollY > 10;
+      if (isScrolled !== scrolled) {
+        setScrolled(isScrolled);
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [scrolled]);
 
   return (
-    <header className="h-16 bg-gradient-to-r from-blue-600 to-blue-800 fixed top-0 left-0 right-0 z-30 flex items-center justify-between px-4 shadow-md">
-      <div className="flex items-center">
-        <button 
-          onClick={toggleSidebar}
-          className="p-2 rounded-md text-white hover:bg-blue-700 transition-colors"
-          aria-label={isSidebarOpen ? "Tutup sidebar" : "Buka sidebar"}
-        >
-          {isSidebarOpen ? <X size={20} /> : <Menu size={20} />}
-        </button>
-        
-        <Link href="/job-seeker/dashboard" className="ml-3 flex items-center">
-          <Briefcase className="h-6 w-6 text-white" />
-          <span className="ml-2 text-xl font-bold text-white hidden md:inline-block">
-            TEMU Karir
-          </span>
-        </Link>
-      </div>
-
-      <div className="flex items-center">
-        {userName && (
-          <span className="text-white mr-4 hidden md:block">
-            Selamat datang, {userName}!
-          </span>
-        )}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="rounded-full text-white hover:bg-blue-700">
-              <div className="h-8 w-8 rounded-full bg-white/20 flex items-center justify-center text-white hover:bg-white/30 transition-colors">
-                <User size={18} />
+    <header 
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-200 ease-notion ${
+        scrolled 
+          ? 'bg-notion-background shadow-sm border-b border-notion-border' 
+          : 'bg-notion-background'
+      } h-16 flex items-center`}
+    >
+      <div className="w-full px-4 flex items-center justify-between">
+        <div className="flex items-center">
+          <button 
+            onClick={toggleSidebar}
+            className="p-2 rounded-md transition-colors hover:bg-notion-background-hover text-black"
+            aria-label={isSidebarOpen ? "Tutup sidebar" : "Buka sidebar"}
+          >
+            {isSidebarOpen ? <X size={20} /> : <Menu size={20} />}
+          </button>
+          
+          <Link href="/job-seeker/dashboard" className="ml-3 flex items-start">
+            <div className="flex items-start">
+              <Image 
+                src="/temu-logo.png" 
+                alt="TEMU Logo" 
+                width={32} 
+                height={32} 
+              />
+              <div className="flex flex-col ml-2">
+                <span className="font-bold text-black">TEMU</span>
+                <span className="text-[10px] text-notion-text-light">untuk Kemnaker</span>
               </div>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuLabel>Akun Saya</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem>
-              <Link href="/job-seeker/profile" className="w-full flex">
-                Profil
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem>
-              <Link href="/cv-builder" className="w-full flex">
-                CV Builder
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem>
-              <Link href="/job-seeker/applications" className="w-full flex">
-                Lamaran
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem>
-              <Link href="/job-seeker/settings" className="w-full flex">
-                Pengaturan
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>
-              Ubah Tema
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem>
-              <Link href="/auth/logout" className="w-full flex text-red-500">
-                Keluar
-              </Link>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+            </div>
+          </Link>
+        </div>
+
+        <div className="flex items-center">
+          {userName && (
+            <span className="text-notion-text mr-4 hidden md:block">
+              Selamat datang, {userName}!
+            </span>
+          )}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="rounded-full hover:bg-notion-background-hover">
+                <div className="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-700 hover:bg-gray-200 transition-colors">
+                  <User size={18} />
+                </div>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel>Akun Saya</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem>
+                <Link href="/job-seeker/profile" className="w-full flex">
+                  Profil
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem>
+                <Link href="/cv-builder" className="w-full flex">
+                  CV Builder
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem>
+                <Link href="/job-seeker/applications" className="w-full flex">
+                  Lamaran
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem>
+                <Link href="/job-seeker/settings" className="w-full flex">
+                  Pengaturan
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>
+                Ubah Tema
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem>
+                <Link href="/api/auth/signout" className="w-full flex text-red-500">
+                  Keluar
+                </Link>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
     </header>
   );

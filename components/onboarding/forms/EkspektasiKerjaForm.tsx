@@ -193,7 +193,7 @@ export default function EkspektasiKerjaForm() {
     setTimeout(() => {
       setIsSubmitting(false);
       setCurrentStep(13); // Next step in the onboarding flow
-      router.push("/onboarding/ringkasan");
+      router.push("/job-seeker/onboarding/ringkasan");
     }, 500);
   };
   

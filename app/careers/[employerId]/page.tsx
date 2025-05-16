@@ -3,6 +3,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { notFound } from 'next/navigation';
 import { format } from 'date-fns';
+import { id } from 'date-fns/locale';
 import { getAllEmployerIds, getEmployerById, getJobsByEmployerId } from '@/lib/db';
 import EmployerLogo from '../components/employer-logo';
 
@@ -110,7 +111,7 @@ export async function generateStaticParams() {
 }
 
 // Job card component
-function JobCard({ job }: { job: Job }) {
+function JobCard({ job, index }: { job: Job; index: number }) {
   // Format salary range for display
   const formatSalary = (salaryRange: Job['salaryRange']) => {
     if (!salaryRange) return 'Tidak ditentukan';
@@ -130,12 +131,26 @@ function JobCard({ job }: { job: Job }) {
     return 'Tidak ditentukan';
   };
   
+  // Calculate days remaining until deadline
+  const getDaysRemaining = (deadline: Date | string | null | undefined) => {
+    if (!deadline) return null;
+    
+    const today = new Date();
+    const deadlineDate = new Date(deadline);
+    const diffTime = deadlineDate.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    return diffDays;
+  };
+  
+  const daysRemaining = getDaysRemaining(job.applicationDeadline);
+  
   return (
     <Link 
       href={`/careers/${job.employerId}/${job.id}`}
-      className="notion-card card-hover animation-delay-100 animate-fade-in"
+      className={`notion-card card-hover animation-delay-${(index % 5) * 100} animate-fade-in overflow-hidden`}
     >
-      <div className="p-6">
+      <div className="p-6 border-b border-notion-border bg-notion-background-gray">
         <h3 className="text-xl font-medium text-notion-text mb-2">{job.jobTitle}</h3>
         <div className="flex flex-wrap gap-2 mb-3">
           <span className="px-3 py-1 bg-notion-highlight-blue text-notion-text text-xs font-medium rounded-notion">
@@ -143,7 +158,7 @@ function JobCard({ job }: { job: Job }) {
           </span>
           {job.numberOfPositions && (
             <span className="px-3 py-1 bg-notion-highlight-green text-notion-text text-xs font-medium rounded-notion">
-              {job.numberOfPositions} posisi{job.numberOfPositions > 1 ? '' : ''}
+              {job.numberOfPositions} posisi
             </span>
           )}
           {job.minWorkExperience > 0 && (
@@ -152,8 +167,10 @@ function JobCard({ job }: { job: Job }) {
             </span>
           )}
         </div>
-        
-        <div className="mt-3 space-y-2 text-sm text-notion-text-light">
+      </div>
+      
+      <div className="p-6">
+        <div className="space-y-3 text-sm text-notion-text-light">
           {job.salaryRange && (
             <div className="flex items-start">
               <svg className="w-5 h-5 text-notion-text-light mr-2 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -168,17 +185,22 @@ function JobCard({ job }: { job: Job }) {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
             </svg>
             <div>
-              <p>Diposting: {format(new Date(job.postedDate), 'dd MMM yyyy')}</p>
+              <p>Diposting: {format(new Date(job.postedDate), 'dd MMM yyyy', { locale: id })}</p>
               {job.applicationDeadline && (
-                <p className="text-red-600">
-                  Batas Waktu: {format(new Date(job.applicationDeadline), 'dd MMM yyyy')}
+                <p className={daysRemaining && daysRemaining <= 7 ? "text-red-600 font-medium" : "text-notion-text-light"}>
+                  Batas Waktu: {format(new Date(job.applicationDeadline), 'dd MMM yyyy', { locale: id })}
+                  {daysRemaining && daysRemaining > 0 && (
+                    <span className="ml-1">
+                      ({daysRemaining} hari lagi)
+                    </span>
+                  )}
                 </p>
               )}
             </div>
           </div>
         </div>
         
-        <div className="mt-4 flex justify-end">
+        <div className="mt-4 border-t border-notion-border pt-4 flex justify-end">
           <span className="inline-flex items-center text-notion-text hover:text-notion-text-light">
             Lihat detail
             <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -322,7 +344,7 @@ export default async function EmployerCareersPage({
       
       <div className="notion-container py-12">
         {/* Back button */}
-        <div className="mb-6">
+        <div className="mb-6 animation-delay-100 animate-fade-in">
           <Link 
             href="/careers" 
             className="inline-flex items-center text-sm font-medium text-notion-text hover:text-notion-text-light"
@@ -335,14 +357,16 @@ export default async function EmployerCareersPage({
         </div>
         
         {/* Company header */}
-        <div className="notion-card mb-8 overflow-hidden">
+        <div className="notion-card mb-8 overflow-hidden animation-delay-200 animate-fade-in">
           <div className="p-6 border-b border-notion-border bg-notion-background-gray">
             <div className="flex flex-col md:flex-row items-center md:items-start gap-6">
-              <EmployerLogo 
-                logoUrl={employer.logoUrl} 
-                companyName={employer.namaPerusahaan} 
-                size="lg"
-              />
+              <div className="flex-shrink-0">
+                <EmployerLogo 
+                  logoUrl={employer.logoUrl} 
+                  companyName={employer.namaPerusahaan} 
+                  size="lg"
+                />
+              </div>
               
               <div className="text-center md:text-left">
                 <h1 className="text-2xl font-medium text-notion-text mb-2">
@@ -377,15 +401,15 @@ export default async function EmployerCareersPage({
           {/* Company stats */}
           <div className="p-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
-              <div>
+              <div className="p-3 bg-notion-background-gray rounded-notion">
                 <p className="text-sm text-notion-text-light">Posisi Terbuka</p>
                 <p className="text-2xl font-medium text-notion-text">{jobs.length}</p>
               </div>
-              <div>
+              <div className="p-3 bg-notion-background-gray rounded-notion">
                 <p className="text-sm text-notion-text-light">Industri</p>
                 <p className="text-lg font-medium text-notion-text">{employer.industri}</p>
               </div>
-              <div>
+              <div className="p-3 bg-notion-background-gray rounded-notion">
                 <p className="text-sm text-notion-text-light">Kontak Person</p>
                 <p className="text-lg font-medium text-notion-text">{employer.pic.nama}</p>
               </div>
@@ -394,7 +418,7 @@ export default async function EmployerCareersPage({
         </div>
         
         {/* Job listings */}
-        <div className="mb-12">
+        <div className="mb-12 animation-delay-300 animate-fade-in">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
             <h2 className="text-xl font-medium text-notion-text">Posisi Terbuka</h2>
             {jobs.length > 0 && (
@@ -406,8 +430,8 @@ export default async function EmployerCareersPage({
           
           {jobs.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {jobs.map((job) => (
-                <JobCard key={job.id} job={job} />
+              {jobs.map((job, index) => (
+                <JobCard key={job.id} job={job} index={index} />
               ))}
             </div>
           ) : (
@@ -422,7 +446,7 @@ export default async function EmployerCareersPage({
         </div>
         
         {/* Call to action */}
-        <div className="bg-notion-background-gray rounded-notion border border-notion-border p-8 md:p-12">
+        <div className="bg-notion-background-gray rounded-notion border border-notion-border p-8 md:p-12 animation-delay-400 animate-fade-in">
           <div className="max-w-3xl mx-auto text-center">
             <h2 className="text-xl font-medium text-notion-text mb-4">
               <span className="notion-highlight">Siap untuk melamar?</span>

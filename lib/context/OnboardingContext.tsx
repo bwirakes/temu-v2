@@ -206,7 +206,7 @@ export const OnboardingProvider = ({ children }: { children: ReactNode }) => {
     const loadSavedData = async () => {
       try {
         setIsLoading(true);
-        const response = await fetch("/api/onboarding");
+        const response = await fetch("/api/job-seeker/onboarding");
         
         if (!response.ok) {
           throw new Error("Failed to load onboarding data");

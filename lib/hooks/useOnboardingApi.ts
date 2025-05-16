@@ -13,7 +13,7 @@ export function useOnboardingApi() {
     setError(null);
 
     try {
-      const response = await fetch("/api/onboarding", {
+      const response = await fetch("/api/job-seeker/onboarding", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -43,7 +43,7 @@ export function useOnboardingApi() {
     setError(null);
 
     try {
-      const response = await fetch("/api/onboarding", {
+      const response = await fetch("/api/job-seeker/onboarding", {
         method: "GET",
       });
 

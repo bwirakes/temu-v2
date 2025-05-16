@@ -200,7 +200,7 @@ export default function UploadFotoForm() {
     if (!imageFile) {
       // Skip if no image uploaded - this step is optional
       setCurrentStep(6);
-      router.push("/onboarding/level-pengalaman");
+      router.push("/job-seeker/onboarding/level-pengalaman");
       return;
     }
     
@@ -224,7 +224,7 @@ export default function UploadFotoForm() {
       setTimeout(() => {
         setIsSubmitting(false);
         setCurrentStep(6);
-        router.push("/onboarding/level-pengalaman");
+        router.push("/job-seeker/onboarding/level-pengalaman");
       }, 1000);
     } catch (error) {
       console.error("Error uploading image:", error);

@@ -8,20 +8,20 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 const routes = [
-  "/onboarding/informasi-pribadi",    // Step 1: Informasi Dasar
-  "/onboarding/informasi-lanjutan",   // Step 2: Informasi Lanjutan
-  "/onboarding/alamat",               // Step 3: Alamat
-  "/onboarding/social-media",         // Step 4: Social Media
-  "/onboarding/upload-foto",          // Step 5: Upload Foto Profil
-  "/onboarding/level-pengalaman",     // Step 6: Level Pengalaman
-  "/onboarding/pengalaman-kerja",     // Step 7: Pengalaman Kerja
-  "/onboarding/pendidikan",           // Step 8: Pendidikan
-  "/onboarding/keahlian",             // Step 9: Keahlian
-  "/onboarding/sertifikasi",          // Step 10: Sertifikasi
-  "/onboarding/bahasa",               // Step 11: Bahasa
-  "/onboarding/informasi-tambahan",   // Step 12: Informasi Tambahan
-  "/onboarding/ekspektasi-kerja",     // Step 13: Ekspektasi Kerja
-  "/onboarding/ringkasan",            // Step 14: Ringkasan
+  "/job-seeker/onboarding/informasi-pribadi",    // Step 1: Informasi Dasar
+  "/job-seeker/onboarding/informasi-lanjutan",   // Step 2: Informasi Lanjutan
+  "/job-seeker/onboarding/alamat",               // Step 3: Alamat
+  "/job-seeker/onboarding/social-media",         // Step 4: Social Media
+  "/job-seeker/onboarding/upload-foto",          // Step 5: Upload Foto Profil
+  "/job-seeker/onboarding/level-pengalaman",     // Step 6: Level Pengalaman
+  "/job-seeker/onboarding/pengalaman-kerja",     // Step 7: Pengalaman Kerja
+  "/job-seeker/onboarding/pendidikan",           // Step 8: Pendidikan
+  "/job-seeker/onboarding/keahlian",             // Step 9: Keahlian
+  "/job-seeker/onboarding/sertifikasi",          // Step 10: Sertifikasi
+  "/job-seeker/onboarding/bahasa",               // Step 11: Bahasa
+  "/job-seeker/onboarding/informasi-tambahan",   // Step 12: Informasi Tambahan
+  "/job-seeker/onboarding/ekspektasi-kerja",     // Step 13: Ekspektasi Kerja
+  "/job-seeker/onboarding/ringkasan",            // Step 14: Ringkasan
 ];
 
 // Define which steps are optional

@@ -58,13 +58,13 @@ export default function SertifikasiForm() {
     setTimeout(() => {
       setIsSubmitting(false);
       setCurrentStep(11);
-      router.push("/onboarding/bahasa");
+      router.push("/job-seeker/onboarding/bahasa");
     }, 500);
   };
 
   const handleSkip = () => {
     setCurrentStep(11);
-    router.push("/onboarding/bahasa");
+    router.push("/job-seeker/onboarding/bahasa");
   };
 
   return (
