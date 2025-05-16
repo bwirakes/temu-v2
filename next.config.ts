@@ -10,6 +10,16 @@ export default {
         protocol: 'https',
         hostname: '*.public.blob.vercel-storage.com',
         search: ''
+      },
+      {
+        protocol: 'https',
+        hostname: 'images.unsplash.com',
+        search: ''
+      },
+      {
+        protocol: 'https',
+        hostname: 'via.placeholder.com',
+        search: ''
       }
     ]
   }
