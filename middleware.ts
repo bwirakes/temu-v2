@@ -11,16 +11,72 @@ interface CustomUser {
   userType?: 'job_seeker' | 'employer';
 }
 
+// Define path mappings for redirects
+const API_REDIRECTS = {
+  '/api/onboarding': '/api/job-seeker/onboarding',
+  '/api/cv': '/api/job-seeker/cv',
+  '/api/employer/onboard': '/api/employer/onboarding',
+};
+
+// Define path mappings for page redirects
+const PAGE_REDIRECTS = {
+  '/onboarding': '/job-seeker/onboarding',
+  '/cv-builder': '/job-seeker/cv-builder',
+  '/employer-onboarding': '/employer/onboarding',
+};
+
 export async function middleware(request: NextRequest) {
+  const url = request.nextUrl.clone();
+  const { pathname } = url;
+
+  console.log(`Middleware: Processing ${pathname}`);
+
+  // Skip middleware for static files and images
+  if (
+    pathname.includes('/_next') || 
+    pathname.includes('/favicon.ico') ||
+    pathname.endsWith('.svg') ||
+    pathname.includes('/images/')
+  ) {
+    return NextResponse.next();
+  }
+
+  // Handle path redirects first (from app/middleware.ts)
+  // Check for API redirects
+  for (const [oldPath, newPath] of Object.entries(API_REDIRECTS)) {
+    if (pathname.startsWith(oldPath)) {
+      const newUrl = pathname.replace(oldPath, newPath);
+      url.pathname = newUrl;
+      console.log(`Middleware: Redirecting API path ${pathname} to ${newUrl}`);
+      return NextResponse.redirect(url);
+    }
+  }
+
+  // Check for page redirects
+  for (const [oldPath, newPath] of Object.entries(PAGE_REDIRECTS)) {
+    if (pathname === oldPath || pathname.startsWith(`${oldPath}/`)) {
+      const newUrl = pathname.replace(oldPath, newPath);
+      url.pathname = newUrl;
+      console.log(`Middleware: Redirecting page path ${pathname} to ${newUrl}`);
+      return NextResponse.redirect(url);
+    }
+  }
+
   try {
     const session = await auth();
-    const { pathname } = request.nextUrl;
-
-    console.log(`Middleware: Processing ${pathname}`);
     
     // Public routes - accessible to everyone
-    const publicRoutes = ['/auth/signin', '/auth/signup', '/', '/api/test/users'];
-    if (publicRoutes.includes(pathname)) {
+    const publicRoutes = [
+      '/auth/signin', 
+      '/auth/signup', 
+      '/', 
+      '/api/test/users',
+      '/careers',
+      '/about'
+    ];
+
+    // Allow access to all public routes and their subpaths
+    if (publicRoutes.some(route => pathname === route || pathname.startsWith(`${route}/`))) {
       console.log(`Middleware: Public route ${pathname}, allowing access`);
       return NextResponse.next();
     }
@@ -77,5 +133,16 @@ export async function middleware(request: NextRequest) {
 
 // Don't invoke Middleware on some paths
 export const config = {
-  matcher: ['/((?!api/auth|_next/static|_next/image|favicon.ico).*)']
+  matcher: [
+    // Match all paths except specific exclusions
+    '/((?!api/auth|_next/static|_next/image|favicon.ico|.*\\.svg$|images).*)',
+    
+    // Include specific paths for redirects
+    '/api/onboarding/:path*',
+    '/api/cv/:path*',
+    '/api/employer/onboard/:path*',
+    '/onboarding/:path*',
+    '/cv-builder/:path*',
+    '/employer-onboarding/:path*',
+  ]
 };

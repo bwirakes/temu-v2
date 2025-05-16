@@ -1,38 +1,85 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter, useParams } from 'next/navigation';
-import JobApplicationForm from '@/components/job-application/JobApplicationForm';
-import { Briefcase, ArrowLeft, Globe, MapPin, Building } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
+import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { ArrowLeft, Briefcase, Building, Globe, MapPin, Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
+import JobApplicationForm from '@/components/job-application/JobApplicationForm';
+import { useRouteParams } from '@/lib/hooks/useRouteParams';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
-// Import JobPostingContext for job details
-import { JobPostingContext, JobPostingData, useJobPosting } from '@/lib/context/JobPostingContext';
-import { JobApplicationProvider as JobApplicationContextProvider } from '@/lib/context/JobApplicationContext';
+// Import context providers
+import { JobPostingContext } from '@/lib/context/JobPostingContext';
+import { JobApplicationProvider } from '@/lib/context/JobApplicationContext';
+
+// Define the CustomSession type
+interface CustomSession {
+  user?: {
+    id?: string;
+    name?: string | null;
+    email?: string | null;
+    image?: string | null;
+    userType?: 'job_seeker' | 'employer';
+  };
+}
 
 export default function JobSeekerApplicationPage() {
   const router = useRouter();
-  const params = useParams();
-  const jobId = params.jobId as string;
+  
+  // Use our custom hook to safely get the jobId param
+  const params = useRouteParams<{ jobId: string }>();
+  const jobId = params.jobId;
+  
+  const { data: session, status } = useSession() as { data: CustomSession | null; status: string };
   
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [jobDetails, setJobDetails] = useState<any>(null);
 
+  // Check if user is authenticated and is a job seeker
   useEffect(() => {
-    // Simulate fetching job data
-    const fetchJobData = async () => {
-      try {
-        setIsLoading(true);
+    if (status === 'loading') return;
+
+    if (status === 'unauthenticated') {
+      // Redirect to login if not authenticated
+      router.push(`/auth/signin?callbackUrl=${encodeURIComponent(`/job-seeker/job-application/${jobId}`)}`);
+      return;
+    }
+
+    if (session?.user?.userType !== 'job_seeker') {
+      // Redirect to employer dashboard if user is an employer
+      setError('Anda perlu login sebagai pencari kerja untuk mengakses halaman ini.');
+      return;
+    }
+  }, [status, session, router, jobId]);
+
+  useEffect(() => {
+    // Fetch job details only if user is authenticated and is a job seeker
+    if (status === 'authenticated' && session?.user?.userType === 'job_seeker') {
+      fetchJobData();
+    }
+  }, [status, session]);
+
+  const fetchJobData = async () => {
+    try {
+      setIsLoading(true);
+      
+      // Fetch the job from the API
+      const response = await fetch(`/api/jobs/${jobId}`);
+      
+      // If successful, use the API response
+      if (response.ok) {
+        const jobData = await response.json();
+        setJobDetails(jobData);
+      } else {
+        // Fallback to mock data if API fails (temporarily)
+        console.warn(`API failed with status ${response.status}, using fallback data`);
         
-        // In a real app, you would fetch the job from an API
-        // For now, we'll simulate a delay and return mock data
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        // Mock job data based on jobId
+        // Use mock data for specific known IDs temporarily
         let mockJobData: any = null;
         
         // Define mock jobs with specific IDs - matching the ones in the job detail page
@@ -55,7 +102,6 @@ export default function JobSeekerApplicationPage() {
               minWorkExperience: 3,
               applicationDeadline: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
               companyInfo: {
-                logo: "https://via.placeholder.com/100",
                 name: "TechCorp Indonesia",
                 industry: "Technology",
                 address: "Jl. Sudirman No. 123, Jakarta Pusat",
@@ -69,101 +115,8 @@ export default function JobSeekerApplicationPage() {
             };
             break;
 
-          case "JOB-3045":
-            mockJobData = {
-              jobId: "JOB-3045",
-              jobTitle: "UX/UI Designer",
-              company: "Creative Solutions",
-              workLocations: [
-                { city: "Bandung", province: "Jawa Barat", isRemote: false }
-              ],
-              contractType: "FULL_TIME",
-              salaryRange: {
-                min: 10000000,
-                max: 18000000,
-                isNegotiable: true
-              },
-              minWorkExperience: 2,
-              applicationDeadline: new Date(Date.now() + 45 * 24 * 60 * 60 * 1000),
-              companyInfo: {
-                logo: "https://via.placeholder.com/100",
-                name: "Creative Solutions",
-                industry: "Creative Agency",
-                address: "Jl. Dago No. 45, Bandung",
-                website: "https://creativesolutions.co.id",
-                socialMedia: {
-                  linkedin: "creative-solutions-id",
-                  instagram: "creativesolutions.id"
-                },
-                description: "Creative Solutions adalah agensi kreatif yang membantu bisnis dalam mengembangkan identitas merek dan pengalaman digital yang menarik."
-              }
-            };
-            break;
-
-          case "JOB-4872":
-            mockJobData = {
-              jobId: "JOB-4872",
-              jobTitle: "Backend Developer (Node.js)",
-              company: "Fintech Innovations",
-              workLocations: [
-                { city: "Surabaya", province: "Jawa Timur", isRemote: false }
-              ],
-              contractType: "FULL_TIME",
-              salaryRange: {
-                min: 12000000,
-                max: 22000000,
-                isNegotiable: true
-              },
-              minWorkExperience: 2,
-              applicationDeadline: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000),
-              companyInfo: {
-                logo: "https://via.placeholder.com/100",
-                name: "Fintech Innovations",
-                industry: "Financial Technology",
-                address: "Jl. Basuki Rahmat No. 78, Surabaya",
-                website: "https://fintechinnovations.id",
-                socialMedia: {
-                  linkedin: "fintech-innovations",
-                  instagram: "fintech.innovations"
-                },
-                description: "Fintech Innovations adalah perusahaan teknologi finansial yang mengembangkan solusi pembayaran digital dan manajemen keuangan untuk bisnis dan individu."
-              }
-            };
-            break;
-
-          case "JOB-5639":
-            mockJobData = {
-              jobId: "JOB-5639",
-              jobTitle: "Data Scientist",
-              company: "AnalyticsPro",
-              workLocations: [
-                { city: "Anywhere", province: "Any", isRemote: true }
-              ],
-              contractType: "FULL_TIME",
-              salaryRange: {
-                min: 18000000,
-                max: 28000000,
-                isNegotiable: true
-              },
-              minWorkExperience: 3,
-              applicationDeadline: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-              companyInfo: {
-                logo: "https://via.placeholder.com/100",
-                name: "AnalyticsPro",
-                industry: "Data Analytics",
-                address: "Remote",
-                website: "https://analyticspro.id",
-                socialMedia: {
-                  linkedin: "analytics-pro",
-                  instagram: "analyticspro.id"
-                },
-                description: "AnalyticsPro adalah perusahaan analisis data yang membantu bisnis dalam mengambil keputusan berdasarkan data dan wawasan yang mendalam."
-              }
-            };
-            break;
-
           default:
-            // For unrecognized IDs, create a generic job
+            // Create a generic job for other IDs as fallback
             mockJobData = {
               jobId,
               jobTitle: "Software Developer",
@@ -180,38 +133,30 @@ export default function JobSeekerApplicationPage() {
               minWorkExperience: 1,
               applicationDeadline: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
               companyInfo: {
-                logo: "https://via.placeholder.com/100",
                 name: "Tech Company",
                 industry: "Technology",
                 address: "Jakarta, Indonesia",
-                website: "https://techcompany.id",
-                socialMedia: {
-                  linkedin: "tech-company",
-                  instagram: "techcompany.id"
-                },
-                description: "Tech Company adalah perusahaan teknologi yang berfokus pada pengembangan solusi perangkat lunak untuk berbagai kebutuhan bisnis."
+                website: "https://example.com"
               }
             };
         }
         
         setJobDetails(mockJobData);
-      } catch (err) {
-        setError("Failed to load job details");
-        console.error(err);
-      } finally {
-        setIsLoading(false);
       }
-    };
-
-    if (jobId) {
-      fetchJobData();
+    } catch (err) {
+      console.error("Error fetching job data:", err);
+      setError("Gagal memuat data lowongan. Silakan coba lagi.");
+    } finally {
+      setIsLoading(false);
     }
-  }, [jobId]);
+  };
 
-  if (isLoading) {
+  // Show loading state
+  if (status === 'loading' || isLoading) {
     return <JobApplicationSkeleton />;
   }
 
+  // Show error state
   if (error || !jobDetails) {
     return (
       <div className="min-h-screen bg-gray-50">
@@ -256,10 +201,12 @@ export default function JobSeekerApplicationPage() {
         </div>
         
         <div className="p-4 lg:p-6">
+          <h1 className="text-xl font-semibold mb-6">Aplikasi untuk {jobDetails.jobTitle}</h1>
+          
           <div className="grid gap-6 lg:grid-cols-3 lg:gap-8">
             {/* Left column: Job information */}
-            <div className="lg:col-span-1">
-              <JobSummary />
+            <div className="lg:col-span-1 space-y-6">
+              <JobSummary jobDetails={jobDetails} />
             </div>
             
             {/* Right column: Application form */}
@@ -271,10 +218,10 @@ export default function JobSeekerApplicationPage() {
                 currentStep: 1,
                 setCurrentStep: () => {} 
               }}>
-                {/* Import JobApplicationProvider from our new context and wrap the form */}
-                <JobApplicationContextProvider jobId={jobId}>
+                {/* Wrap the form with JobApplicationProvider */}
+                <JobApplicationProvider jobId={jobId}>
                   <JobApplicationForm jobId={jobId} />
-                </JobApplicationContextProvider>
+                </JobApplicationProvider>
               </JobPostingContext.Provider>
             </div>
           </div>
@@ -284,27 +231,27 @@ export default function JobSeekerApplicationPage() {
   );
 }
 
-// Separate component for job summary to use the context inside
-function JobSummary() {
-  const { data } = useJobPosting();
-  
+// Separate component for job summary
+function JobSummary({ jobDetails }: { jobDetails: any }) {
   return (
-    <>
-      <div className="mb-6">
-        <div className="flex items-center space-x-3 mb-4">
-          <div className="h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center">
-            <Briefcase className="h-6 w-6 text-blue-600" />
+    <div className="space-y-6">
+      <Card id="job-details-card">
+        <CardHeader>
+          <div className="flex items-center space-x-3">
+            <div className="h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center">
+              <Briefcase className="h-6 w-6 text-blue-600" />
+            </div>
+            <CardTitle className="text-lg leading-6 font-medium text-gray-900">
+              Detail Lowongan
+            </CardTitle>
           </div>
-          <h3 className="text-lg leading-6 font-medium text-gray-900">
-            Detail Lowongan
-          </h3>
-        </div>
+        </CardHeader>
         
-        <div className="space-y-4">
+        <CardContent className="space-y-4 pt-0">
           <div>
             <h5 className="text-sm font-medium text-gray-500">Lokasi</h5>
             <ul className="mt-1 text-sm text-gray-900 list-disc pl-5">
-              {data.workLocations?.map((location: { city: string; province: string; isRemote: boolean }, index: number) => (
+              {jobDetails.workLocations?.map((location: { city: string; province: string; isRemote: boolean }, index: number) => (
                 <li key={index}>
                   {location.city}, {location.province}
                   {location.isRemote && " (Remote)"}
@@ -316,22 +263,22 @@ function JobSummary() {
           <div>
             <h5 className="text-sm font-medium text-gray-500">Jenis Kontrak</h5>
             <p className="mt-1 text-sm text-gray-900">
-              {data.contractType === "FULL_TIME" ? "Full Time" :
-               data.contractType === "PART_TIME" ? "Part Time" :
-               data.contractType === "CONTRACT" ? "Kontrak" :
-               data.contractType === "INTERNSHIP" ? "Magang" :
+              {jobDetails.contractType === "FULL_TIME" ? "Full Time" :
+               jobDetails.contractType === "PART_TIME" ? "Part Time" :
+               jobDetails.contractType === "CONTRACT" ? "Kontrak" :
+               jobDetails.contractType === "INTERNSHIP" ? "Magang" :
                "Freelance"}
             </p>
           </div>
           
-          {data.salaryRange && (
+          {jobDetails.salaryRange && (
             <div>
               <h5 className="text-sm font-medium text-gray-500">Kisaran Gaji</h5>
               <p className="mt-1 text-sm text-gray-900">
-                {data.salaryRange.min && `Rp ${data.salaryRange.min.toLocaleString()}`}
-                {data.salaryRange.min && data.salaryRange.max && " - "}
-                {data.salaryRange.max && `Rp ${data.salaryRange.max.toLocaleString()}`}
-                {data.salaryRange.isNegotiable && " (Dapat dinegosiasikan)"}
+                {jobDetails.salaryRange.min && `Rp ${jobDetails.salaryRange.min.toLocaleString()}`}
+                {jobDetails.salaryRange.min && jobDetails.salaryRange.max && " - "}
+                {jobDetails.salaryRange.max && `Rp ${jobDetails.salaryRange.max.toLocaleString()}`}
+                {jobDetails.salaryRange.isNegotiable && " (Dapat dinegosiasikan)"}
               </p>
             </div>
           )}
@@ -339,112 +286,123 @@ function JobSummary() {
           <div>
             <h5 className="text-sm font-medium text-gray-500">Pengalaman yang Dibutuhkan</h5>
             <p className="mt-1 text-sm text-gray-900">
-              {data.minWorkExperience} tahun minimum
+              {jobDetails.minWorkExperience} tahun minimum
             </p>
           </div>
           
           <div>
             <h5 className="text-sm font-medium text-gray-500">Batas Waktu Pendaftaran</h5>
             <p className="mt-1 text-sm text-gray-900">
-              {data.applicationDeadline?.toLocaleDateString("id-ID", {
-                year: "numeric",
-                month: "long",
-                day: "numeric"
-              })}
+              {jobDetails.applicationDeadline instanceof Date ? 
+                jobDetails.applicationDeadline.toLocaleDateString("id-ID", {
+                  year: "numeric",
+                  month: "long",
+                  day: "numeric"
+                }) : 
+                new Date(jobDetails.applicationDeadline).toLocaleDateString("id-ID", {
+                  year: "numeric",
+                  month: "long",
+                  day: "numeric"
+                })
+              }
             </p>
           </div>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
       
       {/* Tentang Perusahaan Section */}
-      {data.companyInfo && (
-        <div className="pt-6 border-t border-gray-200">
-          <div className="flex items-center space-x-3 mb-4">
-            <div className="h-10 w-10 bg-green-100 rounded-full flex items-center justify-center">
-              <Building className="h-6 w-6 text-green-600" />
+      {jobDetails.companyInfo && (
+        <Card id="company-info-card">
+          <CardHeader>
+            <div className="flex items-center space-x-3">
+              <div className="h-10 w-10 bg-green-100 rounded-full flex items-center justify-center">
+                <Building className="h-6 w-6 text-green-600" />
+              </div>
+              <CardTitle className="text-lg leading-6 font-medium text-gray-900">
+                Tentang Perusahaan
+              </CardTitle>
             </div>
-            <h3 className="text-lg leading-6 font-medium text-gray-900">
-              Tentang Perusahaan
-            </h3>
-          </div>
+          </CardHeader>
           
-          <div className="flex items-center mb-4">
-            {data.companyInfo.logo && (
-              <div className="mr-4">
-                <Image 
-                  src={data.companyInfo.logo} 
-                  alt={`${data.companyInfo.name} logo`}
-                  width={64}
-                  height={64}
-                  className="rounded-md"
-                />
-              </div>
-            )}
-            <div>
-              <h4 className="font-medium text-gray-900">{data.companyInfo.name}</h4>
-              <p className="text-sm text-gray-500">{data.companyInfo.industry}</p>
-            </div>
-          </div>
-          
-          <div className="space-y-3 text-sm">
-            {data.companyInfo.address && (
-              <div className="flex items-start">
-                <MapPin className="h-4 w-4 text-gray-400 mr-2 mt-0.5" />
-                <span>{data.companyInfo.address}</span>
-              </div>
-            )}
-            
-            {data.companyInfo.website && (
-              <div className="flex items-start">
-                <Globe className="h-4 w-4 text-gray-400 mr-2 mt-0.5" />
-                <a 
-                  href={data.companyInfo.website} 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="text-blue-600 hover:underline"
-                >
-                  {data.companyInfo.website.replace(/^https?:\/\//, '')}
-                </a>
-              </div>
-            )}
-            
-            {data.companyInfo.socialMedia && Object.keys(data.companyInfo.socialMedia).length > 0 && (
-              <div className="flex items-start">
-                <Building className="h-4 w-4 text-gray-400 mr-2 mt-0.5" />
-                <div className="flex space-x-2">
-                  {data.companyInfo.socialMedia.linkedin && (
-                    <a 
-                      href={`https://linkedin.com/company/${data.companyInfo.socialMedia.linkedin}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-600 hover:underline"
-                    >
-                      LinkedIn
-                    </a>
-                  )}
-                  {data.companyInfo.socialMedia.instagram && (
-                    <a 
-                      href={`https://instagram.com/${data.companyInfo.socialMedia.instagram}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-600 hover:underline"
-                    >
-                      Instagram
-                    </a>
-                  )}
+          <CardContent className="space-y-4 pt-0">
+            <div className="flex items-center mb-4">
+              {jobDetails.companyInfo.logoUrl && jobDetails.companyInfo.logoUrl !== 'https://via.placeholder.com/100' && (
+                <div className="mr-4">
+                  <Image 
+                    src={jobDetails.companyInfo.logoUrl} 
+                    alt={`${jobDetails.companyInfo.name} logo`}
+                    width={64}
+                    height={64}
+                    className="rounded-md"
+                  />
                 </div>
+              )}
+              <div>
+                <h4 className="font-medium text-gray-900">{jobDetails.companyInfo.name}</h4>
+                <p className="text-sm text-gray-500">{jobDetails.companyInfo.industry}</p>
+              </div>
+            </div>
+            
+            <div className="space-y-3 text-sm">
+              {jobDetails.companyInfo.address && (
+                <div className="flex items-start">
+                  <MapPin className="h-4 w-4 text-gray-400 mr-2 mt-0.5" />
+                  <span>{jobDetails.companyInfo.address}</span>
+                </div>
+              )}
+              
+              {jobDetails.companyInfo.website && (
+                <div className="flex items-start">
+                  <Globe className="h-4 w-4 text-gray-400 mr-2 mt-0.5" />
+                  <a 
+                    href={jobDetails.companyInfo.website} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:underline"
+                  >
+                    {jobDetails.companyInfo.website.replace(/^https?:\/\//, '')}
+                  </a>
+                </div>
+              )}
+              
+              {jobDetails.companyInfo.socialMedia && Object.keys(jobDetails.companyInfo.socialMedia).length > 0 && (
+                <div className="flex items-start">
+                  <Building className="h-4 w-4 text-gray-400 mr-2 mt-0.5" />
+                  <div className="flex space-x-2">
+                    {jobDetails.companyInfo.socialMedia.linkedin && (
+                      <a 
+                        href={`https://linkedin.com/company/${jobDetails.companyInfo.socialMedia.linkedin}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:underline"
+                      >
+                        LinkedIn
+                      </a>
+                    )}
+                    {jobDetails.companyInfo.socialMedia.instagram && (
+                      <a 
+                        href={`https://instagram.com/${jobDetails.companyInfo.socialMedia.instagram}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:underline"
+                      >
+                        Instagram
+                      </a>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            {jobDetails.companyInfo.description && (
+              <div className="mt-4">
+                <p className="text-sm text-gray-600">{jobDetails.companyInfo.description}</p>
               </div>
             )}
-          </div>
-          
-          {data.companyInfo.description && (
-            <div className="mt-4">
-              <p className="text-sm text-gray-600">{data.companyInfo.description}</p>
-            </div>
-          )}
-        </div>
+          </CardContent>
+        </Card>
       )}
-    </>
+    </div>
   );
 }
 
@@ -458,57 +416,55 @@ function JobApplicationSkeleton() {
         </div>
 
         <div className="p-4">
-          <div className="mb-6">
-            <Skeleton className="h-7 w-48 mb-2" />
-            <Skeleton className="h-5 w-32" />
-          </div>
-          
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="grid gap-6 lg:grid-cols-3 lg:gap-8">
             {/* Job Summary Skeleton */}
-            <div className="lg:col-span-1">
-              <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
-                <div className="mb-6">
-                  <div className="flex items-center space-x-3 mb-4">
+            <div className="lg:col-span-1 space-y-6">
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center space-x-3">
+                    <Skeleton className="h-10 w-10 rounded-full" />
+                    <Skeleton className="h-6 w-48" />
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-6 pt-0">
+                  <div className="space-y-1">
+                    <Skeleton className="h-5 w-20" />
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="h-4 w-3/4" />
+                  </div>
+                  
+                  <div className="space-y-1">
+                    <Skeleton className="h-5 w-28" />
+                    <Skeleton className="h-4 w-28" />
+                  </div>
+                  
+                  <div className="space-y-1">
+                    <Skeleton className="h-5 w-28" />
+                    <Skeleton className="h-4 w-48" />
+                  </div>
+                  
+                  <div className="space-y-1">
+                    <Skeleton className="h-5 w-48" />
+                    <Skeleton className="h-4 w-28" />
+                  </div>
+                  
+                  <div className="space-y-1">
+                    <Skeleton className="h-5 w-40" />
+                    <Skeleton className="h-4 w-40" />
+                  </div>
+                </CardContent>
+              </Card>
+              
+              {/* Company info skeleton */}
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center space-x-3">
                     <Skeleton className="h-10 w-10 rounded-full" />
                     <Skeleton className="h-6 w-40" />
                   </div>
-                  
-                  <div className="space-y-4">
-                    <div>
-                      <Skeleton className="h-5 w-20 mb-1" />
-                      <Skeleton className="h-4 w-full mb-1" />
-                      <Skeleton className="h-4 w-full" />
-                    </div>
-                    
-                    <div>
-                      <Skeleton className="h-5 w-28 mb-1" />
-                      <Skeleton className="h-4 w-28" />
-                    </div>
-                    
-                    <div>
-                      <Skeleton className="h-5 w-28 mb-1" />
-                      <Skeleton className="h-4 w-48" />
-                    </div>
-                    
-                    <div>
-                      <Skeleton className="h-5 w-48 mb-1" />
-                      <Skeleton className="h-4 w-20" />
-                    </div>
-                    
-                    <div>
-                      <Skeleton className="h-5 w-40 mb-1" />
-                      <Skeleton className="h-4 w-40" />
-                    </div>
-                  </div>
-                </div>
+                </CardHeader>
                 
-                {/* Company info skeleton */}
-                <div className="pt-6 border-t border-gray-200">
-                  <div className="flex items-center space-x-3 mb-4">
-                    <Skeleton className="h-10 w-10 rounded-full" />
-                    <Skeleton className="h-6 w-40" />
-                  </div>
-                  
+                <CardContent className="space-y-6 pt-0">
                   <div className="flex items-center mb-4">
                     <Skeleton className="h-16 w-16 rounded-md mr-4" />
                     <div>
@@ -532,87 +488,22 @@ function JobApplicationSkeleton() {
                     </div>
                   </div>
                   
-                  <Skeleton className="h-16 w-full mt-4" />
-                </div>
-              </div>
+                  <Skeleton className="h-16 w-full" />
+                </CardContent>
+              </Card>
             </div>
 
             {/* Application Form Skeleton */}
-            <div className="lg:col-span-2 lg:max-w-3xl mx-auto">
-              <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
-                <Skeleton className="h-8 w-48 mb-6" />
-                
-                {/* Consent checkbox skeleton */}
-                <div className="mb-6 p-4 border rounded-md bg-blue-50">
-                  <div className="flex items-start">
-                    <Skeleton className="h-4 w-4 mr-3 mt-0.5" />
-                    <div>
-                      <Skeleton className="h-5 w-48 mb-1" />
-                      <Skeleton className="h-4 w-64" />
-                    </div>
+            <div className="lg:col-span-2">
+              <Card>
+                <CardHeader>
+                  <div className="flex justify-center py-6">
+                    <Loader2 className="h-10 w-10 animate-spin text-blue-600" />
                   </div>
-                </div>
-                
-                <div className="space-y-6">
-                  <div className="space-y-2">
-                    <Skeleton className="h-5 w-32" />
-                    <Skeleton className="h-10 w-full" />
-                  </div>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Skeleton className="h-5 w-32" />
-                      <Skeleton className="h-10 w-full" />
-                    </div>
-                    <div className="space-y-2">
-                      <Skeleton className="h-5 w-32" />
-                      <Skeleton className="h-10 w-full" />
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Skeleton className="h-5 w-32" />
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                      <div className="flex items-center space-x-2">
-                        <Skeleton className="h-4 w-4" />
-                        <Skeleton className="h-4 w-16" />
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Skeleton className="h-4 w-4" />
-                        <Skeleton className="h-4 w-16" />
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Skeleton className="h-4 w-4" />
-                        <Skeleton className="h-4 w-16" />
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Skeleton className="h-5 w-40" />
-                    <Skeleton className="h-24 w-full" />
-                    <Skeleton className="h-4 w-64" />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Skeleton className="h-5 w-32" />
-                    <Skeleton className="h-40 w-full" />
-                    <Skeleton className="h-4 w-64" />
-                  </div>
-                  
-                  <div className="flex items-start space-x-3 pt-4">
-                    <Skeleton className="h-4 w-4 mt-0.5" />
-                    <div>
-                      <Skeleton className="h-5 w-64 mb-1" />
-                      <Skeleton className="h-4 w-80" />
-                    </div>
-                  </div>
-                  
-                  <div className="pt-4">
-                    <Skeleton className="h-10 w-full" />
-                  </div>
-                </div>
-              </div>
+                  <CardTitle className="text-center">Memuat Formulir Aplikasi</CardTitle>
+                  <CardDescription className="text-center">Harap tunggu sementara kami menyiapkan formulir lamaran...</CardDescription>
+                </CardHeader>
+              </Card>
             </div>
           </div>
         </div>

@@ -28,6 +28,42 @@ class JobApplicationService {
   }
 
   /**
+   * Save application via API
+   * This method can be used from client components to submit applications
+   */
+  async saveApplicationViaAPI(
+    jobId: string,
+    applicantData: Omit<JobApplicant, 'userId'>
+  ): Promise<{ application: Partial<JobApplication>; referenceCode: string }> {
+    try {
+      const response = await fetch('/api/job-application', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          jobId,
+          ...applicantData,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to save application');
+      }
+
+      const result = await response.json();
+      return {
+        application: result.application,
+        referenceCode: result.referenceCode,
+      };
+    } catch (error) {
+      console.error('Error saving application via API:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Get an application by ID
    */
   async getApplicationById(id: string): Promise<JobApplication | null> {

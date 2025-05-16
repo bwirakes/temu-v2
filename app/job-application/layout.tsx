@@ -1,18 +1,16 @@
-import { Metadata } from 'next';
-
-export const metadata: Metadata = {
-  title: 'Job Application | Create and Share Job Postings',
-  description: 'Create professional job postings with our easy-to-use job application builder',
-};
+import { ReactNode } from 'react';
+import { SessionProvider } from '@/components/session-provider';
 
 export default function JobApplicationLayout({
   children,
 }: {
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   return (
-    <div className="job-application-layout">
-      {children}
-    </div>
+    <SessionProvider>
+      <div className="min-h-screen bg-notion-background">
+        {children}
+      </div>
+    </SessionProvider>
   );
 } 

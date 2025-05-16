@@ -13,6 +13,9 @@ import { z } from "zod";
 // Import for database operations
 import { db, jobApplications, applicationStatusEnum } from "@/lib/db";
 
+// Import job application service
+import { jobApplicationService } from "@/lib/services/JobApplicationService";
+
 /**
  * Job Application Types
  */
@@ -133,55 +136,32 @@ export const JobApplicationProvider = ({ children, jobId }: { children: ReactNod
 
   // Save application to database
   const saveApplicationToDatabase = useCallback(async (applicantProfileId: string) => {
-    if (!data.jobId || !applicantProfileId) {
-      throw new Error("Job ID and applicant profile ID are required");
+    if (!data.jobId) {
+      throw new Error("Job ID is required");
     }
 
-    // Generate a reference code if not already set
-    const referenceCode = data.referenceCode || `APP-${Math.floor(Math.random() * 900000) + 100000}`;
-    
     try {
-      // In a real implementation, this would be a server action
-      // For now we'll simulate an API call with the structure
-      
-      /*
-      // In a server component or action, you would use:
-      const application = await db
-        .insert(jobApplications)
-        .values({
-          applicantProfileId: applicantProfileId,
-          jobId: data.jobId,
-          status: "SUBMITTED", // Using applicationStatusEnum.SUBMITTED would be better
-          coverLetter: data.coverLetter || "",
-          resumeUrl: data.resumeUrl || "",
-          // Reference code would be stored in a metadata field or separate table
-        })
-        .returning();
-        
-      return { id: application.id, referenceCode };
-      */
-      
-      // Mock implementation for client component
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      console.log("Saved application to database:", {
-        applicantProfileId,
-        jobId: data.jobId,
-        coverLetter: data.coverLetter,
-        resumeUrl: data.resumeUrl,
-        referenceCode,
+      // Use our JobApplicationService to save the application via API
+      const result = await jobApplicationService.saveApplicationViaAPI(data.jobId, {
+        fullName: data.fullName,
+        email: data.email,
+        phone: data.phone,
+        coverLetter: data.coverLetter || "",
+        resumeUrl: data.resumeUrl || "",
       });
       
-      // Update local state
+      // Update local state with the response from the API
       setData(prev => ({
         ...prev,
         status: "SUBMITTED",
         submittedAt: new Date(),
-        referenceCode,
+        referenceCode: result.referenceCode,
       }));
       
-      // Return mock data
-      return { id: `job-app-${Date.now()}`, referenceCode };
+      return { 
+        id: result.application.id as string, 
+        referenceCode: result.referenceCode 
+      };
       
     } catch (error) {
       console.error("Error saving application to database:", error);
@@ -199,9 +179,10 @@ export const JobApplicationProvider = ({ children, jobId }: { children: ReactNod
     setIsSubmitting(true);
 
     try {
-      // In a real app, we'd get the user's profile ID from auth context
-      // For now, we'll use a placeholder
-      const applicantProfileId = "mock-profile-id"; 
+      // In a real app with a full database setup, we would use the user's actual profile ID
+      // For our current implementation, the API handles linking to the user via session
+      // So we'll just pass a placeholder ID that the server will override
+      const applicantProfileId = "current-user"; 
       
       // Save to database and get reference code
       const { referenceCode } = await saveApplicationToDatabase(applicantProfileId);
