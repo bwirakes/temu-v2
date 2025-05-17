@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getJobById, getEmployerById, getJobWorkLocationsByJobId } from '@/lib/db';
 
-export async function GET(request: NextRequest, props: { params: Promise<{ jobId: string }> }) {
-  const params = await props.params;
+export async function GET(request: NextRequest, { params }: { params: { jobId: string } }) {
   try {
     const jobId = params.jobId;
     
@@ -37,6 +36,7 @@ export async function GET(request: NextRequest, props: { params: Promise<{ jobId
     const locations = await getJobWorkLocationsByJobId(jobId);
     
     // Format the job data for the frontend
+    // Include new fields but filter out sensitive information
     const formattedJob = {
       jobId: job.id,
       jobTitle: job.jobTitle,
@@ -57,8 +57,25 @@ export async function GET(request: NextRequest, props: { params: Promise<{ jobId
       postedDate: job.postedDate,
       numberOfPositions: job.numberOfPositions,
       workingHours: job.workingHours,
-      expectations: job.expectations,
-      additionalRequirements: job.additionalRequirements,
+      // New fields
+      lastEducation: job.lastEducation,
+      requiredCompetencies: job.requiredCompetencies,
+      acceptedDisabilityTypes: job.acceptedDisabilityTypes,
+      numberOfDisabilityPositions: job.numberOfDisabilityPositions,
+      // Filtered expectations to exclude age range
+      expectations: job.expectations ? {
+        expectedCharacter: job.expectations.expectedCharacter,
+        foreignLanguage: job.expectations.foreignLanguage,
+        // ageRange is explicitly excluded
+      } : null,
+      // Filtered additionalRequirements to exclude gender
+      additionalRequirements: job.additionalRequirements ? {
+        requiredDocuments: job.additionalRequirements.requiredDocuments,
+        specialSkills: job.additionalRequirements.specialSkills,
+        technologicalSkills: job.additionalRequirements.technologicalSkills,
+        suitableForDisability: job.additionalRequirements.suitableForDisability,
+        // gender is explicitly excluded
+      } : null,
       companyInfo: {
         name: employer.namaPerusahaan,
         logoUrl: employer.logoUrl,

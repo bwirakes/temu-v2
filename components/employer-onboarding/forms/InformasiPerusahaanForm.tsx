@@ -20,6 +20,7 @@ type InformasiPerusahaanValues = {
   merekUsaha: string;
   industri: string;
   alamatKantor: string;
+  email: string;
 };
 
 export default function InformasiPerusahaanForm() {
@@ -32,6 +33,7 @@ export default function InformasiPerusahaanForm() {
     merekUsaha: data.merekUsaha || "",
     industri: data.industri || "",
     alamatKantor: data.alamatKantor || "",
+    email: data.email || "",
   };
 
   const {
@@ -53,6 +55,7 @@ export default function InformasiPerusahaanForm() {
         merekUsaha: values.merekUsaha,
         industri: values.industri,
         alamatKantor: values.alamatKantor,
+        email: values.email,
       });
       
       // Now that data is updated in context, increment the step before saving
@@ -107,6 +110,26 @@ export default function InformasiPerusahaanForm() {
           {errors.namaPerusahaan && (
             <p className="text-red-500 text-sm">{errors.namaPerusahaan.message}</p>
           )}
+        </div>
+
+        {/* Email Perusahaan */}
+        <div className="space-y-2">
+          <FormLabel htmlFor="email">
+            Email Perusahaan <span className="text-red-500">*</span>
+          </FormLabel>
+          <Input
+            id="email"
+            type="email"
+            placeholder="info@perusahaananda.com"
+            {...register("email")}
+            className={errors.email ? "border-red-500" : ""}
+          />
+          {errors.email && (
+            <p className="text-red-500 text-sm">{errors.email.message}</p>
+          )}
+          <p className="text-xs text-gray-500">
+            Email perusahaan yang aktif untuk komunikasi bisnis
+          </p>
         </div>
 
         {/* Merek Usaha */}

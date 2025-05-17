@@ -141,7 +141,7 @@ export default function PendidikanForm() {
         onSubmit={handleSubmit}
         isSubmitting={isSubmitting || isSaving}
         disableNext={pendidikanList.length === 0 || pendidikanList.some(p => !p.namaInstitusi || !p.lokasi || !p.jenjangPendidikan || (!p.tanggalLulus && p.tanggalLulus !== "Masih Kuliah"))}
-        saveOnNext={false}
+        saveOnNext={true}
       />
     </div>
   );

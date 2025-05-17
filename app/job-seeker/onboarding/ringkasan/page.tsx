@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useOnboarding } from "@/lib/context/OnboardingContext";
 import { useOnboardingApi } from "@/lib/hooks/useOnboardingApi";
@@ -11,25 +11,31 @@ export default function RingkasanPage() {
   const router = useRouter();
   const { data, isStepComplete } = useOnboarding();
   const { loadOnboardingData, isLoading } = useOnboardingApi();
+  const [hasLoadedData, setHasLoadedData] = useState(false);
 
   // Load data from the database when the component mounts
   useEffect(() => {
     const fetchData = async () => {
-      try {
-        await loadOnboardingData();
-      } catch (error) {
-        console.error("Failed to load onboarding data:", error);
+      if (!hasLoadedData) {
+        try {
+          await loadOnboardingData();
+          setHasLoadedData(true);
+        } catch (error) {
+          console.error("Failed to load onboarding data:", error);
+        }
       }
     };
 
     fetchData();
-  }, [loadOnboardingData]);
+  }, [loadOnboardingData, hasLoadedData]);
 
   // Redirect to incomplete steps if necessary
   useEffect(() => {
-    if (!isLoading) {
-      // Check if previous steps are complete
-      for (let step = 1; step <= 9; step++) {
+    if (!isLoading && hasLoadedData) {
+      // Check if previous required steps are complete (skip optional ones)
+      const requiredSteps = [1, 2, 3, 4, 5, 7]; // Only check non-optional steps
+      
+      for (const step of requiredSteps) {
         if (!isStepComplete(step)) {
           const stepRoutes = [
             "/job-seeker/onboarding/informasi-dasar",     // Step 1: Informasi Dasar
@@ -50,7 +56,7 @@ export default function RingkasanPage() {
         }
       }
     }
-  }, [isLoading, isStepComplete, router, data]);
+  }, [isLoading, isStepComplete, router, hasLoadedData]);
 
   return (
     <OnboardingLayout

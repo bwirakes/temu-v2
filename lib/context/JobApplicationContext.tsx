@@ -30,7 +30,7 @@ export type JobApplicationData = {
   
   // Application Details
   coverLetter?: string;
-  education?: "SMA" | "Diploma" | "S1" | "S2" | "S3";
+  education?: "SD" | "SMP" | "SMA/SMK" | "D1" | "D2" | "D3" | "D4" | "S1" | "S2" | "S3";
   resume?: File;
   resumeUrl?: string;
   
@@ -58,7 +58,7 @@ export const jobApplicationSchema = z.object({
   coverLetter: z.string().min(50, { message: "Surat lamaran minimal 50 karakter" })
     .max(2000, { message: "Surat lamaran maksimal 2000 karakter" })
     .optional(),
-  education: z.enum(["SMA", "Diploma", "S1", "S2", "S3"], {
+  education: z.enum(["SD", "SMP", "SMA/SMK", "D1", "D2", "D3", "D4", "S1", "S2", "S3"], {
     required_error: "Pendidikan terakhir harus dipilih",
   }).optional(),
   additionalNotes: z.string().optional(),

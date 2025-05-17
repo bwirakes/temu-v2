@@ -25,6 +25,21 @@ export default {
         protocol: 'https',
         hostname: 'ui-avatars.com',
         search: ''
+      },
+      {
+        protocol: 'https',
+        hostname: 'mock-vercel-blob.vercel.app',
+        search: ''
+      },
+      {
+        protocol: 'http',
+        hostname: 'localhost',
+        search: ''
+      },
+      {
+        protocol: 'https',
+        hostname: 'placehold.co',
+        search: ''
       }
     ]
   }

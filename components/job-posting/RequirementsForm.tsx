@@ -13,7 +13,9 @@ export default function RequirementsForm() {
     minWorkExperience: data.minWorkExperience || 0,
     requiredDocuments: data.requiredDocuments,
     specialSkills: data.specialSkills || "",
-    technologicalSkills: data.technologicalSkills || ""
+    technologicalSkills: data.technologicalSkills || "",
+    lastEducation: data.lastEducation || "",
+    requiredCompetencies: data.requiredCompetencies || ""
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -35,7 +37,19 @@ export default function RequirementsForm() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    const validationErrors = getStepValidationErrors(2);
+    // Custom validation for the new fields
+    const newErrors: Record<string, string> = {};
+    
+    if (!formData.lastEducation || formData.lastEducation.trim() === "") {
+      newErrors.lastEducation = "Pendidikan terakhir wajib diisi";
+    }
+    
+    // Combine with existing validation
+    const validationErrors = {
+      ...getStepValidationErrors(2),
+      ...newErrors
+    };
+    
     setErrors(validationErrors);
     
     if (Object.keys(validationErrors).length === 0) {
@@ -75,6 +89,35 @@ export default function RequirementsForm() {
         )}
       </div>
 
+      {/* Last Education */}
+      <div>
+        <label htmlFor="lastEducation" className="block text-sm font-medium text-gray-700">
+          Pendidikan Terakhir <span className="text-red-500">*</span>
+        </label>
+        <select
+          id="lastEducation"
+          name="lastEducation"
+          value={formData.lastEducation}
+          onChange={handleChange}
+          className={`mt-1 block w-full rounded-md border ${
+            errors.lastEducation ? "border-red-300" : "border-gray-300"
+          } shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2`}
+        >
+          <option value="">Pilih Pendidikan Terakhir</option>
+          <option value="SD">SD</option>
+          <option value="SMP">SMP</option>
+          <option value="SMA/SMK">SMA/SMK</option>
+          <option value="Diploma">Diploma</option>
+          <option value="S1">S1</option>
+          <option value="S2">S2</option>
+          <option value="S3">S3</option>
+          <option value="Tidak Ada">Tidak Ada</option>
+        </select>
+        {errors.lastEducation && (
+          <p className="mt-1 text-sm text-red-600">{errors.lastEducation}</p>
+        )}
+      </div>
+
       {/* Minimum Work Experience */}
       <div>
         <label htmlFor="minWorkExperience" className="block text-sm font-medium text-gray-700">
@@ -95,6 +138,22 @@ export default function RequirementsForm() {
         <p className="mt-1 text-xs text-gray-500">
           Masukkan 0 jika tidak ada persyaratan pengalaman kerja
         </p>
+      </div>
+
+      {/* Required Competencies */}
+      <div>
+        <label htmlFor="requiredCompetencies" className="block text-sm font-medium text-gray-700">
+          Kompetensi yang Dibutuhkan <span className="text-gray-400 text-xs ml-1">(Opsional)</span>
+        </label>
+        <textarea
+          id="requiredCompetencies"
+          name="requiredCompetencies"
+          rows={3}
+          value={formData.requiredCompetencies}
+          onChange={handleChange}
+          placeholder="Contoh: Kemampuan analitis, Komunikasi yang baik, Kepemimpinan, dll."
+          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2"
+        />
       </div>
 
       {/* Required Documents */}

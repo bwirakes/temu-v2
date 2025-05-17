@@ -252,7 +252,7 @@ export default function CVUploadForm() {
         onSubmit={handleSubmit}
         isSubmitting={isSubmitting || isSaving}
         onSkip={navigateToNextStep}
-        saveOnNext={false}
+        saveOnNext={true}
       />
     </div>
   );

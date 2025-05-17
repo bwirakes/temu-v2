@@ -45,8 +45,12 @@ export default function EkspektasiKerjaForm() {
       console.error("Failed to parse ekspektasiKerja JSON:", e);
     }
   } else if (data.ekspektasiKerja && typeof data.ekspektasiKerja === 'object') {
+    // Directly use the object
     existingData = data.ekspektasiKerja as any;
   }
+  
+  // Log existing data to help with debugging
+  console.log("Existing ekspektasiKerja data:", existingData);
   
   // Prepare the default values
   const defaultValues: Partial<EkspektasiKerjaValues> = {
@@ -72,21 +76,28 @@ export default function EkspektasiKerjaForm() {
     try {
       setIsSubmitting(true);
       
+      // Ensure idealSalary is a number
+      const idealSalary = typeof values.idealSalary === 'string' 
+        ? parseInt(values.idealSalary, 10) 
+        : values.idealSalary;
+      
       const ekspektasiData: EkspektasiKerja = {
         jobTypes: values.jobTypes,
-        idealSalary: values.idealSalary,
+        idealSalary: idealSalary,
         willingToTravel: values.willingToTravel,
         preferensiLokasiKerja: values.preferensiLokasiKerja,
       };
       
-      // Save form values to context as JSON string for compatibility
+      console.log("Submitting ekspektasiKerja data:", ekspektasiData);
+      
+      // Save form values to context
       updateFormValues({
-        ekspektasiKerja: JSON.stringify(ekspektasiData),
+        ekspektasiKerja: ekspektasiData,
       });
       
       // Save data to API with proper error handling
       try {
-        await saveStep(currentStep, { ekspektasiKerja: JSON.stringify(ekspektasiData) });
+        await saveStep(currentStep, { ekspektasiKerja: ekspektasiData });
         toast.success("Ekspektasi kerja berhasil disimpan");
         
         // Use the centralized navigation function
@@ -245,7 +256,7 @@ export default function EkspektasiKerjaForm() {
         </div>
       </div>
       
-      <FormNav isSubmitting={isSubmitting || isSaving} saveOnNext={false} />
+      <FormNav isSubmitting={isSubmitting || isSaving} saveOnNext={true} />
     </form>
   );
 } 

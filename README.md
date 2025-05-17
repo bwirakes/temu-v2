@@ -185,4 +185,50 @@ For Vercel deployment:
 ## License
 
 MIT
-# temu-jobfair
+
+# Profile Photo Upload Feature
+
+## Overview
+
+The profile photo upload feature allows job seekers to upload and manage their profile photos. This feature uses Vercel Blob for storage and integrates seamlessly with the job seeker profile page.
+
+## Implementation Details
+
+### Server-Side Implementation
+
+- **API Route**: `/api/job-seeker/profile/photo`
+- **Storage**: Vercel Blob
+- **File Types**: Supports JPG, PNG, and WebP image formats
+- **Size Limit**: 2MB maximum size for profile photos
+- **Security**: Authentication and authorization checks ensure only the profile owner can upload photos
+
+### Client-Side Implementation
+
+- **Component**: `ProfilePhotoUploader` provides a user-friendly interface for uploading photos
+- **Preview**: Users can preview photos before uploading
+- **Validation**: Client-side validation for file type and size
+- **Integration**: Seamlessly integrated with the job seeker profile page
+
+## Environment Variables
+
+This feature requires the following environment variables:
+
+```
+BLOB_READ_WRITE_TOKEN=your_vercel_blob_token
+```
+
+For development, you can enable mock mode:
+
+```
+NEXT_PUBLIC_MOCK_BLOB=true
+```
+
+## Usage
+
+To use the profile photo upload feature:
+
+1. Navigate to the profile page
+2. Click the camera icon on the profile photo
+3. Select an image file (JPG, PNG, or WebP)
+4. Preview and confirm the upload
+5. The new profile photo will be displayed immediately after successful upload

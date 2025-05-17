@@ -8,7 +8,6 @@ import { useForm } from "react-hook-form";
 import { PlusCircle, XCircle, Save, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -38,29 +37,22 @@ const jobSchema = z.object({
   // Basic Information
   jobTitle: z.string().min(1, "Jenis pekerjaan wajib diisi"),
   numberOfPositions: z.number().min(1, "Jumlah tenaga kerja wajib diisi"),
-  responsibilities: z.string().min(10, "Tugas dan tanggung jawab wajib diisi"),
-  workingHours: z.string().optional(),
-  salaryMin: z.string().optional(),
-  salaryMax: z.string().optional(),
-  salaryNegotiable: z.boolean().default(true),
   
   // Requirements
   gender: z.enum(["ANY", "MALE", "FEMALE"]),
   minWorkExperience: z.number().min(0).optional(),
-  requiredDocuments: z.string().min(1, "Dokumen wajib diisi"),
-  specialSkills: z.string().optional(),
-  technologicalSkills: z.string().optional(),
+  // Retained fields
+  lastEducation: z.enum(["SD", "SMP", "SMA/SMK", "D1", "D2", "D3", "D4", "S1", "S2", "S3"]).optional(),
+  requiredCompetencies: z.string().optional(), // Will be split into array when submitting
+  acceptedDisabilityTypes: z.string().optional(), // Will be split into array when submitting
+  numberOfDisabilityPositions: z.number().min(0).default(0),
   
-  // Company Expectations
+  // Company Expectations - only keeping age range
   ageRangeMin: z.number().min(15, "Minimal umur 15 tahun"),
   ageRangeMax: z.number().max(100, "Maksimal umur 100 tahun"),
-  expectedCharacter: z.string().min(1, "Karakter yang diharapkan wajib diisi"),
-  foreignLanguage: z.string().optional(),
   
   // Additional Information
-  suitableForDisability: z.boolean().default(false),
   contractType: z.enum(["FULL_TIME", "PART_TIME", "CONTRACT", "INTERNSHIP", "FREELANCE"]).optional(),
-  applicationDeadline: z.string().optional(),
 });
 
 type JobFormValues = z.infer<typeof jobSchema>;
@@ -106,23 +98,17 @@ export default function JobEditForm({ jobId, onSave, onCancel }: JobEditFormProp
     defaultValues: {
       jobTitle: "",
       numberOfPositions: 1,
-      responsibilities: "",
-      workingHours: "",
-      salaryMin: "",
-      salaryMax: "",
-      salaryNegotiable: true,
       gender: "ANY",
       minWorkExperience: 0,
-      requiredDocuments: "",
-      specialSkills: "",
-      technologicalSkills: "",
+      // New fields defaults
+      lastEducation: undefined,
+      requiredCompetencies: "",
+      acceptedDisabilityTypes: "",
+      numberOfDisabilityPositions: 0,
+      // Existing fields
       ageRangeMin: 18,
       ageRangeMax: 55,
-      expectedCharacter: "",
-      foreignLanguage: "",
-      suitableForDisability: false,
       contractType: "FULL_TIME" as ContractType,
-      applicationDeadline: "",
     },
   });
 
@@ -153,28 +139,22 @@ export default function JobEditForm({ jobId, onSave, onCancel }: JobEditFormProp
         form.reset({
           jobTitle: job.jobTitle || "",
           numberOfPositions: job.numberOfPositions || 1,
-          responsibilities: Array.isArray(job.responsibilities) 
-            ? job.responsibilities.join("\n") 
-            : job.responsibilities || "",
-          workingHours: job.workingHours || "",
-          salaryMin: job.salaryRange?.min?.toString() || "",
-          salaryMax: job.salaryRange?.max?.toString() || "",
-          salaryNegotiable: job.salaryRange?.isNegotiable || true,
           gender: job.additionalRequirements?.gender === "MALE" ? "MALE" : 
                  job.additionalRequirements?.gender === "FEMALE" ? "FEMALE" : "ANY",
           minWorkExperience: job.minWorkExperience || 0,
-          requiredDocuments: job.additionalRequirements?.requiredDocuments || "",
-          specialSkills: job.additionalRequirements?.specialSkills || "",
-          technologicalSkills: job.additionalRequirements?.technologicalSkills || "",
+          // New fields
+          lastEducation: job.lastEducation || undefined,
+          requiredCompetencies: Array.isArray(job.requiredCompetencies) 
+            ? job.requiredCompetencies.join("\n") 
+            : "",
+          acceptedDisabilityTypes: Array.isArray(job.acceptedDisabilityTypes) 
+            ? job.acceptedDisabilityTypes.join("\n") 
+            : "",
+          numberOfDisabilityPositions: job.numberOfDisabilityPositions || 0,
+          // Existing fields
           ageRangeMin: job.expectations?.ageRange?.min || 18,
           ageRangeMax: job.expectations?.ageRange?.max || 55,
-          expectedCharacter: job.expectations?.expectedCharacter || "",
-          foreignLanguage: job.expectations?.foreignLanguage || "",
-          suitableForDisability: job.additionalRequirements?.suitableForDisability || false,
           contractType: job.contractType as ContractType || "FULL_TIME",
-          applicationDeadline: job.applicationDeadline 
-            ? new Date(job.applicationDeadline).toISOString().split('T')[0]
-            : "",
         });
         
         // Fetch work locations
@@ -254,31 +234,22 @@ export default function JobEditForm({ jobId, onSave, onCancel }: JobEditFormProp
         jobTitle: data.jobTitle,
         contractType: data.contractType,
         minWorkExperience: data.minWorkExperience,
-        salaryRange: {
-          min: data.salaryMin ? Number(data.salaryMin) : undefined,
-          max: data.salaryMax ? Number(data.salaryMax) : undefined,
-          isNegotiable: data.salaryNegotiable
-        },
-        applicationDeadline: data.applicationDeadline || null,
-        requirements: data.requiredDocuments.split('\n').filter(Boolean),
-        responsibilities: data.responsibilities.split('\n').filter(Boolean),
-        description: data.responsibilities,
         numberOfPositions: data.numberOfPositions,
-        workingHours: data.workingHours,
+        // New fields
+        lastEducation: data.lastEducation,
+        requiredCompetencies: data.requiredCompetencies ? data.requiredCompetencies.split('\n').filter(Boolean) : [],
+        acceptedDisabilityTypes: data.acceptedDisabilityTypes ? data.acceptedDisabilityTypes.split('\n').filter(Boolean) : [],
+        numberOfDisabilityPositions: data.numberOfDisabilityPositions,
+        // Only include age range in expectations
         expectations: {
           ageRange: {
             min: data.ageRangeMin,
             max: data.ageRangeMax
-          },
-          expectedCharacter: data.expectedCharacter,
-          foreignLanguage: data.foreignLanguage
+          }
         },
+        // Only include gender field in additionalRequirements
         additionalRequirements: {
           gender: data.gender,
-          requiredDocuments: data.requiredDocuments,
-          specialSkills: data.specialSkills,
-          technologicalSkills: data.technologicalSkills,
-          suitableForDisability: data.suitableForDisability
         }
       };
 
@@ -396,21 +367,6 @@ export default function JobEditForm({ jobId, onSave, onCancel }: JobEditFormProp
             )}
           </div>
 
-          {/* Responsibilities */}
-          <div className="space-y-2">
-            <LabelText htmlFor="responsibilities" required>Tugas dan Tanggung Jawab</LabelText>
-            <Textarea
-              id="responsibilities"
-              rows={4}
-              placeholder="Jelaskan tugas dan tanggung jawab pekerjaan ini..."
-              {...form.register("responsibilities")}
-              className={form.formState.errors.responsibilities ? "border-red-500" : ""}
-            />
-            {form.formState.errors.responsibilities && (
-              <p className="text-sm text-red-500">{form.formState.errors.responsibilities.message}</p>
-            )}
-          </div>
-
           {/* Work Locations */}
           <div className="space-y-3">
             <div className="flex justify-between items-center">
@@ -510,52 +466,6 @@ export default function JobEditForm({ jobId, onSave, onCancel }: JobEditFormProp
               </div>
             ))}
           </div>
-
-          {/* Working Hours */}
-          <div className="space-y-2">
-            <LabelText htmlFor="workingHours">Jam Kerja</LabelText>
-            <Input
-              id="workingHours"
-              placeholder="Contoh: Senin-Jumat, 09:00-17:00"
-              {...form.register("workingHours")}
-            />
-          </div>
-
-          {/* Salary Range */}
-          <div className="space-y-3">
-            <Label className="flex items-center gap-1">
-              <span>Kisaran Gaji</span>
-              <span className="text-gray-500 text-xs">(opsional)</span>
-            </Label>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="salaryMin">Minimum (Rp)</Label>
-                <Input
-                  id="salaryMin"
-                  placeholder="Contoh: 5000000"
-                  {...form.register("salaryMin")}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="salaryMax">Maksimum (Rp)</Label>
-                <Input
-                  id="salaryMax"
-                  placeholder="Contoh: 8000000"
-                  {...form.register("salaryMax")}
-                />
-              </div>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="salaryNegotiable"
-                checked={form.watch("salaryNegotiable")}
-                onCheckedChange={(checked) => 
-                  form.setValue("salaryNegotiable", Boolean(checked))
-                }
-              />
-              <Label htmlFor="salaryNegotiable">Gaji dapat dinegosiasikan</Label>
-            </div>
-          </div>
         </CardContent>
       </Card>
 
@@ -612,49 +522,55 @@ export default function JobEditForm({ jobId, onSave, onCancel }: JobEditFormProp
             </p>
           </div>
 
-          {/* Required Documents */}
+          {/* Last Education */}
           <div className="space-y-2">
-            <LabelText htmlFor="requiredDocuments" required>Dokumen atau Sertifikasi yang Wajib Dimiliki</LabelText>
-            <Textarea
-              id="requiredDocuments"
-              rows={3}
-              placeholder="Contoh: KTP, Ijazah, SIM, Sertifikat Keahlian, dll."
-              {...form.register("requiredDocuments")}
-              className={form.formState.errors.requiredDocuments ? "border-red-500" : ""}
-            />
-            {form.formState.errors.requiredDocuments && (
-              <p className="text-sm text-red-500">{form.formState.errors.requiredDocuments.message}</p>
-            )}
+            <LabelText htmlFor="lastEducation">Pendidikan Terakhir</LabelText>
+            <Select
+              value={form.watch("lastEducation") || ""}
+              onValueChange={(value) => {
+                if (value) {
+                  form.setValue("lastEducation", value as any);
+                }
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Pilih Pendidikan Minimal" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">Tidak Ada Persyaratan</SelectItem>
+                <SelectItem value="SD">SD</SelectItem>
+                <SelectItem value="SMP">SMP</SelectItem>
+                <SelectItem value="SMA/SMK">SMA/SMK</SelectItem>
+                <SelectItem value="D1">D1</SelectItem>
+                <SelectItem value="D2">D2</SelectItem>
+                <SelectItem value="D3">D3</SelectItem>
+                <SelectItem value="D4">D4</SelectItem>
+                <SelectItem value="S1">S1</SelectItem>
+                <SelectItem value="S2">S2</SelectItem>
+                <SelectItem value="S3">S3</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-gray-500">
+              Pendidikan minimum yang diperlukan untuk posisi ini
+            </p>
           </div>
-
-          {/* Special Skills */}
+          
+          {/* Required Competencies */}
           <div className="space-y-2">
-            <LabelText htmlFor="specialSkills">Ketrampilan Khusus</LabelText>
-            <Textarea
-              id="specialSkills"
-              rows={3}
-              placeholder="Contoh: Mampu memahami komponen listrik, Mampu mengoperasikan mesin jahit, dll."
-              {...form.register("specialSkills")}
-            />
-          </div>
-
-          {/* Technological Skills */}
-          <div className="space-y-2">
-            <LabelText htmlFor="technologicalSkills">Ketrampilan Teknologi</LabelText>
-            <Textarea
-              id="technologicalSkills"
-              rows={3}
-              placeholder="Contoh: Microsoft Office, Adobe Photoshop, AutoCAD, dll."
-              {...form.register("technologicalSkills")}
+            <LabelText htmlFor="requiredCompetencies">Kompetensi yang Dibutuhkan</LabelText>
+            <Input
+              id="requiredCompetencies"
+              placeholder="Contoh: Komunikasi efektif, Pemecahan masalah, Kerjasama tim, dll."
+              {...form.register("requiredCompetencies")}
             />
             <p className="text-xs text-gray-500">
-              Jika ada, sebutkan teknologi yang akan digunakan dan tingkat keahlian yang diharapkan
+              Pisahkan beberapa kompetensi dengan koma
             </p>
           </div>
         </CardContent>
       </Card>
 
-      {/* Company Expectations */}
+      {/* Company Expectations - Only Age Range */}
       <Card>
         <CardHeader>
           <CardTitle>Harapan Perusahaan</CardTitle>
@@ -701,35 +617,6 @@ export default function JobEditForm({ jobId, onSave, onCancel }: JobEditFormProp
               <p className="text-sm text-red-500">Minimal umur harus lebih kecil dari maksimal umur</p>
             )}
           </div>
-
-          {/* Expected Character */}
-          <div className="space-y-2">
-            <LabelText htmlFor="expectedCharacter" required>Karakter yang Diharapkan</LabelText>
-            <Textarea
-              id="expectedCharacter"
-              rows={3}
-              placeholder="Contoh: Mampu bekerja dalam tim, Disiplin, Teliti, dll."
-              {...form.register("expectedCharacter")}
-              className={form.formState.errors.expectedCharacter ? "border-red-500" : ""}
-            />
-            {form.formState.errors.expectedCharacter && (
-              <p className="text-sm text-red-500">{form.formState.errors.expectedCharacter.message}</p>
-            )}
-          </div>
-
-          {/* Foreign Language */}
-          <div className="space-y-2">
-            <LabelText htmlFor="foreignLanguage">Kemampuan Bahasa Asing</LabelText>
-            <Textarea
-              id="foreignLanguage"
-              rows={2}
-              placeholder="Contoh: Bahasa Inggris (pasif), Bahasa Mandarin (aktif), dll."
-              {...form.register("foreignLanguage")}
-            />
-            <p className="text-xs text-gray-500">
-              Sebutkan jika pekerjaan memerlukan kemampuan bahasa asing
-            </p>
-          </div>
         </CardContent>
       </Card>
 
@@ -742,23 +629,30 @@ export default function JobEditForm({ jobId, onSave, onCancel }: JobEditFormProp
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* Suitable for Disability */}
-          <div className="flex items-center space-x-2">
-            <Checkbox
-              id="suitableForDisability"
-              checked={form.watch("suitableForDisability")}
-              onCheckedChange={(checked) => 
-                form.setValue("suitableForDisability", Boolean(checked))
-              }
+          {/* Disability fields */}
+          <div className="space-y-2">
+            <LabelText htmlFor="acceptedDisabilityTypes">Jenis Disabilitas yang Diterima</LabelText>
+            <Input
+              id="acceptedDisabilityTypes"
+              placeholder="Contoh: Disabilitas fisik, Disabilitas sensorik, dll."
+              {...form.register("acceptedDisabilityTypes")}
             />
-            <div className="grid gap-1.5 leading-none">
-              <Label htmlFor="suitableForDisability">
-                Pekerjaan dapat dilakukan oleh rekan dengan Disabilitas
-              </Label>
-              <p className="text-sm text-muted-foreground">
-                Centang jika posisi ini cocok untuk kandidat dengan disabilitas
-              </p>
-            </div>
+            <p className="text-xs text-gray-500">
+              Pisahkan beberapa jenis disabilitas dengan koma
+            </p>
+          </div>
+          
+          <div className="space-y-2">
+            <LabelText htmlFor="numberOfDisabilityPositions">Jumlah Posisi untuk Disabilitas</LabelText>
+            <Input
+              id="numberOfDisabilityPositions"
+              type="number"
+              min="0"
+              {...form.register("numberOfDisabilityPositions", { valueAsNumber: true })}
+            />
+            <p className="text-xs text-gray-500">
+              Masukkan 0 jika tidak ada kuota khusus
+            </p>
           </div>
 
           {/* Contract Type */}
@@ -788,19 +682,6 @@ export default function JobEditForm({ jobId, onSave, onCancel }: JobEditFormProp
                 <SelectItem value="FREELANCE">Freelance</SelectItem>
               </SelectContent>
             </Select>
-          </div>
-
-          {/* Application Deadline */}
-          <div className="space-y-2">
-            <LabelText htmlFor="applicationDeadline">Batas Waktu Pendaftaran</LabelText>
-            <Input
-              id="applicationDeadline"
-              type="date"
-              {...form.register("applicationDeadline")}
-            />
-            <p className="text-xs text-gray-500">
-              Kosongkan jika lowongan ini dibuka secara umum tanpa batas waktu
-            </p>
           </div>
         </CardContent>
       </Card>

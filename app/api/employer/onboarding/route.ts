@@ -9,6 +9,7 @@ const onboardingRequestSchema = z.object({
   merekUsaha: z.string().optional(),
   industri: z.string().min(1, "Industri wajib diisi"),
   alamatKantor: z.string().min(1, "Alamat kantor wajib diisi"),
+  email: z.string().min(1, "Email wajib diisi").email("Format email tidak valid"),
   website: z.string().optional(),
   socialMedia: z.object({
     instagram: z.string().optional(),
@@ -89,6 +90,7 @@ export async function POST(request: Request) {
       merekUsaha: data.merekUsaha || null,
       industri: data.industri,
       alamatKantor: data.alamatKantor,
+      email: data.email,
       website: data.website || null,
       // Handle socialMedia - set to null if empty or undefined
       socialMedia: data.socialMedia && Object.values(data.socialMedia).some(value => value) 

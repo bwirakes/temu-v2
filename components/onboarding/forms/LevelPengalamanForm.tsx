@@ -38,12 +38,27 @@ export default function LevelPengalamanForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   // Initialize form state from existing data
-  const initialLevelData: LevelPengalamanFormData = 
-    typeof data.levelPengalaman === 'string' && data.levelPengalaman 
-      ? JSON.parse(data.levelPengalaman) 
-      : typeof data.levelPengalaman === 'object' && data.levelPengalaman !== null
-      ? data.levelPengalaman as any
-      : { levelPengalaman: "entry_level" };
+  const initialLevelData: LevelPengalamanFormData = (() => {
+    // Handle case when levelPengalaman is a string
+    if (typeof data.levelPengalaman === 'string' && data.levelPengalaman) {
+      try {
+        // Try to parse it as JSON
+        return JSON.parse(data.levelPengalaman);
+      } catch (e) {
+        console.error("Failed to parse levelPengalaman as JSON:", e);
+        // If parsing fails, treat the string value as the enum value itself
+        return { levelPengalaman: data.levelPengalaman };
+      }
+    } 
+    // Handle case when levelPengalaman is already an object
+    else if (typeof data.levelPengalaman === 'object' && data.levelPengalaman !== null) {
+      return data.levelPengalaman as any;
+    } 
+    // Default value
+    else {
+      return { levelPengalaman: "entry_level" };
+    }
+  })();
   
   const [formData, setFormData] = useState<LevelPengalamanFormData>(initialLevelData);
 
@@ -58,14 +73,17 @@ export default function LevelPengalamanForm() {
     try {
       setIsSubmitting(true);
       
+      // Ensure formData is properly serialized as valid JSON
+      const serializedFormData = JSON.stringify(formData);
+      
       // Update context with form values
       updateFormValues({
-        levelPengalaman: JSON.stringify(formData)
+        levelPengalaman: serializedFormData
       });
       
       // Save level pengalaman data to API
       try {
-        await saveStep(currentStep, { levelPengalaman: JSON.stringify(formData) });
+        await saveStep(currentStep, { levelPengalaman: serializedFormData });
         toast.success("Level pengalaman berhasil disimpan");
         
         // Use the centralized navigation function

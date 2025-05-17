@@ -3,7 +3,9 @@
 import { useEffect, useState } from "react";
 import { useOnboarding } from "@/lib/context/OnboardingContext";
 import { useOnboardingApi } from "@/lib/hooks/useOnboardingApi";
-import { CheckCircle2, AlertCircle, FileText, Image } from "lucide-react";
+import { CheckCircle2, AlertCircle, FileText, Camera } from "lucide-react";
+import Image from "next/image";
+import { toast } from "sonner";
 
 // Define proper interfaces for the data types
 interface LevelPengalamanData {
@@ -21,23 +23,74 @@ export default function RingkasanProfil() {
   const [submitSuccess, setSubmitSuccess] = useState<boolean | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
+  // Data is now loaded from the parent component
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        await loadOnboardingData();
-        setIsDataLoaded(true);
-      } catch (error) {
-        console.error("Failed to load onboarding data:", error);
-      }
-    };
+    // Mark data as loaded when component mounts to avoid loading spinner
+    setIsDataLoaded(true);
+  }, []);
 
-    fetchData();
-  }, [loadOnboardingData]);
+  // Utility function to check if a step is complete based on the data
+  const isStepComplete = (step: number): boolean => {
+    
+    switch (step) {
+      case 1: // Informasi Dasar
+        return !!data.namaLengkap && !!data.email && !!data.nomorTelepon;
+      case 2: // Informasi Lanjutan
+        return !!data.tanggalLahir && !!data.tempatLahir;
+      case 3: // Alamat
+        return !!data.alamat?.kota;
+      case 4: // Pendidikan
+        return data.pendidikan.length > 0;
+      case 5: // Level Pengalaman
+        return !!data.levelPengalaman;
+      case 6: // Pengalaman Kerja (optional)
+        return true;
+      case 7: // Ekspektasi Kerja (optional)
+        return true;
+      case 8: // CV Upload (optional)
+        return true;
+      case 9: // Profile Photo (optional)
+        return true;
+      default:
+        return false;
+    }
+  };
 
   const handleSubmit = async () => {
     setIsSubmitting(true);
     setSubmitSuccess(null);
     setSubmitError(null);
+
+    // Client-side validation before submission
+    const incompleteRequiredSteps = [];
+    
+    // Check required steps (1-5)
+    for (let step = 1; step <= 5; step++) {
+      if (!isStepComplete(step)) {
+        incompleteRequiredSteps.push(step);
+      }
+    }
+    
+    if (incompleteRequiredSteps.length > 0) {
+      let errorMessage = "Beberapa data belum lengkap: ";
+      let redirectStep = incompleteRequiredSteps[0];
+      
+      if (incompleteRequiredSteps.includes(1)) {
+        errorMessage = "Informasi dasar belum lengkap. Anda akan dialihkan ke langkah awal.";
+        redirectStep = 1;
+      } else {
+        errorMessage = `Langkah ${incompleteRequiredSteps.join(", ")} belum lengkap. Anda akan dialihkan.`;
+      }
+      
+      setSubmitError(errorMessage);
+      setIsSubmitting(false);
+      
+      setTimeout(() => {
+        const redirectPath = `/job-seeker/onboarding/${getRedirectPathForStep(redirectStep)}`;
+        window.location.href = redirectPath;
+      }, 2000);
+      return;
+    }
 
     try {
       // Save the final step first
@@ -51,17 +104,28 @@ export default function RingkasanProfil() {
         }
       });
 
+      const result = await response.json();
+
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to complete registration");
+        console.error("Submission error:", result);
+        
+        // Handle validation errors with specific redirects
+        if (result.redirectTo) {
+          setSubmitError(`Ada data yang belum lengkap. Anda akan dialihkan ke halaman yang diperlukan.`);
+          setTimeout(() => {
+            window.location.href = result.redirectTo;
+          }, 2000);
+          return;
+        }
+        
+        throw new Error(result.error || "Failed to complete registration");
       }
 
-      const result = await response.json();
       setSubmitSuccess(true);
       
       // Redirect to dashboard or confirmation page after successful submission
       setTimeout(() => {
-        window.location.href = result.redirectUrl || "/dashboard";
+        window.location.href = result.redirectUrl || "/job-seeker/dashboard";
       }, 2000);
     } catch (error) {
       setSubmitError("Terjadi kesalahan saat menyelesaikan pendaftaran. Silakan coba lagi.");
@@ -69,6 +133,22 @@ export default function RingkasanProfil() {
       console.error("Submission error:", error);
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  // Helper function to get the redirect path for a step
+  const getRedirectPathForStep = (step: number): string => {
+    switch (step) {
+      case 1: return "informasi-dasar";
+      case 2: return "informasi-lanjutan";
+      case 3: return "alamat";
+      case 4: return "pendidikan";
+      case 5: return "level-pengalaman";
+      case 6: return "pengalaman-kerja";
+      case 7: return "ekspektasi-kerja";
+      case 8: return "cv-upload";
+      case 9: return "foto-profile";
+      default: return "ringkasan";
     }
   };
 
@@ -83,20 +163,40 @@ export default function RingkasanProfil() {
 
   // Parse ekspektasiKerja if it's a string
   let ekspektasiKerjaData = data.ekspektasiKerja;
+  
+  console.log("Raw ekspektasiKerja data:", ekspektasiKerjaData);
+  
   if (typeof ekspektasiKerjaData === 'string' && ekspektasiKerjaData) {
     try {
       ekspektasiKerjaData = JSON.parse(ekspektasiKerjaData);
+      console.log("Parsed ekspektasiKerja from string:", ekspektasiKerjaData);
     } catch (e) {
       console.error("Failed to parse ekspektasiKerja JSON:", e);
       ekspektasiKerjaData = {
         idealSalary: 0,
-        willingToTravel: "local_only"
+        willingToTravel: "local_only",
+        jobTypes: "",
+        preferensiLokasiKerja: "WFO"
       };
     }
   } else if (!ekspektasiKerjaData) {
     ekspektasiKerjaData = {
       idealSalary: 0,
-      willingToTravel: "local_only"
+      willingToTravel: "local_only",
+      jobTypes: "",
+      preferensiLokasiKerja: "WFO"
+    };
+  } else {
+    // Already an object, ensure it has the expected structure
+    console.log("ekspektasiKerja is already an object:", ekspektasiKerjaData);
+    // Add default values only for missing properties
+    ekspektasiKerjaData = {
+      ...ekspektasiKerjaData, // Start with the existing data
+      // Then add defaults only for missing properties
+      idealSalary: ekspektasiKerjaData.idealSalary ?? 0,
+      willingToTravel: ekspektasiKerjaData.willingToTravel ?? "local_only",
+      jobTypes: ekspektasiKerjaData.jobTypes ?? "",
+      preferensiLokasiKerja: ekspektasiKerjaData.preferensiLokasiKerja ?? "WFO"
     };
   }
 
@@ -108,7 +208,10 @@ export default function RingkasanProfil() {
         levelPengalamanData = JSON.parse(data.levelPengalaman) as LevelPengalamanData;
       } catch (e) {
         console.error("Failed to parse levelPengalaman JSON:", e);
-        levelPengalamanData = null;
+        // If parsing fails, use the string as the enum value
+        levelPengalamanData = {
+          levelPengalaman: data.levelPengalaman
+        };
       }
     } else {
       // If it's already an object, just use it directly
@@ -121,6 +224,9 @@ export default function RingkasanProfil() {
       <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
         <p className="text-blue-700">
           Silakan periksa ringkasan informasi Anda di bawah ini sebelum menyelesaikan pendaftaran.
+        </p>
+        <p className="text-blue-700 mt-2 text-sm">
+          <strong>Catatan:</strong> Pengalaman Kerja, Ekspektasi Kerja, CV, dan Foto Profil adalah bagian opsional dan dapat dilengkapi nanti.
         </p>
       </div>
 
@@ -161,44 +267,26 @@ export default function RingkasanProfil() {
         <SectionCard title="Foto Profile" icon="📸">
           <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg border border-gray-100">
             <div className="bg-blue-100 p-2 rounded-full">
-              <Image className="h-5 w-5 text-blue-700" />
+              <Camera className="h-5 w-5 text-blue-700" />
             </div>
             <div className="flex-1">
               <p className="text-sm font-medium text-gray-900">Foto Profile Terunggah</p>
             </div>
-            <div className="w-16 h-16 rounded-full overflow-hidden border border-gray-200">
+            <div className="w-16 h-16 rounded-full overflow-hidden border border-gray-200 relative">
+              {/* Using img tag instead of Image component to avoid Next.js image optimization issues */}
               <img 
                 src={data.profilePhotoUrl} 
                 alt="Profile"
-                className="w-full h-full object-cover" 
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  // If image fails to load, replace with a placeholder
+                  const target = e.target as HTMLImageElement;
+                  target.onerror = null; // Prevent infinite loop
+                  target.src = "https://placehold.co/200x200/e2e8f0/64748b?text=Profile";
+                }}
               />
             </div>
           </div>
-        </SectionCard>
-      )}
-
-      {/* Level Pengalaman */}
-      {levelPengalamanData && (
-        <SectionCard title="Level Pengalaman" icon="⭐">
-          <InfoItem label="Tingkat Pengalaman" value={getLevelPengalamanLabel(levelPengalamanData.levelPengalaman)} />
-          {levelPengalamanData.jumlahPengalaman && (
-            <InfoItem label="Jumlah Tahun Pengalaman" value={`${levelPengalamanData.jumlahPengalaman} tahun`} />
-          )}
-          {levelPengalamanData.bidangKeahlian && (
-            <InfoItem label="Bidang Keahlian" value={levelPengalamanData.bidangKeahlian} />
-          )}
-          {levelPengalamanData.keterampilan && levelPengalamanData.keterampilan.length > 0 && (
-            <div className="mt-2">
-              <p className="text-sm font-medium text-gray-700 mb-1">Keterampilan:</p>
-              <div className="flex flex-wrap gap-2">
-                {levelPengalamanData.keterampilan.map((skill: string, idx: number) => (
-                  <span key={idx} className="bg-blue-50 text-blue-700 text-xs px-2 py-1 rounded-full">
-                    {skill}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
         </SectionCard>
       )}
 
@@ -264,14 +352,14 @@ export default function RingkasanProfil() {
 
       {/* Job Expectations */}
       {ekspektasiKerjaData && Object.keys(ekspektasiKerjaData).length > 0 && (
-        <SectionCard title="Ekspektasi Kerja" icon="🎯">
-          {ekspektasiKerjaData.jobTypes && (
+        <SectionCard title="Ekspektasi Kerja (Optional)" icon="🎯">
+          {ekspektasiKerjaData.jobTypes && ekspektasiKerjaData.jobTypes.length > 0 ? (
             <div className="mt-2">
               <p className="text-sm font-medium text-gray-700 mb-1">Jenis Pekerjaan:</p>
               <div className="flex flex-wrap gap-2">
                 {(Array.isArray(ekspektasiKerjaData.jobTypes) 
                   ? ekspektasiKerjaData.jobTypes 
-                  : [ekspektasiKerjaData.jobTypes]
+                  : ekspektasiKerjaData.jobTypes.split(',').map(item => item.trim())
                 ).map((type: string, idx: number) => (
                   <span key={idx} className="bg-blue-50 text-blue-700 text-xs px-2 py-1 rounded-full">
                     {getJobTypeLabel(type)}
@@ -279,15 +367,35 @@ export default function RingkasanProfil() {
                 ))}
               </div>
             </div>
+          ) : (
+            <InfoItem label="Jenis Pekerjaan" value="Tidak diisi (opsional)" />
           )}
-          {ekspektasiKerjaData.idealSalary && (
-            <InfoItem label="Gaji Ideal" value={`Rp ${Number(ekspektasiKerjaData.idealSalary).toLocaleString('id-ID')}`} />
+          
+          {ekspektasiKerjaData.idealSalary ? (
+            <InfoItem 
+              label="Gaji Ideal" 
+              value={`Rp ${Number(ekspektasiKerjaData.idealSalary).toLocaleString('id-ID')}`} 
+            />
+          ) : (
+            <InfoItem label="Gaji Ideal" value="Tidak diisi (opsional)" />
           )}
-          {ekspektasiKerjaData.willingToTravel && (
-            <InfoItem label="Kesediaan Bepergian" value={getWillingToTravelLabel(ekspektasiKerjaData.willingToTravel)} />
+          
+          {ekspektasiKerjaData.willingToTravel ? (
+            <InfoItem 
+              label="Kesediaan Bepergian" 
+              value={getWillingToTravelLabel(ekspektasiKerjaData.willingToTravel)} 
+            />
+          ) : (
+            <InfoItem label="Kesediaan Bepergian" value="Tidak diisi (opsional)" />
           )}
-          {ekspektasiKerjaData.preferensiLokasiKerja && (
-            <InfoItem label="Preferensi Lokasi Kerja" value={ekspektasiKerjaData.preferensiLokasiKerja} />
+          
+          {ekspektasiKerjaData.preferensiLokasiKerja ? (
+            <InfoItem 
+              label="Preferensi Lokasi Kerja" 
+              value={ekspektasiKerjaData.preferensiLokasiKerja} 
+            />
+          ) : (
+            <InfoItem label="Preferensi Lokasi Kerja" value="Tidak diisi (opsional)" />
           )}
         </SectionCard>
       )}
@@ -306,6 +414,22 @@ export default function RingkasanProfil() {
                 target="_blank" 
                 rel="noopener noreferrer" 
                 className="text-xs text-blue-600 hover:underline"
+                onClick={(e) => {
+                  // Check if URL is valid before opening
+                  if (data.cvFileUrl) {
+                    fetch(data.cvFileUrl, { method: 'HEAD' })
+                      .then(response => {
+                        if (!response.ok) {
+                          e.preventDefault();
+                          toast.error("File CV tidak ditemukan. Silakan unggah ulang.");
+                        }
+                      })
+                      .catch(() => {
+                        e.preventDefault();
+                        toast.error("Gagal mengakses file CV. Silakan unggah ulang.");
+                      });
+                  }
+                }}
               >
                 Lihat CV
               </a>
@@ -392,23 +516,12 @@ function getWillingToTravelLabel(value?: string): string {
     "not_willing": "Tidak bersedia bepergian",
     "local_only": "Hanya dalam kota",
     "domestic": "Bersedia perjalanan domestik",
-    "international": "Bersedia perjalanan internasional"
+    "international": "Bersedia perjalanan internasional",
+    "jabodetabek": "Jabodetabek",
+    "anywhere": "Di mana saja"
   };
   
   return value ? willingness[value] || value : "-";
-}
-
-function getLevelPengalamanLabel(value?: string): string {
-  const levels: Record<string, string> = {
-    "entry_level": "Pemula (Entry Level)",
-    "junior": "Junior",
-    "mid_level": "Menengah (Mid Level)",
-    "senior": "Senior",
-    "lead": "Lead / Manager",
-    "executive": "Eksekutif / Direktur"
-  };
-  
-  return value ? levels[value] || value : "-";
 }
 
 function getJobTypeLabel(value?: string): string {

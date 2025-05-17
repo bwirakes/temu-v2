@@ -23,6 +23,10 @@ const jobPostingSchema = z.object({
   postedDate: z.date().optional(),
   numberOfPositions: z.number().int().positive().optional(),
   workingHours: z.string().optional(),
+  lastEducation: z.enum(["SD", "SMP", "SMA/SMK", "D1", "D2", "D3", "D4", "S1", "S2", "S3"]).optional(),
+  requiredCompetencies: z.array(z.string()).optional(),
+  acceptedDisabilityTypes: z.array(z.string()).optional(),
+  numberOfDisabilityPositions: z.number().int().min(0).optional(),
   expectations: z
     .object({
       ageRange: z

@@ -103,14 +103,8 @@ export default function JobSeekerHeader({ toggleSidebar, isSidebarOpen, userName
               <DropdownMenuItem onSelect={() => handleNavigate("/job-seeker/profile")}>
                 Profil
               </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => handleNavigate("/job-seeker/cv-builder")}>
-                CV Builder
-              </DropdownMenuItem>
               <DropdownMenuItem onSelect={() => handleNavigate("/job-seeker/applications")}>
                 Lamaran
-              </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => handleNavigate("/job-seeker/settings")}>
-                Pengaturan
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>
                 Ubah Tema

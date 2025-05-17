@@ -14,14 +14,12 @@ interface CustomUser {
 // Define path mappings for redirects
 const API_REDIRECTS = {
   '/api/onboarding': '/api/job-seeker/onboarding',
-  '/api/cv': '/api/job-seeker/cv',
   '/api/employer/onboard': '/api/employer/onboarding',
 };
 
 // Define path mappings for page redirects
 const PAGE_REDIRECTS = {
   '/onboarding': '/job-seeker/onboarding',
-  '/cv-builder': '/job-seeker/cv-builder',
   '/employer-onboarding': '/employer/onboarding',
   '/profile': '/job-seeker/profile',
   '/': 'job-seeker/dashboard'
@@ -167,10 +165,8 @@ export const config = {
     
     // Include specific paths for redirects
     '/api/onboarding/:path*',
-    '/api/cv/:path*',
     '/api/employer/onboard/:path*',
     '/onboarding/:path*',
-    '/cv-builder/:path*',
     '/employer-onboarding/:path*',
   ]
 };

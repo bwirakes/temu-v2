@@ -9,7 +9,21 @@ export async function POST(req: NextRequest) {
     const validationResult = await validateOnboardingCompletion(req);
     
     if (!validationResult.isValid) {
-      return validationResult.response;
+      // Extract redirect URL from the response if available
+      let errorResponse;
+      try {
+        errorResponse = await validationResult.response.json();
+      } catch (e) {
+        errorResponse = { error: "Validation failed" };
+      }
+
+      // Return a more user-friendly response with redirect information
+      return NextResponse.json({
+        success: false,
+        error: errorResponse.error || "Onboarding validation failed",
+        missingFields: errorResponse.missingFields || [],
+        redirectTo: errorResponse.redirectTo || "/job-seeker/onboarding/ringkasan"
+      }, { status: 400 });
     }
 
     const { userProfile } = validationResult;
@@ -27,7 +41,7 @@ export async function POST(req: NextRequest) {
       success: true,
       message: "Onboarding completed successfully",
       profileId: userProfile.id,
-      redirectUrl: "/dashboard" // Provide redirect URL for client
+      redirectUrl: "/job-seeker/dashboard" // Provide redirect URL for client
     });
   } catch (error) {
     console.error("Error completing onboarding:", error);

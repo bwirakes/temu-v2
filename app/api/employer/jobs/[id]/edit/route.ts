@@ -22,19 +22,9 @@ const jobUpdateSchema = z.object({
   jobTitle: z.string().min(1, "Job title is required"),
   contractType: z.string().min(1, "Contract type is required"),
   minWorkExperience: z.number().int().min(0, "Work experience must be a positive number"),
-  salaryRange: z
-    .object({
-      min: z.number().optional(),
-      max: z.number().optional(),
-      isNegotiable: z.boolean().default(false),
-    })
-    .optional(),
-  applicationDeadline: z.string().optional().nullable(),
-  requirements: z.array(z.string()).optional(),
-  responsibilities: z.array(z.string()),
-  description: z.string().optional(),
   numberOfPositions: z.number().int().positive().optional(),
-  workingHours: z.string().optional(),
+  lastEducation: z.enum(["SD", "SMP", "SMA/SMK", "D1", "D2", "D3", "D4", "S1", "S2", "S3"]).optional(),
+  requiredCompetencies: z.array(z.string()).optional(),
   expectations: z
     .object({
       ageRange: z
@@ -46,17 +36,13 @@ const jobUpdateSchema = z.object({
         .refine((data) => !data || data.max >= data.min, {
           message: "Maximum age must be greater than or equal to minimum age",
         }),
-      expectedCharacter: z.string().optional(),
-      foreignLanguage: z.string().optional(),
     })
     .optional(),
   additionalRequirements: z
     .object({
       gender: z.enum(["MALE", "FEMALE", "ANY", "ALL"]).optional(),
-      requiredDocuments: z.string().optional(),
-      specialSkills: z.string().optional(),
-      technologicalSkills: z.string().optional(),
-      suitableForDisability: z.boolean().optional(),
+      acceptedDisabilityTypes: z.array(z.string()).optional(),
+      numberOfDisabilityPositions: z.number().int().min(0).optional(),
     })
     .optional(),
   isConfirmed: z.boolean().optional(),
@@ -65,11 +51,24 @@ const jobUpdateSchema = z.object({
 /**
  * PUT handler for updating an existing job posting
  */
-export async function PUT(request: NextRequest, props: { params: Promise<{ id: string }> }) {
-  const params = await props.params;
+export async function PUT(
+  req: NextRequest,
+  { params }: { params: { id: string } }
+) {
   try {
-    // Get job ID from params
-    const jobId = await params.id;
+    // Get the authenticated user's session
+    const session = await auth() as CustomSession;
+    
+    // Check if the user is authenticated
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { error: 'Unauthorized: You must be logged in' },
+        { status: 401 }
+      );
+    }
+    
+    // Get the job ID from the URL parameters
+    const jobId = params.id;
     
     if (!jobId) {
       return NextResponse.json(
@@ -78,16 +77,6 @@ export async function PUT(request: NextRequest, props: { params: Promise<{ id: s
       );
     }
     
-    // Get the authenticated user session
-    const session = await auth() as CustomSession;
-    
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Unauthorized: Anda harus login terlebih dahulu" },
-        { status: 401 }
-      );
-    }
-
     // Get the employer ID for the authenticated user
     const employer = await getEmployerByUserId(session.user.id);
     if (!employer) {
@@ -115,7 +104,7 @@ export async function PUT(request: NextRequest, props: { params: Promise<{ id: s
     }
 
     // Parse request body
-    const body = await request.json();
+    const body = await req.json();
 
     // Validate job update data
     const validationResult = jobUpdateSchema.safeParse(body);
@@ -130,10 +119,11 @@ export async function PUT(request: NextRequest, props: { params: Promise<{ id: s
     // Prepare data for update
     const jobData = {
       ...validationResult.data,
-      // Handle date conversion for applicationDeadline if provided
-      applicationDeadline: validationResult.data.applicationDeadline
-        ? new Date(validationResult.data.applicationDeadline)
-        : null,
+      // Ensure new fields are properly included
+      lastEducation: validationResult.data.lastEducation,
+      requiredCompetencies: validationResult.data.requiredCompetencies || [],
+      acceptedDisabilityTypes: validationResult.data.additionalRequirements?.acceptedDisabilityTypes || [],
+      numberOfDisabilityPositions: validationResult.data.additionalRequirements?.numberOfDisabilityPositions || 0,
       updatedAt: new Date() // Ensure updatedAt is refreshed
     };
 
@@ -182,11 +172,24 @@ export async function PATCH(request: NextRequest, props: { params: Promise<{ id:
 /**
  * Handle other HTTP methods
  */
-export async function GET(req: NextRequest, props: { params: Promise<{ id: string }> }) {
-  const params = await props.params;
+export async function GET(
+  req: NextRequest,
+  { params }: { params: { id: string } }
+) {
   try {
-    // Get job ID from params
-    const jobId = await params.id;
+    // Get the authenticated user's session
+    const session = await auth() as CustomSession;
+    
+    // Check if the user is authenticated
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { error: 'Unauthorized: You must be logged in' },
+        { status: 401 }
+      );
+    }
+    
+    // Get the job ID from the URL parameters
+    const jobId = params.id;
     
     if (!jobId) {
       return NextResponse.json(
@@ -195,16 +198,6 @@ export async function GET(req: NextRequest, props: { params: Promise<{ id: strin
       );
     }
     
-    // Get the authenticated user session
-    const session = await auth() as CustomSession;
-    
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Unauthorized: Anda harus login terlebih dahulu" },
-        { status: 401 }
-      );
-    }
-
     // Get the employer ID for the authenticated user
     const employer = await getEmployerByUserId(session.user.id);
     if (!employer) {

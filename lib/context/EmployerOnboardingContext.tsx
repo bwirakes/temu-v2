@@ -31,6 +31,7 @@ export const informasiPerusahaanSchema = z.object({
   merekUsaha: z.string().optional(),
   industri: z.string().min(1, "Industri wajib diisi"),
   alamatKantor: z.string().min(1, "Alamat kantor wajib diisi"),
+  email: z.string().min(1, "Email wajib diisi").email("Format email tidak valid"),
 });
 
 export const kehadiranOnlineSchema = z.object({
@@ -63,6 +64,7 @@ export type EmployerOnboardingData = {
   merekUsaha?: string;
   industri: string;
   alamatKantor: string;
+  email: string;
   
   // Step 2: Kehadiran Online dan Identitas Merek
   website?: string;
@@ -82,6 +84,7 @@ const initialData: EmployerOnboardingData = {
   merekUsaha: "",
   industri: "",
   alamatKantor: "",
+  email: "",
   website: "",
   socialMedia: {
     instagram: "",
@@ -182,7 +185,7 @@ export const EmployerOnboardingProvider = ({ children }: { children: ReactNode }
   const isStepComplete = (step: number): boolean => {
     switch (step) {
       case 1: // Informasi Dasar Badan Usaha
-        return !!data.namaPerusahaan && !!data.industri && !!data.alamatKantor;
+        return !!data.namaPerusahaan && !!data.industri && !!data.alamatKantor && !!data.email;
       case 2: // Kehadiran Online dan Identitas Merek (optional, some fields)
         return true;
       case 3: // Penanggung Jawab (PIC)
@@ -202,6 +205,11 @@ export const EmployerOnboardingProvider = ({ children }: { children: ReactNode }
         if (!data.namaPerusahaan) errors.namaPerusahaan = "Nama perusahaan wajib diisi";
         if (!data.industri) errors.industri = "Industri wajib diisi";
         if (!data.alamatKantor) errors.alamatKantor = "Alamat kantor wajib diisi";
+        if (!data.email) {
+          errors.email = "Email wajib diisi";
+        } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) {
+          errors.email = "Format email tidak valid";
+        }
         break;
       case 2: // Kehadiran Online dan Identitas Merek (optional)
         // URL validation removed - accepting any format now
@@ -239,6 +247,7 @@ export const EmployerOnboardingProvider = ({ children }: { children: ReactNode }
           merekUsaha: data.merekUsaha,
           industri: data.industri,
           alamatKantor: data.alamatKantor,
+          email: data.email,
         };
       } else if (currentStep === 2) {
         formData = {

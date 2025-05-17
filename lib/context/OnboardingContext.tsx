@@ -61,7 +61,7 @@ export const onboardingSteps = [
 ];
 
 // Define which steps are optional
-export const optionalSteps = [6, 8, 9]; // Pengalaman Kerja, CV Upload, and Foto Profile are optional
+export const optionalSteps = [6, 7, 8, 9]; // Pengalaman Kerja, Ekspektasi Kerja, CV Upload, and Foto Profile are optional
 
 export type OnboardingData = {
   // Step 1: Informasi Dasar
@@ -213,8 +213,8 @@ export const OnboardingProvider = ({ children }: { children: ReactNode }) => {
         // Optional step - it's valid to have no experience
         return true;
       case 7: // Ekspektasi Kerja
-        return !!data.ekspektasiKerja?.idealSalary && 
-               !!data.ekspektasiKerja?.willingToTravel;
+        // Optional step
+        return true;
       case 8: // CV Upload
         return true; // Optional
       case 9: // Profile Photo

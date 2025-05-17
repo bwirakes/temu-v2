@@ -50,8 +50,7 @@ import { useRouter } from "next/navigation";
 import { z } from "zod";
 import ProfilePhotoUploader from "./ProfilePhotoUploader";
 import { SectionCard, InfoItem, EmptyState, ItemCard, StatusBadge } from "./ProfileComponents";
-import { CV } from "./CV";
-
+import { CV } from './CV';
 
 // Type definitions
 type Pendidikan = {
@@ -1316,6 +1315,6 @@ export default function ProfileClient({ userId }: ProfileClientProps) {
         {/* CV section */}
         <CV cvFileUrl={profileData?.cvFileUrl} cvUploadDate={profileData?.cvUploadDate} />
       </div>
-
+    </div>
   );
 }

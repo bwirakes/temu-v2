@@ -5,8 +5,8 @@ import { useRouter } from "next/navigation";
 import { useJobPosting } from "@/lib/context/JobPostingContext";
 import { PlusCircleIcon, XCircleIcon } from "@heroicons/react/24/outline";
 
-// Define ContractType enum
-export type ContractType = "FULL_TIME" | "PART_TIME" | "CONTRACT" | "INTERNSHIP" | "FREELANCE";
+// Define the gender type
+type Gender = "MALE" | "FEMALE" | "ANY" | "ALL" | undefined;
 
 // Define disability types
 const DISABILITY_TYPES = [
@@ -20,43 +20,37 @@ const DISABILITY_TYPES = [
   "Lainnya"
 ];
 
-export default function AdditionalInfoForm() {
+interface AdditionalDetailsFormState {
+  gender: Gender;
+  ageRange: {
+    min: number | undefined;
+    max: number | undefined;
+  };
+  suitableForDisability: boolean;
+  acceptedDisabilityTypes: string[];
+  numberOfDisabilityPositions: number | null;
+}
+
+export default function AdditionalDetailsForm() {
   const router = useRouter();
-  const { data, updateFormValues } = useJobPosting();
-  const [formData, setFormData] = useState({
-    suitableForDisability: data.suitableForDisability || false,
-    acceptedDisabilityTypes: data.acceptedDisabilityTypes || [],
-    numberOfDisabilityPositions: data.numberOfDisabilityPositions || 0,
-    contractType: data.contractType || undefined as ContractType | undefined,
-    applicationDeadline: data.applicationDeadline 
-      ? formatDateForInput(new Date(data.applicationDeadline))
-      : ""
+  const { data, updateFormValues, getStepValidationErrors, setCurrentStep } = useJobPosting();
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  
+  // Initialize with default values from context
+  const [formData, setFormData] = useState<AdditionalDetailsFormState>({
+    gender: (data.additionalRequirements?.gender as Gender) || "ANY",
+    ageRange: {
+      min: data.expectations?.ageRange?.min || 18,
+      max: data.expectations?.ageRange?.max || 45
+    },
+    suitableForDisability: 
+      (data.additionalRequirements?.acceptedDisabilityTypes?.length || 0) > 0 || 
+      (data.additionalRequirements?.numberOfDisabilityPositions || 0) > 0,
+    acceptedDisabilityTypes: data.additionalRequirements?.acceptedDisabilityTypes || [],
+    numberOfDisabilityPositions: data.additionalRequirements?.numberOfDisabilityPositions || null
   });
   
   const [customDisabilityType, setCustomDisabilityType] = useState("");
-  const [errors, setErrors] = useState<Record<string, string>>({});
-
-  // Format date to dd/mm/yyyy for display
-  function formatDateForDisplay(date: Date): string {
-    const day = date.getDate().toString().padStart(2, '0');
-    const month = (date.getMonth() + 1).toString().padStart(2, '0');
-    const year = date.getFullYear();
-    return `${day}/${month}/${year}`;
-  }
-
-  // Format date to yyyy-mm-dd for input element
-  function formatDateForInput(date: Date): string {
-    const day = date.getDate().toString().padStart(2, '0');
-    const month = (date.getMonth() + 1).toString().padStart(2, '0');
-    const year = date.getFullYear();
-    return `${year}-${month}-${day}`;
-  }
-
-  // Parse date from dd/mm/yyyy format
-  function parseDateFromDisplay(dateString: string): Date {
-    const [day, month, year] = dateString.split('/').map(Number);
-    return new Date(year, month - 1, day);
-  }
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
@@ -73,19 +67,19 @@ export default function AdditionalInfoForm() {
         setFormData(prev => ({
           ...prev,
           acceptedDisabilityTypes: [],
-          numberOfDisabilityPositions: 0,
+          numberOfDisabilityPositions: null,
           suitableForDisability: false
         }));
       }
-    } else if (name === "contractType") {
+    } else if (name === "gender") {
       setFormData({
         ...formData,
-        contractType: value ? value as ContractType : undefined
+        gender: value as Gender
       });
     } else if (name === "numberOfDisabilityPositions") {
       setFormData({
         ...formData,
-        numberOfDisabilityPositions: parseInt(value) || 0
+        numberOfDisabilityPositions: parseInt(value) || null
       });
     } else {
       setFormData({
@@ -93,6 +87,19 @@ export default function AdditionalInfoForm() {
         [name]: value
       });
     }
+  };
+
+  const handleAgeRangeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    const field = name.replace("ageRange.", "");
+    
+    setFormData({
+      ...formData,
+      ageRange: {
+        ...formData.ageRange,
+        [field]: parseInt(value) || undefined
+      }
+    });
   };
   
   const handleDisabilityTypeChange = (type: string) => {
@@ -124,15 +131,24 @@ export default function AdditionalInfoForm() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Validate if suitableForDisability is checked
     const newErrors: Record<string, string> = {};
     
+    // Validate age range
+    if (!formData.ageRange || !formData.ageRange.min || !formData.ageRange.max) {
+      newErrors.ageRange = 'Harapan umur wajib diisi';
+    } else if (formData.ageRange.min < 15) {
+      newErrors.ageRange = 'Umur minimal tidak valid (minimal 15 tahun)';
+    } else if (formData.ageRange.max < formData.ageRange.min) {
+      newErrors.ageRange = 'Umur maksimal harus lebih besar dari umur minimal';
+    }
+    
+    // Validate disability fields if enabled
     if (formData.suitableForDisability) {
       if (formData.acceptedDisabilityTypes.length === 0) {
         newErrors.acceptedDisabilityTypes = "Pilih minimal satu jenis disabilitas";
       }
       
-      if (formData.numberOfDisabilityPositions <= 0) {
+      if (!formData.numberOfDisabilityPositions || formData.numberOfDisabilityPositions <= 0) {
         newErrors.numberOfDisabilityPositions = "Jumlah posisi harus lebih dari 0";
       }
     }
@@ -142,33 +158,112 @@ export default function AdditionalInfoForm() {
       return;
     }
     
-    // Convert string date to Date object if provided
-    const updatedData = {
-      ...formData,
-      applicationDeadline: formData.applicationDeadline 
-        ? new Date(formData.applicationDeadline) 
-        : undefined
-    };
+    // Update form values in context
+    updateFormValues({
+      additionalRequirements: {
+        gender: formData.gender,
+        acceptedDisabilityTypes: formData.suitableForDisability ? formData.acceptedDisabilityTypes : [],
+        numberOfDisabilityPositions: formData.suitableForDisability ? formData.numberOfDisabilityPositions : null
+      },
+      expectations: {
+        ageRange: formData.ageRange
+      }
+    });
     
-    updateFormValues(updatedData);
+    // Clear any previous errors
+    setErrors({});
+    
+    // Update the step before navigation
+    setCurrentStep(3);
     router.push("/employer/job-posting/confirmation");
   };
 
   const handleBack = () => {
-    // Convert string date to Date object if provided
-    const updatedData = {
-      ...formData,
-      applicationDeadline: formData.applicationDeadline 
-        ? new Date(formData.applicationDeadline) 
-        : undefined
-    };
+    // Save current form state before navigating back
+    updateFormValues({
+      additionalRequirements: {
+        gender: formData.gender,
+        acceptedDisabilityTypes: formData.suitableForDisability ? formData.acceptedDisabilityTypes : [],
+        numberOfDisabilityPositions: formData.suitableForDisability ? formData.numberOfDisabilityPositions : null
+      },
+      expectations: {
+        ageRange: formData.ageRange
+      }
+    });
     
-    updateFormValues(updatedData);
-    router.push("/employer/job-posting/expectations");
+    router.push("/employer/job-posting/basic-info");
   };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      {/* Gender */}
+      <div>
+        <label htmlFor="gender" className="block text-sm font-medium text-gray-700">
+          Jenis Kelamin <span className="text-red-500">*</span>
+        </label>
+        <select
+          id="gender"
+          name="gender"
+          value={formData.gender || "ANY"}
+          onChange={handleChange}
+          className={`mt-1 block w-full rounded-md border ${
+            errors.gender ? "border-red-300" : "border-gray-300"
+          } shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2`}
+        >
+          <option value="ANY">Semua Jenis Kelamin</option>
+          <option value="MALE">Laki-laki</option>
+          <option value="FEMALE">Perempuan</option>
+          <option value="ALL">Semua</option>
+        </select>
+        {errors.gender && (
+          <p className="mt-1 text-sm text-red-600">{errors.gender}</p>
+        )}
+      </div>
+
+      {/* Age Range */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700">
+          Harapan Umur <span className="text-red-500">*</span>
+        </label>
+        <div className="mt-2 grid grid-cols-2 gap-4">
+          <div>
+            <label htmlFor="ageRange.min" className="block text-sm text-gray-500">
+              Minimal
+            </label>
+            <input
+              type="number"
+              id="ageRange.min"
+              name="ageRange.min"
+              min="15"
+              value={formData.ageRange.min || ""}
+              onChange={handleAgeRangeChange}
+              className={`mt-1 block w-full rounded-md border ${
+                errors.ageRange ? "border-red-300" : "border-gray-300"
+              } shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2`}
+            />
+          </div>
+          <div>
+            <label htmlFor="ageRange.max" className="block text-sm text-gray-500">
+              Maksimal
+            </label>
+            <input
+              type="number"
+              id="ageRange.max"
+              name="ageRange.max"
+              min="15"
+              value={formData.ageRange.max || ""}
+              onChange={handleAgeRangeChange}
+              className={`mt-1 block w-full rounded-md border ${
+                errors.ageRange ? "border-red-300" : "border-gray-300"
+              } shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2`}
+            />
+          </div>
+        </div>
+        {errors.ageRange && (
+          <p className="mt-1 text-sm text-red-600">{errors.ageRange}</p>
+        )}
+      </div>
+
       {/* Suitable for Disability */}
       <div>
         <div className="flex items-start">
@@ -282,7 +377,7 @@ export default function AdditionalInfoForm() {
               id="numberOfDisabilityPositions"
               name="numberOfDisabilityPositions"
               min="1"
-              value={formData.numberOfDisabilityPositions}
+              value={formData.numberOfDisabilityPositions || ""}
               onChange={handleChange}
               className={`mt-1 block w-24 rounded-md border ${
                 errors.numberOfDisabilityPositions ? "border-red-300" : "border-gray-300"
@@ -297,48 +392,6 @@ export default function AdditionalInfoForm() {
           </div>
         </div>
       )}
-
-      {/* Contract Type */}
-      <div>
-        <label htmlFor="contractType" className="block text-sm font-medium text-gray-700">
-          Jenis Kontrak Kerja <span className="text-gray-400 text-xs ml-1">(Opsional)</span>
-        </label>
-        <select
-          id="contractType"
-          name="contractType"
-          value={formData.contractType || ""}
-          onChange={handleChange}
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2"
-        >
-          <option value="">Pilih Jenis Kontrak</option>
-          <option value="FULL_TIME">Full Time</option>
-          <option value="PART_TIME">Part Time</option>
-          <option value="CONTRACT">Kontrak</option>
-          <option value="INTERNSHIP">Magang</option>
-          <option value="FREELANCE">Freelance</option>
-        </select>
-      </div>
-
-      {/* Application Deadline */}
-      <div>
-        <label htmlFor="applicationDeadline" className="block text-sm font-medium text-gray-700">
-          Batas Waktu Pendaftaran <span className="text-gray-400 text-xs ml-1">(Opsional)</span>
-        </label>
-        <input
-          type="date"
-          id="applicationDeadline"
-          name="applicationDeadline"
-          value={formData.applicationDeadline}
-          onChange={handleChange}
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2"
-        />
-        <p className="mt-1 text-xs text-gray-500">
-          Format tanggal: DD/MM/YYYY (contoh: 31/12/2023)
-        </p>
-        <p className="mt-1 text-xs text-gray-500">
-          Kosongkan jika lowongan ini dibuka secara umum tanpa batas waktu
-        </p>
-      </div>
 
       {/* Navigation Buttons */}
       <div className="flex justify-between">

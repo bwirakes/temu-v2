@@ -22,11 +22,10 @@ interface CustomSession {
   };
 }
 
-export async function GET(req: NextRequest, props: { params: Promise<{ id: string }> }) {
-  const params = await props.params;
+export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   try {
-    // Access params asynchronously - await the params object
-    const jobId = await params.id;
+    // Get the job ID from URL parameters
+    const jobId = params.id;
     
     if (!jobId) {
       console.error('Missing job ID in params');
@@ -126,12 +125,18 @@ export async function GET(req: NextRequest, props: { params: Promise<{ id: strin
     // Calculate the actual application count
     const applicationCount = applicants.length;
 
+    // Create a job object with all fields, including new ones
     const jobWithApplicationCount = {
       ...job,
-      applicationCount
+      applicationCount,
+      // Format dates as ISO strings
+      applicationDeadline: job.applicationDeadline ? job.applicationDeadline.toISOString() : null,
+      postedDate: job.postedDate.toISOString(),
+      createdAt: job.createdAt.toISOString(),
+      updatedAt: job.updatedAt.toISOString()
     };
 
-    console.log('API: Returning job data');
+    console.log('API: Returning job data with all fields (including new fields)');
     return NextResponse.json({
       job: jobWithApplicationCount,
       applicants

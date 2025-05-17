@@ -22,6 +22,14 @@ export default function ProfilePhotoForm() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
+  // Auto-upload when a file is selected
+  useEffect(() => {
+    if (photoFile) {
+      // Automatically trigger the upload process when a file is selected
+      handleSubmit();
+    }
+  }, [photoFile]);
+  
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -164,11 +172,8 @@ export default function ProfilePhotoForm() {
       setUploadStatus("success");
       toast.success("Foto profil berhasil diunggah!");
       
-      // Ensure we're moving to the summary page
-      setTimeout(() => {
-        setCurrentStep(10);
-        router.push("/job-seeker/onboarding/ringkasan");
-      }, 500);
+      // Don't automatically navigate to the next step after upload
+      // Let the user manually continue or skip
     } catch (error) {
       console.error("Error uploading file:", error);
       setUploadStatus("error");
@@ -179,10 +184,17 @@ export default function ProfilePhotoForm() {
     }
   };
   
+  const handleNext = () => {
+    // Navigate to next step
+    setCurrentStep(10);
+    router.push("/job-seeker/onboarding/ringkasan");
+  };
+  
   const handleSkip = () => {
+    // Make sure to set the correct step number before redirecting
+    setCurrentStep(10);
     // Use a timeout to ensure state updates have time to complete
     setTimeout(() => {
-      setCurrentStep(10);
       router.push("/job-seeker/onboarding/ringkasan");
     }, 100);
   };
@@ -215,11 +227,17 @@ export default function ProfilePhotoForm() {
           {imagePreview ? (
             <div className="flex flex-col items-center">
               <div className="relative w-48 h-48 mb-4 rounded-full overflow-hidden border-4 border-white shadow-md">
-                <Image 
+                {/* Use img tag instead of Next.js Image component to avoid optimization issues */}
+                <img 
                   src={imagePreview} 
                   alt="Profile preview"
-                  fill
-                  style={{ objectFit: 'cover' }}
+                  className="h-full w-full object-cover"
+                  onError={(e) => {
+                    // If image fails to load, replace with a placeholder
+                    const target = e.target as HTMLImageElement;
+                    target.onerror = null; // Prevent infinite loop
+                    target.src = "https://placehold.co/200x200/e2e8f0/64748b?text=Profile";
+                  }}
                 />
                 <button
                   type="button"
@@ -281,7 +299,7 @@ export default function ProfilePhotoForm() {
         
         <Button
           type="button"
-          onClick={handleSubmit}
+          onClick={handleNext}
           disabled={isSubmitting || isSaving}
           className="w-full sm:w-auto"
         >

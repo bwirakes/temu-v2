@@ -115,9 +115,20 @@ export function useOnboardingApi() {
         };
       
       case 7: // Ekspektasi Kerja
-        return {
-          ekspektasiKerja: fullData.ekspektasiKerja
-        };
+        if (fullData.ekspektasiKerja) {
+          const ekspektasiData = fullData.ekspektasiKerja;
+          
+          // Ensure we have the proper data structure and types
+          return {
+            ekspektasiKerja: {
+              jobTypes: ekspektasiData.jobTypes || null,
+              idealSalary: ekspektasiData.idealSalary ? Number(ekspektasiData.idealSalary) : null,
+              willingToTravel: ekspektasiData.willingToTravel || null,
+              preferensiLokasiKerja: ekspektasiData.preferensiLokasiKerja || null
+            }
+          };
+        }
+        return { ekspektasiKerja: {} };
       
       case 8: // CV Upload
         return {

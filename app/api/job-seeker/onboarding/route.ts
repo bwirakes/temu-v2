@@ -185,14 +185,26 @@ export async function POST(req: NextRequest) {
           if (data.ekspektasiKerja) {
             const ekspektasiData = data.ekspektasiKerja as Record<string, any>;
             
+            // Ensure idealSalary is properly converted to a number
+            const idealSalary = ekspektasiData.idealSalary 
+              ? (typeof ekspektasiData.idealSalary === 'string' 
+                ? parseInt(ekspektasiData.idealSalary, 10) 
+                : Number(ekspektasiData.idealSalary)) 
+              : null;
+            
+            // Create a properly structured object to save
+            const ekspektasiKerjaToSave = {
+              jobTypes: ekspektasiData.jobTypes || null,
+              idealSalary: idealSalary,
+              willingToTravel: ekspektasiData.willingToTravel || null,
+              preferensiLokasiKerja: ekspektasiData.preferensiLokasiKerja || null
+            };
+            
+            console.log('Saving ekspektasiKerja:', JSON.stringify(ekspektasiKerjaToSave));
+            
             // Store ekspektasi kerja directly as JSONB in user profile
             await updateUserProfile(userProfile.id, {
-              ekspektasiKerja: {
-                jobTypes: ekspektasiData.jobTypes || null,
-                idealSalary: ekspektasiData.idealSalary ? Number(ekspektasiData.idealSalary) : null,
-                willingToTravel: ekspektasiData.willingToTravel || null,
-                preferensiLokasiKerja: ekspektasiData.preferensiLokasiKerja || null
-              }
+              ekspektasiKerja: ekspektasiKerjaToSave
             });
           }
           break;
@@ -343,10 +355,8 @@ export async function GET(req: NextRequest) {
       sertifikasi: [],
       bahasa: [],
       
-      // Parse ekspektasiKerja JSON if it exists
-      ekspektasiKerja: userProfile.ekspektasiKerja ? 
-        (typeof userProfile.ekspektasiKerja === 'string' ? 
-          JSON.parse(userProfile.ekspektasiKerja) : userProfile.ekspektasiKerja) : {}
+      // Ensure ekspektasiKerja is properly processed
+      ekspektasiKerja: userProfile.ekspektasiKerja || {}
     };
 
     return NextResponse.json({ 
@@ -401,14 +411,9 @@ function calculateCompletedSteps(data: any) {
     completedSteps.push(6);
   }
 
-  // Step 7: Ekspektasi Kerja
-  const ekspektasiKerja = data.ekspektasiKerja;
-    
-  if (ekspektasiKerja && 
-      ((typeof ekspektasiKerja === 'object' && ekspektasiKerja.idealSalary && ekspektasiKerja.willingToTravel) || 
-       (typeof ekspektasiKerja === 'string' && ekspektasiKerja))) {
-    completedSteps.push(7);
-  }
+  // Step 7: Ekspektasi Kerja (optional)
+  // Mark as completed regardless of data since it's optional
+  completedSteps.push(7);
 
   // Step 8: CV Upload (optional)
   if (data.cvFileUrl) {

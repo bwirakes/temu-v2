@@ -6,10 +6,21 @@ import {
   userAddresses,
   userPengalamanKerja,
   userPendidikan,
-  userKeahlian,
-  userBahasa
 } from "@/lib/db";
 import { eq, count } from "drizzle-orm";
+
+// Import the optionalSteps array from OnboardingContext
+// These are the steps that are optional in the onboarding flow
+const optionalSteps = [6, 7, 8, 9]; // Pengalaman Kerja, Ekspektasi Kerja, CV Upload, and Foto Profile are optional
+
+// Define a type for ekspektasiKerja to fix TypeScript errors
+type EkspektasiKerja = {
+  jobTypes?: string | null;
+  idealSalary?: number | null;
+  willingToTravel?: string | null;
+  preferensiLokasiKerja?: string | null;
+  [key: string]: any; // Allow for other properties
+};
 
 type ValidationResult = 
   | { isValid: true; userProfile: typeof userProfiles.$inferSelect }
@@ -38,8 +49,8 @@ export async function validateOnboardingCompletion(req: NextRequest): Promise<Va
       };
     }
 
-    // Check required fields in user profile
-    if (!userProfile.namaLengkap || !userProfile.email || !userProfile.nomorTelepon || !userProfile.tanggalLahir) {
+    // Check required fields in user profile - Step 1 and 2
+    if (!userProfile.namaLengkap || !userProfile.email || !userProfile.nomorTelepon || !userProfile.tanggalLahir || !userProfile.tempatLahir) {
       return {
         isValid: false,
         response: NextResponse.json({
@@ -49,7 +60,7 @@ export async function validateOnboardingCompletion(req: NextRequest): Promise<Va
       };
     }
 
-    // Check for address
+    // Check for address - Step 3
     const [addressCount] = await db
       .select({ count: count() })
       .from(userAddresses)
@@ -65,13 +76,7 @@ export async function validateOnboardingCompletion(req: NextRequest): Promise<Va
       };
     }
 
-    // Check for work experience
-    const [workExperienceCount] = await db
-      .select({ count: count() })
-      .from(userPengalamanKerja)
-      .where(eq(userPengalamanKerja.userProfileId, userProfile.id));
-
-    // Check for education
+    // Check for education - Step 4
     const [educationCount] = await db
       .select({ count: count() })
       .from(userPendidikan)
@@ -87,27 +92,18 @@ export async function validateOnboardingCompletion(req: NextRequest): Promise<Va
       };
     }
 
-    // Check for skills
-    const [skillsCount] = await db
-      .select({ count: count() })
-      .from(userKeahlian)
-      .where(eq(userKeahlian.userProfileId, userProfile.id));
-
-    if (!skillsCount || skillsCount.count === 0) {
+    // Check for level pengalaman - Step 5
+    if (!userProfile.levelPengalaman) {
       return {
         isValid: false,
         response: NextResponse.json({
           error: "Incomplete profile information",
-          missingFields: ["Skills information is missing"]
+          missingFields: ["Level pengalaman is missing"]
         }, { status: 400 })
       };
     }
-
-    // Check for languages
-    const [languagesCount] = await db
-      .select({ count: count() })
-      .from(userBahasa)
-      .where(eq(userBahasa.userProfileId, userProfile.id));
+    
+    // Note: Steps 6, 7, 8, and 9 are optional, so we don't validate them
 
     // All validations passed
     return {

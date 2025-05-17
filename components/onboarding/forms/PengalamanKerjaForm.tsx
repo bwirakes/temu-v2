@@ -123,7 +123,7 @@ export default function PengalamanKerjaForm() {
       const finalPengalamanList = tidakAdaPengalaman ? [] : pengalamanList;
       
       // Validate required fields before submission
-      const hasInvalidEntries = finalPengalamanList.some(p => 
+      const hasInvalidEntries = !tidakAdaPengalaman && finalPengalamanList.some(p => 
         !p.namaPerusahaan || 
         !p.posisi || 
         !p.tanggalMulai ||
@@ -143,11 +143,12 @@ export default function PengalamanKerjaForm() {
       
       // Save data to API with proper error handling
       try {
-        await saveStep(5, { pengalamanKerja: finalPengalamanList });
+        // Using correct step number 6 for Pengalaman Kerja
+        await saveStep(6, { pengalamanKerja: finalPengalamanList });
         toast.success("Pengalaman kerja berhasil disimpan");
         
         // Navigate to next step
-        setCurrentStep(6);
+        setCurrentStep(7);
         router.push("/job-seeker/onboarding/ekspektasi-kerja");
       } catch (apiError) {
         console.error("API Error:", apiError);
@@ -238,7 +239,7 @@ export default function PengalamanKerjaForm() {
             (!p.tanggalSelesai && p.tanggalSelesai !== "Sekarang")
           )
         )}
-        saveOnNext={false}
+        saveOnNext={true}
       />
     </div>
   );

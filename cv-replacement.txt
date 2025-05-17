@@ -1,0 +1,1 @@
+        <CV cvFileUrl={profileData?.cvFileUrl} cvUploadDate={profileData?.cvUploadDate} />

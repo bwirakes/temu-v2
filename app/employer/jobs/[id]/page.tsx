@@ -181,7 +181,23 @@ export default async function JobDetailPage(props: { params: Promise<{ id: strin
     numberOfPositions: job.numberOfPositions,
     workingHours: job.workingHours,
     isConfirmed: job.isConfirmed,
-    applicationCount: applicants.length // Set the accurate count from our server-side fetch
+    applicationCount: applicants.length, // Set the accurate count from our server-side fetch
+    lastEducation: job.lastEducation,
+    requiredCompetencies: job.requiredCompetencies || [],
+    acceptedDisabilityTypes: job.acceptedDisabilityTypes || [],
+    numberOfDisabilityPositions: job.numberOfDisabilityPositions,
+    expectations: job.expectations ? {
+      ageRange: job.expectations.ageRange,
+      expectedCharacter: job.expectations.expectedCharacter,
+      foreignLanguage: job.expectations.foreignLanguage
+    } : null,
+    additionalRequirements: job.additionalRequirements ? {
+      gender: job.additionalRequirements.gender,
+      requiredDocuments: job.additionalRequirements.requiredDocuments,
+      specialSkills: job.additionalRequirements.specialSkills,
+      technologicalSkills: job.additionalRequirements.technologicalSkills,
+      suitableForDisability: job.additionalRequirements.suitableForDisability
+    } : null
   };
 
   return (

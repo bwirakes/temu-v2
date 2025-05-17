@@ -5,11 +5,9 @@ import { usePathname } from "next/navigation";
 import { useJobPosting } from "@/lib/context/JobPostingContext";
 
 const steps = [
-  { id: 1, path: "basic-info" },        // Step 1: Keterangan Dasar
-  { id: 2, path: "requirements" },      // Step 2: Persyaratan
-  { id: 3, path: "expectations" },      // Step 3: Harapan Perusahaan
-  { id: 4, path: "additional-info" },   // Step 4: Lainnya
-  { id: 5, path: "confirmation" },      // Step 5: Konfirmasi
+  { id: 1, path: "basic-info" },           // Step 1: Informasi Dasar
+  { id: 2, path: "additional-details" },   // Step 2: Detail Tambahan
+  { id: 3, path: "confirmation" },         // Step 3: Konfirmasi
 ];
 
 export default function ProgressBar() {

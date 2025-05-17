@@ -12,7 +12,7 @@ async function readMigrationScript(filePath) {
 }
 
 // Apply migration
-async function applyMigration() {
+async function applyMigration(migrationFile) {
   console.log('Connecting to database...');
   const client = new Client({
     connectionString: process.env.POSTGRES_URL,
@@ -23,7 +23,7 @@ async function applyMigration() {
     console.log('Connected to database successfully');
 
     // Get the migration SQL file
-    const migrationFilePath = path.join(__dirname, '../drizzle/0001_employer_onboarding_progress.sql');
+    const migrationFilePath = migrationFile || path.join(__dirname, '../drizzle/0001_employer_onboarding_progress.sql');
     const migrationSql = await readMigrationScript(migrationFilePath);
 
     console.log('Running migration...');
@@ -49,5 +49,8 @@ async function applyMigration() {
   }
 }
 
+// Get the migration file path from command line arguments
+const migrationFile = process.argv[2] || null;
+
 // Run the migration
-applyMigration(); 
+applyMigration(migrationFile); 

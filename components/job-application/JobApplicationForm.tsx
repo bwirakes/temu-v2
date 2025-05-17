@@ -176,13 +176,38 @@ export default function JobApplicationForm({ jobId }: JobApplicationFormProps) {
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                           <div className="flex items-center space-x-2">
                             {/* @ts-ignore - Adding type ignore to resolve RadioGroupItem typing issues */}
-                            <RadioGroupItem value="SMA" id="SMA" />
-                            <Label htmlFor="SMA">SMA/SMK</Label>
+                            <RadioGroupItem value="SD" id="SD" />
+                            <Label htmlFor="SD">SD</Label>
                           </div>
                           <div className="flex items-center space-x-2">
                             {/* @ts-ignore - Adding type ignore to resolve RadioGroupItem typing issues */}
-                            <RadioGroupItem value="Diploma" id="Diploma" />
-                            <Label htmlFor="Diploma">Diploma</Label>
+                            <RadioGroupItem value="SMP" id="SMP" />
+                            <Label htmlFor="SMP">SMP</Label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            {/* @ts-ignore - Adding type ignore to resolve RadioGroupItem typing issues */}
+                            <RadioGroupItem value="SMA/SMK" id="SMA/SMK" />
+                            <Label htmlFor="SMA/SMK">SMA/SMK</Label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            {/* @ts-ignore - Adding type ignore to resolve RadioGroupItem typing issues */}
+                            <RadioGroupItem value="D1" id="D1" />
+                            <Label htmlFor="D1">D1</Label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            {/* @ts-ignore - Adding type ignore to resolve RadioGroupItem typing issues */}
+                            <RadioGroupItem value="D2" id="D2" />
+                            <Label htmlFor="D2">D2</Label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            {/* @ts-ignore - Adding type ignore to resolve RadioGroupItem typing issues */}
+                            <RadioGroupItem value="D3" id="D3" />
+                            <Label htmlFor="D3">D3</Label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            {/* @ts-ignore - Adding type ignore to resolve RadioGroupItem typing issues */}
+                            <RadioGroupItem value="D4" id="D4" />
+                            <Label htmlFor="D4">D4</Label>
                           </div>
                           <div className="flex items-center space-x-2">
                             {/* @ts-ignore - Adding type ignore to resolve RadioGroupItem typing issues */}

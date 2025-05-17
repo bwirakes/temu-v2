@@ -39,6 +39,10 @@ interface Job {
   minWorkExperience: number;
   requirements?: string[] | null;
   responsibilities: string[] | null;
+  lastEducation?: "SD" | "SMP" | "SMA/SMK" | "D1" | "D2" | "D3" | "D4" | "S1" | "S2" | "S3" | null;
+  requiredCompetencies?: string[] | null;
+  acceptedDisabilityTypes?: string[] | null;
+  numberOfDisabilityPositions?: number | null;
   expectations?: {
     ageRange?: {
       min: number;

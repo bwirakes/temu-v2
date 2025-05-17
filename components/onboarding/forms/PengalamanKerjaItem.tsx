@@ -288,21 +288,22 @@ export default function PengalamanKerjaItem({
       levelPengalaman: pengalaman?.levelPengalaman || "Baru lulus",
       namaPerusahaan: values.namaPerusahaan,
       posisi: values.posisi,
-      tanggalMulai: values.tanggalMulai.toISOString().split("T")[0],
+      tanggalMulai: values.tanggalMulai ? values.tanggalMulai.toISOString().split("T")[0] : "",
       tanggalSelesai: values.masihBekerja 
         ? "Sekarang" 
         : values.tanggalSelesai
           ? values.tanggalSelesai.toISOString().split("T")[0]
           : "",
-      deskripsiPekerjaan: values.deskripsiPekerjaan,
-      lokasi: values.lokasi,
-      gajiTerakhir: values.gajiTerakhir,
+      deskripsiPekerjaan: values.deskripsiPekerjaan || "",
+      lokasi: values.lokasi || "",
+      gajiTerakhir: values.gajiTerakhir || "",
       alasanKeluar: values.alasanKeluar === "Lainnya" 
         ? values.alasanKeluarLainnya 
-        : values.alasanKeluar,
+        : values.alasanKeluar || "",
       lokasiKerja: pengalaman?.lokasiKerja || "WFO",
     };
 
+    // Add a slight delay to show loading state
     setTimeout(() => {
       onSave(formattedData);
       setIsSubmitting(false);

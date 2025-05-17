@@ -58,11 +58,6 @@ export default function JobSeekerSidebar({ isOpen, onClose }: SidebarProps) {
       icon: <User size={20} />
     },
     {
-      label: "CV Builder",
-      href: "/job-seeker/cv-builder",
-      icon: <FileText size={20} />
-    },
-    {
       label: "Lamaran Saya",
       href: "/job-seeker/applications",
       icon: <Briefcase size={20} />
@@ -71,11 +66,6 @@ export default function JobSeekerSidebar({ isOpen, onClose }: SidebarProps) {
       label: "Cari Lowongan",
       href: "/job-seeker/browse-jobs",
       icon: <Search size={20} />
-    },
-    {
-      label: "Pengaturan",
-      href: "/job-seeker/settings",
-      icon: <Settings size={20} />
     }
   ];
 

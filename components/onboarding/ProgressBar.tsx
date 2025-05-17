@@ -17,9 +17,16 @@ const steps = [
   { id: 10, path: "ringkasan" },           // Step 10: Ringkasan
 ];
 
-export default function ProgressBar() {
-  const { currentStep, setCurrentStep, completedSteps, isStepComplete } = useOnboarding();
+interface ProgressBarProps {
+  forceCurrentStep?: number;
+}
+
+export default function ProgressBar({ forceCurrentStep }: ProgressBarProps) {
+  const { currentStep: contextCurrentStep, setCurrentStep, completedSteps, isStepComplete } = useOnboarding();
   const pathname = usePathname();
+  
+  // Use forceCurrentStep if provided, otherwise use the context value
+  const currentStep = forceCurrentStep !== undefined ? forceCurrentStep : contextCurrentStep;
 
   // Calculate the number of completed steps based on the isStepComplete function
   const calculatedCompletedSteps = useMemo(() => {
@@ -32,15 +39,17 @@ export default function ProgressBar() {
     return [...new Set(completed)]; // Ensure uniqueness
   }, [currentStep, isStepComplete]);
 
-  // Synchronize the current step with the URL path
+  // Synchronize the current step with the URL path, only if forceCurrentStep is not provided
   useEffect(() => {
+    if (forceCurrentStep !== undefined) return;
+    
     const currentPath = pathname.split("/").pop();
     const matchedStep = steps.find(step => step.path === currentPath);
     
-    if (matchedStep && matchedStep.id !== currentStep) {
+    if (matchedStep && matchedStep.id !== contextCurrentStep) {
       setCurrentStep(matchedStep.id);
     }
-  }, [pathname, currentStep, setCurrentStep]);
+  }, [pathname, contextCurrentStep, setCurrentStep, forceCurrentStep]);
 
   // Calculate progress percentage based on completed steps
   // Use both the stored completedSteps and calculated ones for most accurate representation

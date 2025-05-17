@@ -6,26 +6,19 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { 
   Search, 
-  FileText, 
   Briefcase, 
   User, 
-  Settings,
   ArrowRight,
-  Share2,
-  FileDown,
   ExternalLink
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
-import CVPreview from "@/components/cv-preview";
 
 export default function JobSeekerDashboard() {
   const router = useRouter();
   const { data: session } = useSession();
   const [jobId, setJobId] = useState("");
-  const [cvDialogOpen, setCvDialogOpen] = useState(false);
   
   const userName = session?.user?.name || "Pencari Kerja";
 
@@ -130,30 +123,6 @@ export default function JobSeekerDashboard() {
             </CardFooter>
           </Card>
         </Link>
-
-        <Dialog open={cvDialogOpen} onOpenChange={setCvDialogOpen}>
-          <DialogTrigger asChild>
-            <Card className="h-full hover:shadow-md transition-shadow cursor-pointer">
-              <CardHeader className="pb-2">
-                <CardTitle className="flex items-center gap-2">
-                  <FileText className="h-5 w-5 text-blue-600" />
-                  CV
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-gray-500">Lihat dan bagikan CV profesional Anda</p>
-              </CardContent>
-              <CardFooter>
-                <Button variant="ghost" size="sm" className="text-blue-600 hover:text-blue-700 p-0">
-                  Lihat CV <ArrowRight className="ml-1 h-4 w-4" />
-                </Button>
-              </CardFooter>
-            </Card>
-          </DialogTrigger>
-          <DialogContent className="max-w-6xl h-[90vh] overflow-auto">
-            <CVPreview />
-          </DialogContent>
-        </Dialog>
 
         <Link href="/job-seeker/applications">
           <Card className="h-full hover:shadow-md transition-shadow cursor-pointer">

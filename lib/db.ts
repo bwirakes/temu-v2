@@ -65,6 +65,18 @@ export const applicationStatusEnum = pgEnum('application_status', [
   'WITHDRAWN'
 ]);
 export const userTypeEnum = pgEnum('user_type', ['job_seeker', 'employer']);
+export const lastEducationEnum = pgEnum('last_education', [
+  'SD',
+  'SMP',
+  'SMA/SMK',
+  'D1',
+  'D2',
+  'D3',
+  'D4',
+  'S1',
+  'S2',
+  'S3'
+]);
 
 export const users = pgTable('users', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -200,6 +212,7 @@ export const employers = pgTable('employers', {
   merekUsaha: text('merek_usaha'),
   industri: text('industri').notNull(),
   alamatKantor: text('alamat_kantor').notNull(),
+  email: text('email').notNull(),
   website: text('website'),
   socialMedia: jsonb('social_media').$type<{
     instagram?: string;
@@ -237,6 +250,10 @@ export const jobs = pgTable('jobs', {
   postedDate: timestamp('posted_date').defaultNow().notNull(),
   numberOfPositions: integer('number_of_positions'),
   workingHours: text('working_hours'),
+  lastEducation: lastEducationEnum('last_education'),
+  requiredCompetencies: jsonb('required_competencies').$type<string[]>(),
+  acceptedDisabilityTypes: jsonb('accepted_disability_types').$type<string[]>(),
+  numberOfDisabilityPositions: integer('number_of_disability_positions').default(0),
   expectations: jsonb('expectations').$type<{
     ageRange?: {
       min: number;
@@ -617,6 +634,7 @@ export const employerOnboardingProgress = pgTable('employer_onboarding_progress'
     merekUsaha?: string;
     industri: string;
     alamatKantor: string;
+    email: string;
     
     // Step 2: Kehadiran Online dan Identitas Merek
     website?: string;

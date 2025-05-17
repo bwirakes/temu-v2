@@ -8,12 +8,14 @@ interface OnboardingLayoutProps {
   children: ReactNode;
   title: string;
   description: string;
+  currentStep?: number;
 }
 
 export default function OnboardingLayout({
   children,
   title,
   description,
+  currentStep,
 }: OnboardingLayoutProps) {
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white flex flex-col">
@@ -21,7 +23,7 @@ export default function OnboardingLayout({
       <div className="flex-grow pb-8 md:py-8 md:container md:mx-auto md:px-4 md:max-w-4xl">
         <div className="flex flex-col h-full">
           <div className="order-2 md:order-1 w-full bg-white md:bg-transparent px-4 md:px-0">
-            <ProgressBar />
+            <ProgressBar forceCurrentStep={currentStep} />
           </div>
 
           <div className="order-1 md:order-2 w-full md:mt-6">

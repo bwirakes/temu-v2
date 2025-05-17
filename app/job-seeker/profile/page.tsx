@@ -50,11 +50,19 @@ export default async function ProfilePage() {
   // If no profile data exists, the client component will handle showing the appropriate UI
   
   return (
-    <div className="container mx-auto py-8 px-4 md:px-6">
-      <h1 className="text-3xl font-bold mb-6">Profil Saya</h1>
-      <Suspense fallback={<ProfileSkeleton />}>
-        <ProfileClient userId={session.user.id} />
-      </Suspense>
+    <div className="container mx-auto py-8 px-4 md:px-6 max-w-4xl">
+      <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 mb-6">
+        <h1 className="text-2xl font-bold text-gray-900 mb-2">Profil Saya</h1>
+        <p className="text-blue-700">
+          Lengkapi profil Anda untuk meningkatkan peluang mendapatkan pekerjaan yang sesuai
+        </p>
+      </div>
+
+      <div className="space-y-6">
+        <Suspense fallback={<ProfileSkeleton />}>
+          <ProfileClient userId={session.user.id} />
+        </Suspense>
+      </div>
     </div>
   );
 } 
