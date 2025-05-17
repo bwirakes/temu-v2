@@ -29,7 +29,7 @@ export async function GET(
       );
     }
     
-    const applicationId = params.id;
+    const applicationId = await params.id;
     
     if (!applicationId) {
       return NextResponse.json(
@@ -123,7 +123,7 @@ export async function PATCH(
       );
     }
     
-    const applicationId = params.id;
+    const applicationId = await params.id;
     
     if (!applicationId) {
       return NextResponse.json(

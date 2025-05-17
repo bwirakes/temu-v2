@@ -7,7 +7,7 @@ export async function GET(
 ) {
   try {
     // Access params asynchronously
-    const { id: employerId } = params;
+    const employerId = await params.id;
     
     if (!employerId) {
       console.error('Missing employer ID in params');

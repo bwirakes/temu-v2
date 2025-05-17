@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { jobApplicationService } from '@/lib/services/JobApplicationService';
 import { z } from 'zod';
+import { revalidatePath } from 'next/cache';
 
 // Define the session type to match what's in lib/auth.ts
 interface CustomSession {
@@ -79,6 +80,10 @@ export async function POST(request: NextRequest) {
       applicantData
     );
     
+    // Revalidate the job detail pages to update applicant counts
+    revalidatePath(`/employer/jobs/${data.jobId}`);
+    revalidatePath(`/job-detail/${data.jobId}`);
+    
     // Return success response with the application data and reference code
     return NextResponse.json(
       { 
@@ -89,7 +94,8 @@ export async function POST(request: NextRequest) {
           status: application.status,
           createdAt: application.createdAt,
         },
-        referenceCode 
+        referenceCode,
+        revalidated: true
       },
       { status: 201 }
     );

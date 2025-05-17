@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import { PlusCircle, XCircle, Save } from "lucide-react";
+import { PlusCircle, XCircle, Save, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -66,6 +66,7 @@ const jobSchema = z.object({
 type JobFormValues = z.infer<typeof jobSchema>;
 
 interface WorkLocation {
+  id?: string;
   address: string;
   city: string;
   province: string;
@@ -93,73 +94,13 @@ const LabelText = ({ htmlFor, children, required }: {
 
 export default function JobEditForm({ jobId, onSave, onCancel }: JobEditFormProps) {
   const router = useRouter();
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
   const [workLocations, setWorkLocations] = useState<WorkLocation[]>([
     { address: "", city: "", province: "", isRemote: false }
   ]);
+  const [error, setError] = useState<string | null>(null);
   
-  // In a real application, we would fetch the job data from an API
-  // For now, we'll use mock data based on the jobId
-  useEffect(() => {
-    // Simulate API call to fetch job data
-    const fetchJobData = async () => {
-      // Mock data based on jobId
-      if (jobId === "JOB-2023-001") {
-        // Senior Frontend Developer
-        form.reset({
-          jobTitle: "Senior Frontend Developer",
-          numberOfPositions: 2,
-          responsibilities: "- Develop and maintain responsive web applications using React and Next.js\n- Collaborate with UI/UX designers to implement visual elements\n- Optimize applications for maximum speed and scalability\n- Work with backend developers to integrate REST APIs\n- Write clean, maintainable, and well-documented code",
-          workingHours: "Senin-Jumat, 09:00-17:00",
-          salaryMin: "15000000",
-          salaryMax: "25000000",
-          salaryNegotiable: true,
-          gender: "ANY",
-          minWorkExperience: 3,
-          requiredDocuments: "- KTP\n- Ijazah S1/S2\n- Portfolio\n- Sertifikat keahlian terkait",
-          specialSkills: "- Problem solving\n- Kemampuan analitis yang baik\n- Komunikasi efektif",
-          technologicalSkills: "- React.js/Next.js (Expert)\n- TypeScript (Advanced)\n- CSS/Tailwind CSS (Advanced)\n- Git (Intermediate)\n- Testing frameworks (Intermediate)",
-          ageRangeMin: 25,
-          ageRangeMax: 40,
-          expectedCharacter: "- Mampu bekerja dalam tim\n- Proaktif dan inisiatif\n- Teliti dan detail-oriented\n- Mampu bekerja di bawah tekanan\n- Memiliki keinginan belajar yang tinggi",
-          foreignLanguage: "Bahasa Inggris (minimal pasif)",
-          suitableForDisability: true,
-          contractType: "FULL_TIME",
-          applicationDeadline: "2023-12-31",
-        });
-        setWorkLocations([
-          { address: "Jl. Sudirman No. 123", city: "Jakarta", province: "DKI Jakarta", isRemote: false },
-          { address: "", city: "Bandung", province: "Jawa Barat", isRemote: true }
-        ]);
-      } else {
-        // Default values for other jobs
-        form.reset({
-          jobTitle: "",
-          numberOfPositions: 1,
-          responsibilities: "",
-          workingHours: "",
-          salaryMin: "",
-          salaryMax: "",
-          salaryNegotiable: true,
-          gender: "ANY",
-          minWorkExperience: 0,
-          requiredDocuments: "",
-          specialSkills: "",
-          technologicalSkills: "",
-          ageRangeMin: 18,
-          ageRangeMax: 55,
-          expectedCharacter: "",
-          foreignLanguage: "",
-          suitableForDisability: false,
-          contractType: undefined,
-          applicationDeadline: "",
-        });
-      }
-    };
-
-    fetchJobData();
-  }, [jobId]);
-
   const form = useForm<JobFormValues>({
     resolver: zodResolver(jobSchema),
     defaultValues: {
@@ -180,10 +121,96 @@ export default function JobEditForm({ jobId, onSave, onCancel }: JobEditFormProp
       expectedCharacter: "",
       foreignLanguage: "",
       suitableForDisability: false,
-      contractType: undefined,
+      contractType: "FULL_TIME" as ContractType,
       applicationDeadline: "",
     },
   });
+
+  // Fetch job data and work locations from API
+  useEffect(() => {
+    const fetchJobData = async () => {
+      setIsLoading(true);
+      setError(null);
+      
+      try {
+        // Fetch job details
+        const jobResponse = await fetch(`/api/employer/jobs/${jobId}/edit`);
+        
+        if (!jobResponse.ok) {
+          const error = await jobResponse.json();
+          throw new Error(error.error || 'Failed to fetch job details');
+        }
+        
+        const jobData = await jobResponse.json();
+        
+        if (!jobData.job) {
+          throw new Error('No job data received');
+        }
+        
+        const job = jobData.job;
+        
+        // Format job data for the form
+        form.reset({
+          jobTitle: job.jobTitle || "",
+          numberOfPositions: job.numberOfPositions || 1,
+          responsibilities: Array.isArray(job.responsibilities) 
+            ? job.responsibilities.join("\n") 
+            : job.responsibilities || "",
+          workingHours: job.workingHours || "",
+          salaryMin: job.salaryRange?.min?.toString() || "",
+          salaryMax: job.salaryRange?.max?.toString() || "",
+          salaryNegotiable: job.salaryRange?.isNegotiable || true,
+          gender: job.additionalRequirements?.gender === "MALE" ? "MALE" : 
+                 job.additionalRequirements?.gender === "FEMALE" ? "FEMALE" : "ANY",
+          minWorkExperience: job.minWorkExperience || 0,
+          requiredDocuments: job.additionalRequirements?.requiredDocuments || "",
+          specialSkills: job.additionalRequirements?.specialSkills || "",
+          technologicalSkills: job.additionalRequirements?.technologicalSkills || "",
+          ageRangeMin: job.expectations?.ageRange?.min || 18,
+          ageRangeMax: job.expectations?.ageRange?.max || 55,
+          expectedCharacter: job.expectations?.expectedCharacter || "",
+          foreignLanguage: job.expectations?.foreignLanguage || "",
+          suitableForDisability: job.additionalRequirements?.suitableForDisability || false,
+          contractType: job.contractType as ContractType || "FULL_TIME",
+          applicationDeadline: job.applicationDeadline 
+            ? new Date(job.applicationDeadline).toISOString().split('T')[0]
+            : "",
+        });
+        
+        // Fetch work locations
+        const locationsResponse = await fetch(`/api/employer/jobs/${jobId}/locations`);
+        
+        if (!locationsResponse.ok) {
+          const error = await locationsResponse.json();
+          throw new Error(error.error || 'Failed to fetch work locations');
+        }
+        
+        const locationsData = await locationsResponse.json();
+        
+        if (locationsData.locations && locationsData.locations.length > 0) {
+          setWorkLocations(locationsData.locations.map((loc: any) => ({
+            id: loc.id,
+            address: loc.address || "",
+            city: loc.city || "",
+            province: loc.province || "",
+            isRemote: loc.isRemote || false
+          })));
+        }
+      } catch (err: any) {
+        console.error('Error fetching job data:', err);
+        setError(err.message || 'Error fetching job data');
+        toast.error('Error fetching job data', {
+          description: err.message || 'Please try again later',
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    if (jobId) {
+      fetchJobData();
+    }
+  }, [jobId, form]);
 
   const addLocation = () => {
     setWorkLocations([
@@ -207,30 +234,127 @@ export default function JobEditForm({ jobId, onSave, onCancel }: JobEditFormProp
     setWorkLocations(updatedLocations);
   };
 
-  const onSubmit = (data: JobFormValues) => {
-    setIsSubmitting(true);
+  const onSubmit = async (data: JobFormValues) => {
+    setIsSaving(true);
     
-    // Validate work locations
-    const hasValidLocations = workLocations.every(loc => loc.city && loc.province);
-    
-    if (!hasValidLocations) {
-      toast.error("Validasi gagal", {
-        description: "Setiap lokasi kerja harus memiliki kota dan provinsi."
-      });
-      setIsSubmitting(false);
-      return;
-    }
+    try {
+      // Validate work locations
+      const hasValidLocations = workLocations.every(loc => loc.city && loc.province);
+      
+      if (!hasValidLocations) {
+        toast.error("Validasi gagal", {
+          description: "Setiap lokasi kerja harus memiliki kota dan provinsi."
+        });
+        setIsSaving(false);
+        return;
+      }
 
-    // In a real application, we would send the data to an API
-    // For now, we'll just simulate a successful save
-    setTimeout(() => {
-      setIsSubmitting(false);
+      // Format data for the API
+      const jobData = {
+        jobTitle: data.jobTitle,
+        contractType: data.contractType,
+        minWorkExperience: data.minWorkExperience,
+        salaryRange: {
+          min: data.salaryMin ? Number(data.salaryMin) : undefined,
+          max: data.salaryMax ? Number(data.salaryMax) : undefined,
+          isNegotiable: data.salaryNegotiable
+        },
+        applicationDeadline: data.applicationDeadline || null,
+        requirements: data.requiredDocuments.split('\n').filter(Boolean),
+        responsibilities: data.responsibilities.split('\n').filter(Boolean),
+        description: data.responsibilities,
+        numberOfPositions: data.numberOfPositions,
+        workingHours: data.workingHours,
+        expectations: {
+          ageRange: {
+            min: data.ageRangeMin,
+            max: data.ageRangeMax
+          },
+          expectedCharacter: data.expectedCharacter,
+          foreignLanguage: data.foreignLanguage
+        },
+        additionalRequirements: {
+          gender: data.gender,
+          requiredDocuments: data.requiredDocuments,
+          specialSkills: data.specialSkills,
+          technologicalSkills: data.technologicalSkills,
+          suitableForDisability: data.suitableForDisability
+        }
+      };
+
+      // Update job data
+      const updateResponse = await fetch(`/api/employer/jobs/${jobId}/edit`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(jobData)
+      });
+
+      if (!updateResponse.ok) {
+        const error = await updateResponse.json();
+        throw new Error(error.error || 'Failed to update job');
+      }
+
+      // Delete existing locations and create new ones
+      // First, delete all existing locations
+      await fetch(`/api/employer/jobs/${jobId}/locations`, {
+        method: 'DELETE'
+      });
+
+      // Then add each location
+      for (const location of workLocations) {
+        if (location.city && location.province) {
+          await fetch(`/api/employer/jobs/${jobId}/locations`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              city: location.city,
+              province: location.province,
+              isRemote: location.isRemote,
+              address: location.address
+            })
+          });
+        }
+      }
+
       toast.success("Perubahan disimpan", {
         description: "Lowongan pekerjaan berhasil diperbarui."
       });
+      
       onSave();
-    }, 1000);
+    } catch (err: any) {
+      console.error('Error updating job:', err);
+      toast.error('Error updating job', {
+        description: err.message || 'Please try again later',
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="flex flex-col items-center gap-2">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-muted-foreground">Memuat data lowongan...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] p-4">
+        <h3 className="text-lg font-semibold text-red-600 mb-2">Error Loading Job Data</h3>
+        <p className="text-muted-foreground mb-4">{error}</p>
+        <Button onClick={() => router.push('/employer/jobs')}>Back to Jobs</Button>
+      </div>
+    );
+  }
 
   return (
     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8 pb-10">
@@ -681,18 +805,15 @@ export default function JobEditForm({ jobId, onSave, onCancel }: JobEditFormProp
         </CardContent>
       </Card>
 
-      {/* Form Actions */}
+      {/* Form Buttons */}
       <div className="flex justify-end space-x-4">
         <Button type="button" variant="outline" onClick={onCancel}>
           Batal
         </Button>
-        <Button type="submit" disabled={isSubmitting}>
-          {isSubmitting ? (
+        <Button type="submit" disabled={isSaving}>
+          {isSaving ? (
             <>
-              <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               Menyimpan...
             </>
           ) : (

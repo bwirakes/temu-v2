@@ -1,6 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getJobById, getEmployerByUserId } from "@/lib/db";
 import { auth } from '@/lib/auth';
+import { 
+  db, 
+  getJobApplicationsByJobId, 
+  jobs,
+  jobApplications, 
+  userProfiles,
+  applicationStatusEnum
+} from '@/lib/db';
+import { and, eq, sql } from 'drizzle-orm';
 
 // Define the custom session type to match what's in lib/auth.ts
 interface CustomSession {
@@ -18,8 +27,8 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    // Access params asynchronously
-    const { id: jobId } = params;
+    // Access params asynchronously - await the params object
+    const jobId = await params.id;
     
     if (!jobId) {
       console.error('Missing job ID in params');
@@ -82,17 +91,55 @@ export async function GET(
       );
     }
 
-    // Add mock application count for now
-    // In a real implementation, you would fetch the actual count from the database
+    // Get job applications with a current timestamp as applicationDate
+    const jobApplicationsData = await db
+      .select({
+        id: jobApplications.id,
+        status: jobApplications.status,
+        coverLetter: jobApplications.coverLetter,
+        resumeUrl: jobApplications.resumeUrl,
+        // Use current_timestamp as a placeholder
+        applicationDate: sql<string>`CURRENT_TIMESTAMP`,
+        // Join with user profile to get applicant information
+        name: userProfiles.namaLengkap,
+        email: userProfiles.email,
+        profileId: userProfiles.id
+      })
+      .from(jobApplications)
+      .innerJoin(
+        userProfiles,
+        eq(jobApplications.applicantProfileId, userProfiles.id)
+      )
+      .where(eq(jobApplications.jobId, jobId));
+
+    // Transform data to match the expected format in the frontend
+    const applicants = jobApplicationsData.map(application => ({
+      id: application.id,
+      name: application.name,
+      email: application.email,
+      // Format the date as ISO string
+      applicationDate: new Date(application.applicationDate).toISOString(),
+      status: application.status,
+      resumeUrl: application.resumeUrl,
+      coverLetter: application.coverLetter,
+      profileId: application.profileId
+    }));
+
+    // Calculate the actual application count
+    const applicationCount = applicants.length;
+
     const jobWithApplicationCount = {
       ...job,
-      applicationCount: Math.floor(Math.random() * 50) // Mock data
+      applicationCount
     };
 
     console.log('API: Returning job data');
-    return NextResponse.json({ job: jobWithApplicationCount });
+    return NextResponse.json({
+      job: jobWithApplicationCount,
+      applicants
+    });
   } catch (error) {
-    console.error('Error fetching job details:', error);
+    console.error('Error fetching job details and applicants:', error);
     return NextResponse.json(
       { error: 'Terjadi kesalahan saat mengambil detail lowongan' },
       { status: 500 }

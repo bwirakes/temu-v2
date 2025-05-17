@@ -39,7 +39,7 @@ export async function GET(
 ) {
   try {
     // Access params asynchronously
-    const { id: jobId } = params;
+    const jobId = await params.id;
     
     if (!jobId) {
       return NextResponse.json(

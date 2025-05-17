@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getJobById, updateJob, getEmployerByUserId } from "@/lib/db";
 import { auth } from '@/lib/auth';
+import { revalidatePath } from "next/cache";
 
 // Define the custom session type to match what's in lib/auth.ts
 interface CustomSession {
@@ -22,7 +23,7 @@ export async function PATCH(
 ) {
   try {
     // Extract job ID from params asynchronously
-    const { id: jobId } = params;
+    const jobId = await params.id;
 
     // Validate job ID
     if (!jobId) {
@@ -85,8 +86,20 @@ export async function PATCH(
     // Update the job confirmation status
     const updatedJob = await updateJob(jobId, { isConfirmed });
 
+    // Revalidate the job detail page to update the static content
+    revalidatePath(`/employer/jobs/${jobId}`);
+    
+    // Also revalidate the public job detail page if it exists
+    revalidatePath(`/job-detail/${jobId}`);
+    
+    // Revalidate the jobs listing page
+    revalidatePath('/employer/jobs');
+
     // Return the updated job
-    return NextResponse.json(updatedJob, { status: 200 });
+    return NextResponse.json({
+      job: updatedJob,
+      revalidated: true
+    }, { status: 200 });
   } catch (error) {
     console.error("Error updating job confirmation status:", error);
     return NextResponse.json(
