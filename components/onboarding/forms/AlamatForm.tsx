@@ -7,10 +7,11 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 
 import { useOnboarding } from "@/lib/context/OnboardingContext";
-import { Button } from "@/components/ui/button";
+import { useOnboardingApi } from "@/lib/hooks/useOnboardingApi";
 import { Input } from "@/components/ui/input";
 import FormNav from "@/components/FormNav";
 import { FormLabel } from "@/components/ui/form-label";
+import { toast } from "sonner";
 import {
   Select,
   SelectContent,
@@ -58,10 +59,10 @@ const provinsiIndonesia = [
 ];
 
 const alamatSchema = z.object({
-  jalan: z.string().min(1, "Alamat jalan wajib diisi"),
   kota: z.string().min(1, "Kota wajib diisi"),
-  provinsi: z.string().min(1, "Provinsi wajib diisi"),
-  kodePos: z.string().min(1, "Kode pos wajib diisi"),
+  provinsi: z.string().optional(),
+  kodePos: z.string().optional(),
+  jalan: z.string().optional(),
 });
 
 type AlamatValues = z.infer<typeof alamatSchema>;
@@ -70,12 +71,13 @@ export default function AlamatForm() {
   const { data, updateFormValues, setCurrentStep } = useOnboarding();
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { saveStep, isLoading: isSaving } = useOnboardingApi();
 
   const defaultValues: Partial<AlamatValues> = {
-    jalan: data.alamat?.jalan || "",
     kota: data.alamat?.kota || "",
     provinsi: data.alamat?.provinsi || "",
     kodePos: data.alamat?.kodePos || "",
+    jalan: data.alamat?.jalan || "",
   };
 
   const {
@@ -88,44 +90,53 @@ export default function AlamatForm() {
     defaultValues,
   });
 
-  const onSubmit = (values: AlamatValues) => {
-    setIsSubmitting(true);
-    
-    updateFormValues({
-      alamat: {
-        ...data.alamat,
-        jalan: values.jalan,
-        kota: values.kota,
-        provinsi: values.provinsi,
-        kodePos: values.kodePos,
-      },
-    });
+  const onSubmit = async (values: AlamatValues) => {
+    try {
+      setIsSubmitting(true);
+      
+      // Update form context
+      updateFormValues({
+        alamat: {
+          kota: values.kota,
+          provinsi: values.provinsi,
+          kodePos: values.kodePos,
+          jalan: values.jalan,
+        },
+      });
 
-    setTimeout(() => {
+      // Save data to API
+      try {
+        await saveStep(3, {
+          alamat: {
+            kota: values.kota,
+            provinsi: values.provinsi,
+            kodePos: values.kodePos,
+            jalan: values.jalan,
+          }
+        });
+        
+        toast.success("Alamat berhasil disimpan");
+        
+        // Navigate to next step
+        setCurrentStep(4);
+        router.push("/job-seeker/onboarding/pendidikan");
+      } catch (error) {
+        console.error("Error saving address data:", error);
+        const errorMessage = error instanceof Error 
+          ? error.message 
+          : "Gagal menyimpan data alamat. Silakan coba lagi.";
+        toast.error(errorMessage);
+      }
+    } catch (error) {
+      console.error("Form submission error:", error);
+    } finally {
       setIsSubmitting(false);
-      setCurrentStep(4);
-      router.push("/job-seeker/onboarding/social-media");
-    }, 500);
+    }
   };
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
       <div className="space-y-4">
-        <div className="space-y-2">
-          <FormLabel htmlFor="jalan" required>
-            Alamat Lengkap
-          </FormLabel>
-          <Input
-            id="jalan"
-            placeholder="Jl. Contoh No. 123"
-            {...register("jalan")}
-            className={errors.jalan ? "border-red-500" : ""}
-          />
-          {errors.jalan && (
-            <p className="text-red-500 text-sm">{errors.jalan.message}</p>
-          )}
-        </div>
-
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-2">
             <FormLabel htmlFor="kota" required>
@@ -143,17 +154,14 @@ export default function AlamatForm() {
           </div>
 
           <div className="space-y-2">
-            <FormLabel htmlFor="provinsi" required>
+            <FormLabel htmlFor="provinsi">
               Provinsi
             </FormLabel>
             <Select 
               onValueChange={(value) => setValue("provinsi", value)}
               defaultValue={defaultValues.provinsi}
             >
-              <SelectTrigger 
-                id="provinsi"
-                className={errors.provinsi ? "border-red-500" : ""}
-              >
+              <SelectTrigger id="provinsi">
                 <SelectValue placeholder="Pilih provinsi" />
               </SelectTrigger>
               <SelectContent>
@@ -164,29 +172,33 @@ export default function AlamatForm() {
                 ))}
               </SelectContent>
             </Select>
-            {errors.provinsi && (
-              <p className="text-red-500 text-sm">{errors.provinsi.message}</p>
-            )}
           </div>
         </div>
 
         <div className="space-y-2">
-          <FormLabel htmlFor="kodePos" required>
+          <FormLabel htmlFor="jalan">
+            Alamat Lengkap
+          </FormLabel>
+          <Input
+            id="jalan"
+            placeholder="Jl. Contoh No. 123"
+            {...register("jalan")}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <FormLabel htmlFor="kodePos">
             Kode Pos
           </FormLabel>
           <Input
             id="kodePos"
             placeholder="12345"
             {...register("kodePos")}
-            className={errors.kodePos ? "border-red-500" : ""}
           />
-          {errors.kodePos && (
-            <p className="text-red-500 text-sm">{errors.kodePos.message}</p>
-          )}
         </div>
       </div>
 
-      <FormNav isSubmitting={isSubmitting} />
+      <FormNav isSubmitting={isSubmitting || isSaving} saveOnNext={false} />
     </form>
   );
 }

@@ -36,10 +36,8 @@ const jobWorkLocationSchema = z.object({
 /**
  * GET handler for retrieving job work locations
  */
-export async function GET(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function GET(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     // Get job ID from params
     const jobId = await params.id;
@@ -103,10 +101,8 @@ export async function GET(
 /**
  * POST handler for creating a new job work location
  */
-export async function POST(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function POST(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     // Get job ID from params
     const jobId = await params.id;
@@ -193,10 +189,8 @@ export async function POST(
 /**
  * DELETE handler for removing all job work locations before adding new ones
  */
-export async function DELETE(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function DELETE(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     // Get job ID from params
     const jobId = await params.id;

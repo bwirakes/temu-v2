@@ -226,7 +226,7 @@ export function JobsClientWrapper({ jobs }: JobsClientWrapperProps) {
                             <DropdownMenuContent align="end">
                               <DropdownMenuItem asChild>
                                 <Link 
-                                  href={`/job-detail/${job.id}`} 
+                                  href={`/careers/${job.employerId}/${job.id}`} 
                                   className="flex items-center"
                                   onClick={(e) => e.stopPropagation()}
                                 >

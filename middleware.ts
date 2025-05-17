@@ -23,7 +23,15 @@ const PAGE_REDIRECTS = {
   '/onboarding': '/job-seeker/onboarding',
   '/cv-builder': '/job-seeker/cv-builder',
   '/employer-onboarding': '/employer/onboarding',
+  '/profile': '/job-seeker/profile',
+  '/': 'job-seeker/dashboard'
 };
+
+// Define routes that should bypass session revalidation
+// to prevent unnecessary redirects and session validation
+const SESSION_PERSISTENCE_ROUTES = [
+  '/job-seeker/profile'
+];
 
 export async function middleware(request: NextRequest) {
   const url = request.nextUrl.clone();
@@ -81,7 +89,21 @@ export async function middleware(request: NextRequest) {
       return NextResponse.next();
     }
 
-    // Check if user is authenticated
+    // Special handling for profile page to prevent auth loops
+    if (SESSION_PERSISTENCE_ROUTES.some(route => pathname.startsWith(route))) {
+      // If user is already authenticated, allow access immediately
+      if (session?.user) {
+        console.log(`Middleware: User authenticated for persistence route ${pathname}, allowing access`);
+        return NextResponse.next();
+      }
+      
+      // Only redirect unauthenticated users with callback
+      const callbackUrl = encodeURIComponent(pathname);
+      console.log(`Middleware: Unauthenticated for persistence route, redirecting to login with callbackUrl=${callbackUrl}`);
+      return NextResponse.redirect(new URL(`/auth/signin?callbackUrl=${callbackUrl}`, request.url));
+    }
+
+    // Check if user is authenticated for all other protected routes
     if (!session?.user) {
       console.log(`Middleware: No authenticated user, redirecting to signin`);
       return NextResponse.redirect(new URL('/auth/signin', request.url));
@@ -119,6 +141,12 @@ export async function middleware(request: NextRequest) {
     // The client-side logic in the page will handle navigation between steps
     if (pathname.startsWith('/employer/onboarding/') && userType === 'employer') {
       console.log(`Middleware: Employer accessing onboarding, allowing access`);
+      return NextResponse.next();
+    }
+
+    // Special handling for profile pages to preserve session
+    if (pathname.startsWith('/job-seeker/profile') && userType === 'job_seeker') {
+      console.log(`Middleware: Job seeker accessing profile, preserving session`);
       return NextResponse.next();
     }
 

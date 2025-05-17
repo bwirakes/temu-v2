@@ -14,10 +14,8 @@ interface CustomSession {
 }
 
 // GET endpoint to fetch a specific application by ID
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function GET(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     // Check authentication
     const session = await auth() as CustomSession;
@@ -100,10 +98,8 @@ export async function GET(
 }
 
 // PATCH endpoint to update application status
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function PATCH(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     // Check authentication
     const session = await auth() as CustomSession;

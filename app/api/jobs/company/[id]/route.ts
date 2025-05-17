@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getJobsByEmployerId } from "@/lib/db";
 
-export async function GET(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function GET(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     // Access params asynchronously
     const employerId = await params.id;

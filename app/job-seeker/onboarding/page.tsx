@@ -31,7 +31,7 @@ export default function OnboardingPage() {
         router.push('/');
       } else {
         // Automatically redirect to the first step of onboarding
-        router.push('/job-seeker/onboarding/informasi-pribadi');
+        router.push('/job-seeker/onboarding/informasi-dasar');
       }
     }
   }, [session, status, router]);

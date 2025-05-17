@@ -84,6 +84,38 @@ npm run migrate
 npm run studio
 ```
 
+### Database Migrations - Removing Unused Tables
+
+The project has been updated to remove unused tables and streamline the database schema. Follow these steps to apply these changes to your database:
+
+### Step 1: Run the Table Removal Migration
+
+First, run the script to drop the unused tables from your database:
+
+```bash
+npm run drop-tables
+```
+
+This will remove the following tables that are no longer used:
+- `user_social_media`
+- `user_keahlian`
+- `user_sertifikasi`
+- `user_bahasa`
+
+### Step 2: Generate Proper Migrations
+
+To generate proper migration files after removing the tables, run:
+
+```bash
+npm run generate:fix
+```
+
+This uses a special configuration to avoid ES5 compatibility issues that can occur with the standard generate command.
+
+### Troubleshooting
+
+If you encounter errors when running the standard `npm run generate` command with messages about ES5 compatibility, always use `npm run generate:fix` instead, which properly targets ES2020.
+
 ### Development
 
 Start the development server:

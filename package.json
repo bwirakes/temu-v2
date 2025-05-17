@@ -5,14 +5,20 @@
     "build": "next build",
     "start": "next start",
     "generate": "drizzle-kit generate",
-    "migrate": "tsx scripts/migrate.ts",
+    "generate:fix": "node scripts/generate-fix.js",
+    "migrate": "ts-node --transpile-only scripts/migrate.ts",
+    "verify-schema": "ts-node --transpile-only scripts/verify-schema.ts",
     "setup": "tsx scripts/setup-db.ts",
     "create-user": "tsx scripts/create-test-user.ts",
     "studio": "drizzle-kit studio",
     "setup-temu": "tsx scripts/setup-temu-db.ts",
     "add-user-type": "tsx scripts/add-user-type.ts",
     "setup-blob": "node scripts/setup-blob.js",
-    "migration:run": "node scripts/run-migration.js"
+    "remove-address-details": "node scripts/remove-address-details.js",
+    "migration:run": "node scripts/run-migration.js",
+    "migration:add-columns": "tsx scripts/run-db-migration.ts",
+    "drop-tables": "node scripts/run-drop-tables.js",
+    "lint": "next lint"
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",
@@ -72,7 +78,8 @@
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
     "@types/uuid": "^10.0.0",
-    "dotenv": "^16.4.5"
+    "dotenv": "^16.4.5",
+    "ts-node": "^10.9.1"
   },
   "prettier": {
     "arrowParens": "always",

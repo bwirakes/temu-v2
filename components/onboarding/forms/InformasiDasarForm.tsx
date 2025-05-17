@@ -7,17 +7,9 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 
 import { useOnboarding } from "@/lib/context/OnboardingContext";
-import { useOnboardingApi } from "../../../hooks/useOnboardingApi";
-import { Button } from "@/components/ui/button";
+import { useOnboardingApi } from "@/lib/hooks/useOnboardingApi";
 import { Input } from "@/components/ui/input";
 import FormNav from "@/components/FormNav";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { FormLabel } from "@/components/ui/form-label";
 import { toast } from "sonner";
 
@@ -31,9 +23,7 @@ const informasiDasarSchema = z.object({
     .regex(
       /^(\+62|62|0)8[1-9][0-9]{6,9}$/,
       "Format nomor telepon Indonesia tidak valid"
-    ),
-  tempatLahir: z.string().min(1, "Tempat lahir wajib diisi"),
-  statusPernikahan: z.enum(["Belum Menikah", "Menikah", "Cerai"]).optional(),
+    )
 });
 
 type InformasiDasarValues = z.infer<typeof informasiDasarSchema>;
@@ -52,9 +42,7 @@ export default function InformasiDasarForm({ userName, userEmail }: InformasiDas
   const defaultValues: Partial<InformasiDasarValues> = {
     namaLengkap: data.namaLengkap || userName || "",
     email: data.email || userEmail || "",
-    nomorTelepon: data.nomorTelepon || "",
-    tempatLahir: data.tempatLahir || "",
-    statusPernikahan: data.statusPernikahan,
+    nomorTelepon: data.nomorTelepon || ""
   };
 
   const {
@@ -86,28 +74,41 @@ export default function InformasiDasarForm({ userName, userEmail }: InformasiDas
       updateFormValues({
         namaLengkap: values.namaLengkap,
         email: values.email,
-        nomorTelepon: values.nomorTelepon,
-        tempatLahir: values.tempatLahir,
-        statusPernikahan: values.statusPernikahan,
+        nomorTelepon: values.nomorTelepon
       });
       
-      // Save data to API
-      await saveStep(1, {
-        namaLengkap: values.namaLengkap,
-        email: values.email,
-        nomorTelepon: values.nomorTelepon,
-        tempatLahir: values.tempatLahir,
-        statusPernikahan: values.statusPernikahan,
-      });
+      // Normalize phone number format (remove spaces, ensure proper format)
+      const normalizedPhoneNumber = values.nomorTelepon
+        .replace(/\s+/g, '')
+        .replace(/^(\+62|62)/, '0');
       
-      toast.success("Informasi pribadi berhasil disimpan");
-      
-      // Navigate to next step
-      setCurrentStep(2);
-      router.push("/job-seeker/onboarding/informasi-lanjutan");
+      // Save data to API with proper error handling
+      try {
+        await saveStep(1, {
+          namaLengkap: values.namaLengkap,
+          email: values.email,
+          nomorTelepon: normalizedPhoneNumber
+        });
+        
+        toast.success("Informasi pribadi berhasil disimpan");
+        
+        // Navigate to next step
+        setCurrentStep(2);
+        router.push("/job-seeker/onboarding/informasi-lanjutan");
+      } catch (apiError) {
+        console.error("API Error:", apiError);
+        const errorMessage = apiError instanceof Error 
+          ? apiError.message 
+          : "Gagal menyimpan data ke server. Silakan coba lagi.";
+        
+        toast.error(errorMessage);
+      }
     } catch (error) {
-      console.error("Error saving data:", error);
-      toast.error("Gagal menyimpan data");
+      console.error("Form submission error:", error);
+      const errorMessage = error instanceof Error 
+        ? error.message 
+        : "Gagal mengirim formulir. Silakan coba lagi.";
+      toast.error(errorMessage);
     } finally {
       setIsSubmitting(false);
     }
@@ -166,42 +167,6 @@ export default function InformasiDasarForm({ userName, userEmail }: InformasiDas
           <p className="text-xs text-gray-500">
             Format: 08XXXXXXXXXX, contoh: 081234567890
           </p>
-        </div>
-
-        {/* Tempat Lahir */}
-        <div className="space-y-2">
-          <FormLabel htmlFor="tempatLahir" required>
-            Tempat Lahir
-          </FormLabel>
-          <Input
-            id="tempatLahir"
-            placeholder="Masukkan kota kelahiran Anda"
-            {...register("tempatLahir")}
-            className={errors.tempatLahir ? "border-red-500" : ""}
-          />
-          {errors.tempatLahir && (
-            <p className="text-red-500 text-sm">{errors.tempatLahir.message}</p>
-          )}
-        </div>
-
-        {/* Status Pernikahan */}
-        <div className="space-y-2">
-          <FormLabel htmlFor="statusPernikahan">
-            Status Pernikahan
-          </FormLabel>
-          <Select
-            onValueChange={(value) => setValue("statusPernikahan", value as "Belum Menikah" | "Menikah" | "Cerai")}
-            defaultValue={defaultValues.statusPernikahan}
-          >
-            <SelectTrigger id="statusPernikahan">
-              <SelectValue placeholder="Pilih status pernikahan" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="Belum Menikah">Belum Menikah</SelectItem>
-              <SelectItem value="Menikah">Menikah</SelectItem>
-              <SelectItem value="Cerai">Cerai</SelectItem>
-            </SelectContent>
-          </Select>
         </div>
       </div>
 

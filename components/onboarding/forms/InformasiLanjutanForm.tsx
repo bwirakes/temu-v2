@@ -19,39 +19,21 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import FormNav from "@/components/FormNav";
 import { cn } from "@/lib/utils";
 import { FormLabel } from "@/components/ui/form-label";
-
-// Define agama options
-const agamaOptions = ["Islam", "Kristen", "Katolik", "Hindu", "Buddha", "Konghucu"] as const;
+import { useOnboardingApi } from "@/lib/hooks/useOnboardingApi";
+import { toast } from "sonner";
 
 const informasiLanjutanSchema = z.object({
   tanggalLahir: z.date({
     required_error: "Tanggal lahir wajib diisi",
   }),
   tanggalLahirText: z.string().optional(),
+  tempatLahir: z.string().min(1, "Tempat lahir wajib diisi"),
   jenisKelamin: z
     .enum(["Laki-laki", "Perempuan"])
     .optional(),
-  beratBadan: z
-    .number()
-    .min(30, "Berat badan minimal 30 kg")
-    .max(200, "Berat badan maksimal 200 kg")
-    .optional(),
-  tinggiBadan: z
-    .number()
-    .min(100, "Tinggi badan minimal 100 cm")
-    .max(250, "Tinggi badan maksimal 250 cm")
-    .optional(),
-  agama: z.enum(agamaOptions).optional(),
 });
 
 type InformasiLanjutanValues = z.infer<typeof informasiLanjutanSchema>;
@@ -60,6 +42,7 @@ export default function InformasiLanjutanForm() {
   const { data, updateFormValues, setCurrentStep } = useOnboarding();
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { saveStep, isLoading: isSaving } = useOnboardingApi();
   const [date, setDate] = useState<Date | undefined>(
     data.tanggalLahir ? new Date(data.tanggalLahir) : undefined
   );
@@ -69,10 +52,8 @@ export default function InformasiLanjutanForm() {
   const defaultValues: Partial<InformasiLanjutanValues> = {
     tanggalLahir: data.tanggalLahir ? new Date(data.tanggalLahir) : undefined,
     tanggalLahirText: data.tanggalLahir ? format(new Date(data.tanggalLahir), "dd/MM/yyyy") : "",
+    tempatLahir: data.tempatLahir || "",
     jenisKelamin: data.jenisKelamin === "Lainnya" ? undefined : data.jenisKelamin,
-    beratBadan: data.beratBadan,
-    tinggiBadan: data.tinggiBadan,
-    agama: data.agama as any,
   };
 
   const {
@@ -166,26 +147,33 @@ export default function InformasiLanjutanForm() {
     }
   };
 
-  const onSubmit = (values: InformasiLanjutanValues) => {
+  const onSubmit = async (values: InformasiLanjutanValues) => {
     if (dateInputError) {
       return;
     }
     
     setIsSubmitting(true);
     
-    updateFormValues({
+    const updatedValues = {
       tanggalLahir: values.tanggalLahir.toISOString().split("T")[0],
+      tempatLahir: values.tempatLahir,
       jenisKelamin: values.jenisKelamin,
-      beratBadan: values.beratBadan,
-      tinggiBadan: values.tinggiBadan,
-      agama: values.agama,
-    });
+    };
+    
+    updateFormValues(updatedValues);
 
-    setTimeout(() => {
-      setIsSubmitting(false);
+    try {
+      await saveStep(2, updatedValues);
+      
+      toast.success("Data berhasil disimpan");
       setCurrentStep(3);
       router.push("/job-seeker/onboarding/alamat");
-    }, 500);
+    } catch (error) {
+      console.error("Error saving information:", error);
+      toast.error("Gagal menyimpan data. Silakan coba lagi.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const selectedDate = watch("tanggalLahir");
@@ -194,6 +182,22 @@ export default function InformasiLanjutanForm() {
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
       <div className="space-y-4">
+        {/* Tempat Lahir */}
+        <div className="space-y-2">
+          <FormLabel htmlFor="tempatLahir" required>
+            Tempat Lahir
+          </FormLabel>
+          <Input
+            id="tempatLahir"
+            placeholder="Masukkan kota kelahiran Anda"
+            {...register("tempatLahir")}
+            className={errors.tempatLahir ? "border-red-500" : ""}
+          />
+          {errors.tempatLahir && (
+            <p className="text-red-500 text-sm">{errors.tempatLahir.message}</p>
+          )}
+        </div>
+        
         {/* Tanggal Lahir */}
         <div className="space-y-2">
           <FormLabel htmlFor="tanggalLahirText" required>
@@ -272,60 +276,9 @@ export default function InformasiLanjutanForm() {
             </div>
           </RadioGroup>
         </div>
-
-        {/* Berat & Tinggi Badan */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <FormLabel htmlFor="beratBadan">Berat Badan (kg)</FormLabel>
-            <Input
-              id="beratBadan"
-              type="number"
-              placeholder="70"
-              {...register("beratBadan", { valueAsNumber: true })}
-              className={errors.beratBadan ? "border-red-500" : ""}
-            />
-            {errors.beratBadan && (
-              <p className="text-red-500 text-sm">{errors.beratBadan.message}</p>
-            )}
-          </div>
-          
-          <div className="space-y-2">
-            <FormLabel htmlFor="tinggiBadan">Tinggi Badan (cm)</FormLabel>
-            <Input
-              id="tinggiBadan"
-              type="number"
-              placeholder="170"
-              {...register("tinggiBadan", { valueAsNumber: true })}
-              className={errors.tinggiBadan ? "border-red-500" : ""}
-            />
-            {errors.tinggiBadan && (
-              <p className="text-red-500 text-sm">{errors.tinggiBadan.message}</p>
-            )}
-          </div>
-        </div>
-
-        {/* Agama */}
-        <div className="space-y-2">
-          <FormLabel htmlFor="agama">Agama</FormLabel>
-          <Select
-            onValueChange={(value) => setValue("agama", value as any)}
-            defaultValue={defaultValues.agama}
-          >
-            <SelectTrigger id="agama" className="w-full">
-              <SelectValue placeholder="Pilih agama" />
-            </SelectTrigger>
-            <SelectContent>
-              {agamaOptions.map((agama) => (
-                <SelectItem key={agama} value={agama}>
-                  {agama}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
       </div>
 
-      <FormNav isSubmitting={isSubmitting} />
+      <FormNav isSubmitting={isSubmitting || isSaving} saveOnNext={false} />
     </form>
   );
 } 

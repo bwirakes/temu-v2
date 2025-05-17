@@ -65,10 +65,8 @@ const jobUpdateSchema = z.object({
 /**
  * PUT handler for updating an existing job posting
  */
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function PUT(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     // Get job ID from params
     const jobId = await params.id;
@@ -176,20 +174,16 @@ export async function PUT(
 /**
  * PATCH handler - alias for PUT for partial updates
  */
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function PATCH(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   return PUT(request, { params });
 }
 
 /**
  * Handle other HTTP methods
  */
-export async function GET(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function GET(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     // Get job ID from params
     const jobId = await params.id;

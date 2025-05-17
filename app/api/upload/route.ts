@@ -21,10 +21,15 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // Check file type
-    if (!file.type.startsWith("image/")) {
+    // Check file type - allow images and documents
+    const isImage = file.type.startsWith("image/");
+    const isDocument = file.type === "application/pdf" || 
+                      file.type === "application/msword" || 
+                      file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+    
+    if (!isImage && !isDocument) {
       return NextResponse.json(
-        { error: "File must be an image" },
+        { error: "File must be an image (JPG, PNG, WebP) or document (PDF, DOC, DOCX)" },
         { status: 400 }
       );
     }

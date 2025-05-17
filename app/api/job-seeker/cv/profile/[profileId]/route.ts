@@ -4,10 +4,8 @@ import { getSampleCV } from '@/lib/sample-data/cv-sample';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { profileId: string } }
-) {
+export async function GET(request: NextRequest, props: { params: Promise<{ profileId: string }> }) {
+  const params = await props.params;
   try {
     const profileId = params.profileId;
     

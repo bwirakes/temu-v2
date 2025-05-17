@@ -13,15 +13,17 @@ export default function NotionHeader() {
   // Use the session with the { required: false } option to avoid multiple unnecessary API calls
   const { data: session, status } = useSession({ required: false });
   
+  // Check if we're in a logged-in area
   const isEmployerArea = pathname?.startsWith('/employer') && pathname !== '/employer/register';
   const isJobSeekerArea = pathname?.startsWith('/job-seeker') && pathname !== '/job-seeker/register';
   
-  // Don't render the header in logged-in areas
-  if (isEmployerArea || isJobSeekerArea) {
-    return null;
-  }
-
+  // Always call all hooks before any conditional returns
   useEffect(() => {
+    // Only attach the scroll event if we're actually going to render the header
+    if (isEmployerArea || isJobSeekerArea) {
+      return; // Early return from useEffect, not from component
+    }
+    
     const handleScroll = () => {
       const isScrolled = window.scrollY > 10;
       if (isScrolled !== scrolled) {
@@ -31,11 +33,16 @@ export default function NotionHeader() {
 
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
-  }, [scrolled]);
+  }, [scrolled, isEmployerArea, isJobSeekerArea]);
 
   // Determine user type for navigation
   const userRole = session?.user ? (session.user as any).role : null;
   const dashboardLink = userRole === 'EMPLOYER' ? '/employer/dashboard' : '/job-seeker/dashboard';
+
+  // Don't render the header in logged-in areas, but AFTER all hooks are called
+  if (isEmployerArea || isJobSeekerArea) {
+    return null;
+  }
 
   return (
     <header 

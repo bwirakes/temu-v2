@@ -27,10 +27,8 @@ const updateStatusSchema = z.object({
   status: z.enum(applicationStatusEnum.enumValues)
 });
 
-export async function PATCH(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function PATCH(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     // Get the application ID from params
     const applicationId = await params.id;

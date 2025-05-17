@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { User, Menu, X } from "lucide-react";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
@@ -26,6 +26,7 @@ export default function JobSeekerHeader({ toggleSidebar, isSidebarOpen, userName
   const { theme, setTheme } = useTheme();
   const [scrolled, setScrolled] = useState(false);
   const pathname = usePathname();
+  const router = useRouter();
   
   useEffect(() => {
     const handleScroll = () => {
@@ -38,6 +39,15 @@ export default function JobSeekerHeader({ toggleSidebar, isSidebarOpen, userName
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, [scrolled]);
+
+  // Function to navigate and close mobile sidebar if needed
+  const handleNavigate = (path: string) => {
+    router.push(path);
+    // Close mobile sidebar on navigation if it's open
+    if (window.innerWidth < 768 && isSidebarOpen) {
+      toggleSidebar();
+    }
+  };
 
   return (
     <header 
@@ -90,25 +100,17 @@ export default function JobSeekerHeader({ toggleSidebar, isSidebarOpen, userName
             <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuLabel>Akun Saya</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem>
-                <Link href="/job-seeker/profile" className="w-full flex">
-                  Profil
-                </Link>
+              <DropdownMenuItem onSelect={() => handleNavigate("/job-seeker/profile")}>
+                Profil
               </DropdownMenuItem>
-              <DropdownMenuItem>
-                <Link href="/cv-builder" className="w-full flex">
-                  CV Builder
-                </Link>
+              <DropdownMenuItem onSelect={() => handleNavigate("/job-seeker/cv-builder")}>
+                CV Builder
               </DropdownMenuItem>
-              <DropdownMenuItem>
-                <Link href="/job-seeker/applications" className="w-full flex">
-                  Lamaran
-                </Link>
+              <DropdownMenuItem onSelect={() => handleNavigate("/job-seeker/applications")}>
+                Lamaran
               </DropdownMenuItem>
-              <DropdownMenuItem>
-                <Link href="/job-seeker/settings" className="w-full flex">
-                  Pengaturan
-                </Link>
+              <DropdownMenuItem onSelect={() => handleNavigate("/job-seeker/settings")}>
+                Pengaturan
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>
                 Ubah Tema

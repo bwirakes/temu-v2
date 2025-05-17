@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { 
   Eye, 
   Users, 
   Download,
   ChevronDown,
+  RefreshCcw
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -35,7 +36,7 @@ import { format } from "date-fns";
 import { id } from "date-fns/locale";
 
 // Types
-interface Applicant {
+export interface Applicant {
   id: string;
   name: string;
   email: string;
@@ -47,7 +48,7 @@ interface Applicant {
 }
 
 // Utility functions
-const getApplicationStatusBadge = (status: Applicant['status']) => {
+export const getApplicationStatusBadge = (status: Applicant['status']) => {
   switch (status) {
     case 'SUBMITTED':
       return <Badge className="bg-blue-100 text-blue-800">Diajukan</Badge>;
@@ -68,7 +69,7 @@ const getApplicationStatusBadge = (status: Applicant['status']) => {
   }
 };
 
-const formatDate = (dateString: string) => {
+export const formatDate = (dateString: string) => {
   try {
     return format(new Date(dateString), 'dd MMMM yyyy', { locale: id });
   } catch (e) {
@@ -76,65 +77,64 @@ const formatDate = (dateString: string) => {
   }
 };
 
-export function ApplicantsTab({ jobId }: { jobId: string }) {
+interface ApplicantsTabProps {
+  jobId: string;
+  initialApplicants: Applicant[];
+  jobTitle: string;
+}
+
+export function ApplicantsTab({ jobId, initialApplicants, jobTitle }: ApplicantsTabProps) {
   const router = useRouter();
-  const [isLoading, setIsLoading] = useState(true);
+  const [isPending, startTransition] = useTransition();
+  const [isFetching, setIsFetching] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [jobTitle, setJobTitle] = useState("");
-  const [applicants, setApplicants] = useState<Applicant[]>([]);
+  const [applicants, setApplicants] = useState<Applicant[]>(initialApplicants);
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [updatingApplicationId, setUpdatingApplicationId] = useState<string | null>(null);
+  const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
+  const [refreshing, setRefreshing] = useState(false);
 
-  // Fetch applicants data
-  useEffect(() => {
-    async function fetchApplicants() {
-      setIsLoading(true);
-      try {
-        const response = await fetch(`/api/employer/jobs/${jobId}`, {
-          // Use cache: 'no-store' to get fresh data each time
-          cache: 'no-store'
-        });
-        
-        if (!response.ok) {
-          throw new Error(`Failed to fetch applicants: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        
-        // Set job title
-        if (data.job) {
-          setJobTitle(data.job.jobTitle);
-        }
-        
-        // Set applicants data
-        if (data.applicants && Array.isArray(data.applicants)) {
-          setApplicants(data.applicants);
-        } else {
-          setApplicants([]);
-        }
-        
-        setError(null);
-      } catch (error) {
-        console.error('Error fetching applicants:', error);
-        setError('Terjadi kesalahan saat mengambil data pelamar');
-      } finally {
-        setIsLoading(false);
+  // Refresh applicants data when needed (manual refresh or after status updates)
+  const refreshApplicants = async () => {
+    setRefreshing(true);
+    setIsFetching(true);
+    try {
+      const response = await fetch(`/api/employer/jobs/${jobId}`, {
+        cache: 'no-store'
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch applicants: ${response.status}`);
       }
+      
+      const data = await response.json();
+      
+      // Update applicants data
+      if (data.applicants && Array.isArray(data.applicants)) {
+        setApplicants(data.applicants);
+      }
+      
+      setLastRefreshed(new Date());
+      setError(null);
+    } catch (error) {
+      console.error('Error refreshing applicants:', error);
+      setError('Terjadi kesalahan saat menyegarkan data');
+    } finally {
+      setIsFetching(false);
+      setRefreshing(false);
     }
-    
-    if (jobId) {
-      fetchApplicants();
-    }
-  }, [jobId]);
+  };
 
   // Filter applicants based on search query and status filter
-  const filteredApplicants = applicants.filter(applicant => {
-    const matchesSearch = applicant.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                         applicant.email.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus = statusFilter === null || applicant.status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
+  const filteredApplicants = useMemo(() => {
+    return applicants.filter(applicant => {
+      const matchesSearch = applicant.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                          applicant.email.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesStatus = statusFilter === null || applicant.status === statusFilter;
+      return matchesSearch && matchesStatus;
+    });
+  }, [applicants, searchQuery, statusFilter]);
 
   const handleUpdateApplicantStatus = async (applicantId: string, newStatus: Applicant['status']) => {
     try {
@@ -177,8 +177,17 @@ export function ApplicantsTab({ jobId }: { jobId: string }) {
       // Status updated successfully
       const result = await response.json();
       console.log('Status updated successfully:', result);
+
+      // Update the router/page to reflect the changes
+      if (result.revalidated) {
+        // Trigger a page refresh after a short delay to allow revalidation to complete
+        setTimeout(() => {
+          startTransition(() => {
+            router.refresh();
+          });
+        }, 1000);
+      }
       
-      // No need to update the state again as we've already done it optimistically
     } catch (error) {
       console.error('Error updating applicant status:', error);
       
@@ -197,16 +206,6 @@ export function ApplicantsTab({ jobId }: { jobId: string }) {
     }
   };
 
-  if (isLoading) {
-    return (
-      <div className="p-4 md:p-6 flex flex-col items-center justify-center min-h-[30vh]">
-        <div className="h-12 w-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-        <h3 className="text-lg font-medium text-gray-900">Memuat data pelamar</h3>
-        <p className="mt-1 text-sm text-gray-500">Mohon tunggu sebentar...</p>
-      </div>
-    );
-  }
-
   if (error) {
     return (
       <div className="p-4 md:p-6 flex flex-col items-center justify-center min-h-[30vh]">
@@ -218,7 +217,7 @@ export function ApplicantsTab({ jobId }: { jobId: string }) {
         <Button 
           variant="outline" 
           className="mt-4"
-          onClick={() => router.refresh()}
+          onClick={() => refreshApplicants()}
         >
           Coba Lagi
         </Button>
@@ -231,9 +230,26 @@ export function ApplicantsTab({ jobId }: { jobId: string }) {
       <CardHeader className="pb-3">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <CardTitle>Daftar Pelamar</CardTitle>
-            <CardDescription>
-              Kelola pelamar untuk posisi {jobTitle}
+            <div className="flex items-center gap-2">
+              <CardTitle>Daftar Pelamar</CardTitle>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="h-7 w-7 p-0" 
+                onClick={refreshApplicants}
+                disabled={refreshing}
+              >
+                <RefreshCcw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+                <span className="sr-only">Refresh</span>
+              </Button>
+            </div>
+            <CardDescription className="flex items-center gap-2">
+              <span>Kelola pelamar untuk posisi {jobTitle}</span>
+              {lastRefreshed && (
+                <span className="text-xs text-muted-foreground">
+                  Terakhir diperbarui: {format(lastRefreshed, 'HH:mm:ss', { locale: id })}
+                </span>
+              )}
             </CardDescription>
           </div>
 

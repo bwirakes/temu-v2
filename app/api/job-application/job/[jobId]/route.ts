@@ -14,10 +14,8 @@ interface CustomSession {
 }
 
 // GET endpoint to fetch all applications for a specific job
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { jobId: string } }
-) {
+export async function GET(request: NextRequest, props: { params: Promise<{ jobId: string }> }) {
+  const params = await props.params;
   try {
     // Check authentication
     const session = await auth() as CustomSession;

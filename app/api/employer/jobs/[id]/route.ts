@@ -22,10 +22,8 @@ interface CustomSession {
   };
 }
 
-export async function GET(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function GET(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     // Access params asynchronously - await the params object
     const jobId = await params.id;

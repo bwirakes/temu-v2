@@ -1,31 +1,10 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { useOnboarding } from "@/lib/context/OnboardingContext";
-import { useOnboardingApi } from "../hooks/useOnboardingApi";
+import { useOnboarding, onboardingSteps, optionalSteps } from "@/lib/context/OnboardingContext";
+import { useOnboardingApi } from "@/lib/hooks/useOnboardingApi";
 import { useState } from "react";
 import { toast } from "sonner";
-
-const routes = [
-  "/job-seeker/onboarding/informasi-pribadi",    // Step 1: Informasi Dasar
-  "/job-seeker/onboarding/informasi-lanjutan",   // Step 2: Informasi Lanjutan
-  "/job-seeker/onboarding/alamat",               // Step 3: Alamat
-  "/job-seeker/onboarding/social-media",         // Step 4: Social Media
-  "/job-seeker/onboarding/upload-foto",          // Step 5: Upload Foto Profil
-  "/job-seeker/onboarding/level-pengalaman",     // Step 6: Level Pengalaman
-  "/job-seeker/onboarding/pengalaman-kerja",     // Step 7: Pengalaman Kerja
-  "/job-seeker/onboarding/pendidikan",           // Step 8: Pendidikan
-  "/job-seeker/onboarding/keahlian",             // Step 9: Keahlian
-  "/job-seeker/onboarding/sertifikasi",          // Step 10: Sertifikasi
-  "/job-seeker/onboarding/bahasa",               // Step 11: Bahasa
-  "/job-seeker/onboarding/informasi-tambahan",   // Step 12: Informasi Tambahan
-  "/job-seeker/onboarding/ekspektasi-kerja",     // Step 13: Ekspektasi Kerja
-  "/job-seeker/onboarding/ringkasan",            // Step 14: Ringkasan
-];
-
-// Define which steps are optional
-const optionalSteps = [4, 5, 10, 11, 12]; // Social Media, Upload Foto, Sertifikasi, Bahasa, Informasi Tambahan
 
 interface FormNavProps {
   onSubmit?: () => void;
@@ -42,8 +21,12 @@ export default function FormNav({
   onSkip,
   saveOnNext = true
 }: FormNavProps) {
-  const router = useRouter();
-  const { currentStep, setCurrentStep, isStepComplete } = useOnboarding();
+  const { 
+    currentStep, 
+    navigateToNextStep,
+    navigateToPreviousStep,
+    isOptionalStep
+  } = useOnboarding();
   const { saveStep, isLoading: apiLoading } = useOnboardingApi();
   const [isSaving, setIsSaving] = useState(false);
   
@@ -55,7 +38,7 @@ export default function FormNav({
       onSubmit();
     } else {
       // Otherwise, handle navigation and data saving
-      if (saveOnNext && !optionalSteps.includes(currentStep)) {
+      if (saveOnNext && !isOptionalStep(currentStep)) {
         try {
           setIsSaving(true);
           await saveStep(currentStep);
@@ -69,31 +52,26 @@ export default function FormNav({
         }
       }
       
-      if (currentStep < routes.length) {
-        setCurrentStep(currentStep + 1);
-        router.push(routes[currentStep]);
-      }
+      // Use the centralized navigation function
+      navigateToNextStep();
     }
   };
 
   const handlePrevious = () => {
-    if (currentStep > 1) {
-      setCurrentStep(currentStep - 1);
-      router.push(routes[currentStep - 2]);
-    }
+    navigateToPreviousStep();
   };
 
   const handleSkip = () => {
     if (onSkip) {
       onSkip();
-    } else if (currentStep < routes.length) {
-      setCurrentStep(currentStep + 1);
-      router.push(routes[currentStep]);
+    } else {
+      // Use the centralized navigation function
+      navigateToNextStep();
     }
   };
 
-  const isLastStep = currentStep === routes.length;
-  const isOptionalStep = optionalSteps.includes(currentStep);
+  const isLastStep = currentStep === onboardingSteps.length;
+  const isCurrentStepOptional = isOptionalStep(currentStep);
 
   return (
     <div className="flex justify-between mt-8">
@@ -107,7 +85,7 @@ export default function FormNav({
       </Button>
       
       <div className="flex space-x-2">
-        {isOptionalStep && (
+        {isCurrentStepOptional && (
           <Button
             variant="ghost"
             onClick={handleSkip}

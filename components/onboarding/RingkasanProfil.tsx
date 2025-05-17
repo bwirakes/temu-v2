@@ -3,9 +3,15 @@
 import { useEffect, useState } from "react";
 import { useOnboarding } from "@/lib/context/OnboardingContext";
 import { useOnboardingApi } from "@/lib/hooks/useOnboardingApi";
-import OnboardingFormActions from "./OnboardingFormActions";
-import { CheckCircle2, AlertCircle } from "lucide-react";
-import Image from "next/image";
+import { CheckCircle2, AlertCircle, FileText, Image } from "lucide-react";
+
+// Define proper interfaces for the data types
+interface LevelPengalamanData {
+  levelPengalaman?: string;
+  jumlahPengalaman?: number | string;
+  bidangKeahlian?: string;
+  keterampilan?: string[];
+}
 
 export default function RingkasanProfil() {
   const { data } = useOnboarding();
@@ -35,7 +41,7 @@ export default function RingkasanProfil() {
 
     try {
       // Save the final step first
-      await saveStep(14);
+      await saveStep(10); // Updated to the correct step number
       
       // Submit the completed profile
       const response = await fetch("/api/job-seeker/onboarding/submit", {
@@ -75,6 +81,41 @@ export default function RingkasanProfil() {
     );
   }
 
+  // Parse ekspektasiKerja if it's a string
+  let ekspektasiKerjaData = data.ekspektasiKerja;
+  if (typeof ekspektasiKerjaData === 'string' && ekspektasiKerjaData) {
+    try {
+      ekspektasiKerjaData = JSON.parse(ekspektasiKerjaData);
+    } catch (e) {
+      console.error("Failed to parse ekspektasiKerja JSON:", e);
+      ekspektasiKerjaData = {
+        idealSalary: 0,
+        willingToTravel: "local_only"
+      };
+    }
+  } else if (!ekspektasiKerjaData) {
+    ekspektasiKerjaData = {
+      idealSalary: 0,
+      willingToTravel: "local_only"
+    };
+  }
+
+  // Parse level pengalaman if available
+  let levelPengalamanData: LevelPengalamanData | null = null;
+  if (data.levelPengalaman) {
+    if (typeof data.levelPengalaman === 'string') {
+      try {
+        levelPengalamanData = JSON.parse(data.levelPengalaman) as LevelPengalamanData;
+      } catch (e) {
+        console.error("Failed to parse levelPengalaman JSON:", e);
+        levelPengalamanData = null;
+      }
+    } else {
+      // If it's already an object, just use it directly
+      levelPengalamanData = data.levelPengalaman as unknown as LevelPengalamanData;
+    }
+  }
+
   return (
     <div className="space-y-8">
       <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
@@ -82,22 +123,6 @@ export default function RingkasanProfil() {
           Silakan periksa ringkasan informasi Anda di bawah ini sebelum menyelesaikan pendaftaran.
         </p>
       </div>
-
-      {/* Profile Photo */}
-      {data.fotoProfilUrl && (
-        <div className="flex justify-center">
-          <div className="relative w-32 h-32 rounded-full overflow-hidden border-4 border-white shadow-lg">
-            <Image 
-              src={data.fotoProfilUrl} 
-              alt="Foto Profil" 
-              fill 
-              className="object-cover"
-              sizes="(max-width: 768px) 100vw, 128px"
-              priority
-            />
-          </div>
-        </div>
-      )}
 
       {/* Personal Information */}
       <SectionCard title="Informasi Pribadi" icon="👤">
@@ -107,35 +132,95 @@ export default function RingkasanProfil() {
         <InfoItem label="Tempat Lahir" value={data.tempatLahir} />
         <InfoItem label="Tanggal Lahir" value={data.tanggalLahir} />
         <InfoItem label="Jenis Kelamin" value={data.jenisKelamin || "-"} />
-        <InfoItem label="Status Pernikahan" value={data.statusPernikahan || "-"} />
-        {data.beratBadan && <InfoItem label="Berat Badan" value={`${data.beratBadan} kg`} />}
-        {data.tinggiBadan && <InfoItem label="Tinggi Badan" value={`${data.tinggiBadan} cm`} />}
-        <InfoItem label="Agama" value={data.agama || "-"} />
       </SectionCard>
 
       {/* Address */}
       {data.alamat && Object.keys(data.alamat).some(key => !!data.alamat?.[key as keyof typeof data.alamat]) && (
         <SectionCard title="Alamat" icon="🏠">
           <InfoItem label="Jalan" value={data.alamat.jalan || "-"} />
-          <InfoItem label="RT" value={data.alamat.rt || "-"} />
-          <InfoItem label="RW" value={data.alamat.rw || "-"} />
-          <InfoItem label="Kelurahan" value={data.alamat.kelurahan || "-"} />
-          <InfoItem label="Kecamatan" value={data.alamat.kecamatan || "-"} />
           <InfoItem label="Kota" value={data.alamat.kota || "-"} />
           <InfoItem label="Provinsi" value={data.alamat.provinsi || "-"} />
           <InfoItem label="Kode Pos" value={data.alamat.kodePos || "-"} />
+          {(data.alamat as any).rt !== undefined && (
+            <InfoItem label="RT" value={(data.alamat as any).rt || "-"} />
+          )}
+          {(data.alamat as any).rw !== undefined && (
+            <InfoItem label="RW" value={(data.alamat as any).rw || "-"} />
+          )}
+          {(data.alamat as any).kelurahan !== undefined && (
+            <InfoItem label="Kelurahan" value={(data.alamat as any).kelurahan || "-"} />
+          )}
+          {(data.alamat as any).kecamatan !== undefined && (
+            <InfoItem label="Kecamatan" value={(data.alamat as any).kecamatan || "-"} />
+          )}
         </SectionCard>
       )}
 
-      {/* Social Media */}
-      {data.socialMedia && Object.keys(data.socialMedia).some(key => !!data.socialMedia?.[key as keyof typeof data.socialMedia]) && (
-        <SectionCard title="Media Sosial" icon="📱">
-          {data.socialMedia.instagram && <InfoItem label="Instagram" value={data.socialMedia.instagram} />}
-          {data.socialMedia.twitter && <InfoItem label="Twitter" value={data.socialMedia.twitter} />}
-          {data.socialMedia.facebook && <InfoItem label="Facebook" value={data.socialMedia.facebook} />}
-          {data.socialMedia.tiktok && <InfoItem label="TikTok" value={data.socialMedia.tiktok} />}
-          {data.socialMedia.linkedin && <InfoItem label="LinkedIn" value={data.socialMedia.linkedin} />}
-          {data.socialMedia.other && <InfoItem label="Lainnya" value={data.socialMedia.other} />}
+      {/* Profile Photo */}
+      {data.profilePhotoUrl && (
+        <SectionCard title="Foto Profile" icon="📸">
+          <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg border border-gray-100">
+            <div className="bg-blue-100 p-2 rounded-full">
+              <Image className="h-5 w-5 text-blue-700" />
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-medium text-gray-900">Foto Profile Terunggah</p>
+            </div>
+            <div className="w-16 h-16 rounded-full overflow-hidden border border-gray-200">
+              <img 
+                src={data.profilePhotoUrl} 
+                alt="Profile"
+                className="w-full h-full object-cover" 
+              />
+            </div>
+          </div>
+        </SectionCard>
+      )}
+
+      {/* Level Pengalaman */}
+      {levelPengalamanData && (
+        <SectionCard title="Level Pengalaman" icon="⭐">
+          <InfoItem label="Tingkat Pengalaman" value={getLevelPengalamanLabel(levelPengalamanData.levelPengalaman)} />
+          {levelPengalamanData.jumlahPengalaman && (
+            <InfoItem label="Jumlah Tahun Pengalaman" value={`${levelPengalamanData.jumlahPengalaman} tahun`} />
+          )}
+          {levelPengalamanData.bidangKeahlian && (
+            <InfoItem label="Bidang Keahlian" value={levelPengalamanData.bidangKeahlian} />
+          )}
+          {levelPengalamanData.keterampilan && levelPengalamanData.keterampilan.length > 0 && (
+            <div className="mt-2">
+              <p className="text-sm font-medium text-gray-700 mb-1">Keterampilan:</p>
+              <div className="flex flex-wrap gap-2">
+                {levelPengalamanData.keterampilan.map((skill: string, idx: number) => (
+                  <span key={idx} className="bg-blue-50 text-blue-700 text-xs px-2 py-1 rounded-full">
+                    {skill}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </SectionCard>
+      )}
+
+      {/* Education */}
+      {data.pendidikan && data.pendidikan.length > 0 && (
+        <SectionCard title="Pendidikan" icon="🎓">
+          <div className="space-y-6">
+            {data.pendidikan.map((pendidikan, index) => (
+              <div key={pendidikan.id || index} className={`${index !== data.pendidikan.length - 1 ? 'border-b pb-4' : ''}`}>
+                <h4 className="font-medium text-gray-900">{pendidikan.namaInstitusi}</h4>
+                <p className="text-gray-600">{pendidikan.jenjangPendidikan} - {pendidikan.bidangStudi}</p>
+                <p className="text-sm text-gray-500">Lokasi: {pendidikan.lokasi || '-'}</p>
+                <p className="text-sm text-gray-500">Lulus: {pendidikan.tanggalLulus}</p>
+                {pendidikan.nilaiAkhir && (
+                  <p className="text-sm text-gray-600">Nilai: {pendidikan.nilaiAkhir}</p>
+                )}
+                {pendidikan.deskripsiTambahan && (
+                  <p className="mt-1 text-sm text-gray-600">{pendidikan.deskripsiTambahan}</p>
+                )}
+              </div>
+            ))}
+          </div>
         </SectionCard>
       )}
 
@@ -177,109 +262,55 @@ export default function RingkasanProfil() {
         </SectionCard>
       )}
 
-      {/* Education */}
-      {data.pendidikan && data.pendidikan.length > 0 && (
-        <SectionCard title="Pendidikan" icon="🎓">
-          <div className="space-y-6">
-            {data.pendidikan.map((pendidikan, index) => (
-              <div key={pendidikan.id || index} className={`${index !== data.pendidikan.length - 1 ? 'border-b pb-4' : ''}`}>
-                <h4 className="font-medium text-gray-900">{pendidikan.namaInstitusi}</h4>
-                <p className="text-gray-600">{pendidikan.jenjangPendidikan} - {pendidikan.bidangStudi}</p>
-                <p className="text-sm text-gray-500">Lokasi: {pendidikan.lokasi}</p>
-                <p className="text-sm text-gray-500">Lulus: {pendidikan.tanggalLulus}</p>
-                {pendidikan.nilaiAkhir && (
-                  <p className="text-sm text-gray-600">Nilai: {pendidikan.nilaiAkhir}</p>
-                )}
-                {pendidikan.deskripsiTambahan && (
-                  <p className="mt-1 text-sm text-gray-600">{pendidikan.deskripsiTambahan}</p>
-                )}
-              </div>
-            ))}
-          </div>
-        </SectionCard>
-      )}
-
-      {/* Skills */}
-      {data.keahlian && data.keahlian.length > 0 && (
-        <SectionCard title="Keahlian" icon="⚙️">
-          <div className="flex flex-wrap gap-2">
-            {data.keahlian.map((keahlian, index) => (
-              <div 
-                key={index} 
-                className="bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-sm"
-              >
-                {keahlian.nama} {keahlian.tingkat && `(${keahlian.tingkat})`}
-              </div>
-            ))}
-          </div>
-        </SectionCard>
-      )}
-
-      {/* Certifications */}
-      {data.sertifikasi && data.sertifikasi.length > 0 && (
-        <SectionCard title="Sertifikasi" icon="🏆">
-          <div className="space-y-4">
-            {data.sertifikasi.map((sertifikasi, index) => (
-              <div key={index} className={`${index !== (data.sertifikasi?.length ?? 0) - 1 ? 'border-b pb-4' : ''}`}>
-                <p className="font-medium">{sertifikasi.nama}</p>
-                {sertifikasi.penerbit && (
-                  <p className="text-sm text-gray-600">Penerbit: {sertifikasi.penerbit}</p>
-                )}
-                {sertifikasi.tanggalTerbit && (
-                  <p className="text-sm text-gray-500">Tanggal: {sertifikasi.tanggalTerbit}</p>
-                )}
-              </div>
-            ))}
-          </div>
-        </SectionCard>
-      )}
-
-      {/* Languages */}
-      {data.bahasa && data.bahasa.length > 0 && (
-        <SectionCard title="Bahasa" icon="🗣️">
-          <div className="flex flex-wrap gap-2">
-            {data.bahasa.map((bahasa, index) => (
-              <div 
-                key={index} 
-                className="bg-green-50 text-green-700 px-3 py-1 rounded-full text-sm"
-              >
-                {bahasa.nama} {bahasa.tingkat && `(${bahasa.tingkat})`}
-              </div>
-            ))}
-          </div>
-        </SectionCard>
-      )}
-
-      {/* Additional Information */}
-      {data.informasiTambahan && Object.keys(data.informasiTambahan).some(key => !!data.informasiTambahan?.[key as keyof typeof data.informasiTambahan]) && (
-        <SectionCard title="Informasi Tambahan" icon="ℹ️">
-          {data.informasiTambahan.website && <InfoItem label="Website" value={data.informasiTambahan.website} />}
-          {data.informasiTambahan.portfolio && <InfoItem label="Portfolio" value={data.informasiTambahan.portfolio} />}
-          {data.informasiTambahan.tentangSaya && (
-            <div className="py-2">
-              <span className="block text-sm font-medium text-gray-500">Tentang Saya</span>
-              <p className="mt-1 text-gray-900">{data.informasiTambahan.tentangSaya}</p>
-            </div>
-          )}
-          {data.informasiTambahan.hobi && (
-            <div className="py-2">
-              <span className="block text-sm font-medium text-gray-500">Hobi</span>
-              <p className="mt-1 text-gray-900">{data.informasiTambahan.hobi}</p>
-            </div>
-          )}
-        </SectionCard>
-      )}
-
       {/* Job Expectations */}
-      {data.ekspektasiKerja && (
+      {ekspektasiKerjaData && Object.keys(ekspektasiKerjaData).length > 0 && (
         <SectionCard title="Ekspektasi Kerja" icon="🎯">
-          {data.ekspektasiKerja.jobTypes && <InfoItem label="Jenis Pekerjaan" value={data.ekspektasiKerja.jobTypes} />}
-          <InfoItem label="Gaji Minimum" value={`Rp ${data.ekspektasiKerja.minSalary.toLocaleString('id-ID')}`} />
-          <InfoItem label="Gaji Ideal" value={`Rp ${data.ekspektasiKerja.idealSalary.toLocaleString('id-ID')}`} />
-          <InfoItem label="Metode Transportasi" value={getCommuteMethodLabel(data.ekspektasiKerja.commuteMethod)} />
-          <InfoItem label="Bersedia Bepergian" value={getWillingToTravelLabel(data.ekspektasiKerja.willingToTravel)} />
-          <InfoItem label="Bersedia Lembur" value={getWorkOvertimeLabel(data.ekspektasiKerja.workOvertime)} />
-          <InfoItem label="Urgensi Pekerjaan" value={getEmploymentUrgencyLabel(data.ekspektasiKerja.employmentUrgency)} />
+          {ekspektasiKerjaData.jobTypes && (
+            <div className="mt-2">
+              <p className="text-sm font-medium text-gray-700 mb-1">Jenis Pekerjaan:</p>
+              <div className="flex flex-wrap gap-2">
+                {(Array.isArray(ekspektasiKerjaData.jobTypes) 
+                  ? ekspektasiKerjaData.jobTypes 
+                  : [ekspektasiKerjaData.jobTypes]
+                ).map((type: string, idx: number) => (
+                  <span key={idx} className="bg-blue-50 text-blue-700 text-xs px-2 py-1 rounded-full">
+                    {getJobTypeLabel(type)}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+          {ekspektasiKerjaData.idealSalary && (
+            <InfoItem label="Gaji Ideal" value={`Rp ${Number(ekspektasiKerjaData.idealSalary).toLocaleString('id-ID')}`} />
+          )}
+          {ekspektasiKerjaData.willingToTravel && (
+            <InfoItem label="Kesediaan Bepergian" value={getWillingToTravelLabel(ekspektasiKerjaData.willingToTravel)} />
+          )}
+          {ekspektasiKerjaData.preferensiLokasiKerja && (
+            <InfoItem label="Preferensi Lokasi Kerja" value={ekspektasiKerjaData.preferensiLokasiKerja} />
+          )}
+        </SectionCard>
+      )}
+
+      {/* CV Upload */}
+      {data.cvFileUrl && (
+        <SectionCard title="CV/Resume" icon="📄">
+          <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg border border-gray-100">
+            <div className="bg-blue-100 p-2 rounded-full">
+              <FileText className="h-5 w-5 text-blue-700" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-900">CV Terunggah</p>
+              <a 
+                href={data.cvFileUrl} 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="text-xs text-blue-600 hover:underline"
+              >
+                Lihat CV
+              </a>
+            </div>
+          </div>
         </SectionCard>
       )}
 
@@ -313,14 +344,17 @@ export default function RingkasanProfil() {
         <button
           type="button"
           onClick={handleSubmit}
-          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+          className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
           disabled={isSubmitting}
         >
           {isSubmitting ? (
-            <>
-              <span className="animate-spin inline-block h-4 w-4 mr-2 border-t-2 border-b-2 border-white rounded-full"></span>
+            <div className="flex items-center">
+              <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
               Memproses...
-            </>
+            </div>
           ) : (
             "Selesaikan Pendaftaran"
           )}
@@ -332,57 +366,61 @@ export default function RingkasanProfil() {
 
 function SectionCard({ title, children, icon }: { title: string; children: React.ReactNode; icon?: string }) {
   return (
-    <div className="border rounded-lg overflow-hidden shadow-sm">
-      <div className="bg-gray-50 px-4 py-3 border-b flex items-center">
-        {icon && <span className="mr-2 text-xl">{icon}</span>}
-        <h3 className="font-medium text-gray-700">{title}</h3>
+    <div className="border rounded-lg overflow-hidden">
+      <div className="flex items-center bg-gray-50 px-4 py-3 border-b">
+        {icon && <span className="mr-2">{icon}</span>}
+        <h3 className="font-medium text-gray-900">{title}</h3>
       </div>
-      <div className="p-4 divide-y">{children}</div>
+      <div className="p-4 divide-y divide-gray-100 space-y-3">
+        {children}
+      </div>
     </div>
   );
 }
 
 function InfoItem({ label, value }: { label: string; value: string | undefined | null }) {
   return (
-    <div className="py-3 flex flex-col sm:flex-row sm:justify-between">
-      <span className="text-sm font-medium text-gray-500">{label}</span>
-      <span className="text-gray-900 mt-1 sm:mt-0">{value || "-"}</span>
+    <div className="py-2">
+      <dt className="text-sm font-medium text-gray-500">{label}</dt>
+      <dd className="mt-1 text-sm text-gray-900">{value || "-"}</dd>
     </div>
   );
 }
 
-// Helper functions for label mapping
-function getCommuteMethodLabel(method?: string): string {
-  switch (method) {
-    case "private_transport": return "Kendaraan Pribadi";
-    case "public_transport": return "Transportasi Umum";
-    default: return method || "-";
-  }
-}
-
 function getWillingToTravelLabel(value?: string): string {
-  switch (value) {
-    case "local_only": return "Hanya Lokal";
-    case "jabodetabek": return "Jabodetabek";
-    case "anywhere": return "Di Mana Saja";
-    default: return value || "-";
-  }
+  const willingness: Record<string, string> = {
+    "not_willing": "Tidak bersedia bepergian",
+    "local_only": "Hanya dalam kota",
+    "domestic": "Bersedia perjalanan domestik",
+    "international": "Bersedia perjalanan internasional"
+  };
+  
+  return value ? willingness[value] || value : "-";
 }
 
-function getWorkOvertimeLabel(value?: string): string {
-  switch (value) {
-    case "yes": return "Ya";
-    case "no": return "Tidak";
-    default: return value || "-";
-  }
+function getLevelPengalamanLabel(value?: string): string {
+  const levels: Record<string, string> = {
+    "entry_level": "Pemula (Entry Level)",
+    "junior": "Junior",
+    "mid_level": "Menengah (Mid Level)",
+    "senior": "Senior",
+    "lead": "Lead / Manager",
+    "executive": "Eksekutif / Direktur"
+  };
+  
+  return value ? levels[value] || value : "-";
 }
 
-function getEmploymentUrgencyLabel(value?: string): string {
-  switch (value) {
-    case "very_urgent": return "Sangat Mendesak";
-    case "urgent": return "Mendesak";
-    case "moderate": return "Sedang";
-    case "conditional": return "Kondisional";
-    default: return value || "-";
-  }
+function getJobTypeLabel(value?: string): string {
+  const jobTypes: Record<string, string> = {
+    "full_time": "Waktu Penuh (Full-time)",
+    "part_time": "Paruh Waktu (Part-time)",
+    "contract": "Kontrak",
+    "internship": "Magang",
+    "freelance": "Lepas (Freelance)",
+    "remote": "Remote",
+    "hybrid": "Hybrid"
+  };
+  
+  return value ? jobTypes[value] || value : "-";
 } 

@@ -81,20 +81,21 @@ interface Employer {
 }
 
 // Metadata
-export async function generateMetadata({ 
-  params 
-}: { 
-  params: { employerId: string } 
-}): Promise<Metadata> {
+export async function generateMetadata(
+  props: { 
+    params: Promise<{ employerId: string }> 
+  }
+): Promise<Metadata> {
+  const params = await props.params;
   const employer = await getEmployerById(params.employerId);
-  
+
   if (!employer) {
     return {
       title: 'Perusahaan Tidak Ditemukan',
       description: 'Perusahaan yang diminta tidak dapat ditemukan.',
     };
   }
-  
+
   return {
     title: `Karir di ${employer.namaPerusahaan}`,
     description: `Jelajahi peluang kerja di ${employer.namaPerusahaan}. Temukan peluang karir berikutnya bersama kami.`,
@@ -311,23 +312,24 @@ function SocialMediaLinks({ socialMedia }: { socialMedia?: Employer['socialMedia
 }
 
 // Main page component
-export default async function EmployerCareersPage({
-  params,
-}: {
-  params: { employerId: string };
-}) {
+export default async function EmployerCareersPage(
+  props: {
+    params: Promise<{ employerId: string }>;
+  }
+) {
+  const params = await props.params;
   const employerId = params.employerId;
-  
+
   // Get employer details
   const employer = await getEmployerById(employerId);
-  
+
   if (!employer) {
     notFound();
   }
-  
+
   // Get all jobs for this employer
   const allJobs = await getJobsByEmployerId(employerId);
-  
+
   // Filter for confirmed jobs only and sort by posted date (newest first)
   const jobs = allJobs
     .filter(job => job.isConfirmed)
@@ -336,7 +338,7 @@ export default async function EmployerCareersPage({
       const dateB = new Date(b.postedDate).getTime();
       return dateB - dateA;
     });
-  
+
   return (
     <div className="bg-notion-background min-h-screen">
       {/* Add padding to account for fixed header */}

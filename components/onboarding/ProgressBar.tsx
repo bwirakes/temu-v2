@@ -1,29 +1,36 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { usePathname } from "next/navigation";
 import { useOnboarding } from "@/lib/context/OnboardingContext";
 
 const steps = [
-  { id: 1, path: "informasi-pribadi" },       // Step 1: Informasi Dasar
-  { id: 2, path: "informasi-lanjutan" },      // Step 2: Informasi Lanjutan
-  { id: 3, path: "alamat" },                  // Step 3: Alamat
-  { id: 4, path: "social-media" },            // Step 4: Social Media
-  { id: 5, path: "upload-foto" },             // Step 5: Upload Foto Profil
-  { id: 6, path: "level-pengalaman" },        // Step 6: Level Pengalaman
-  { id: 7, path: "pengalaman-kerja" },        // Step 7: Pengalaman Kerja
-  { id: 8, path: "pendidikan" },              // Step 8: Pendidikan
-  { id: 9, path: "keahlian" },                // Step 9: Keahlian
-  { id: 10, path: "sertifikasi" },            // Step 10: Sertifikasi
-  { id: 11, path: "bahasa" },                 // Step 11: Bahasa
-  { id: 12, path: "informasi-tambahan" },     // Step 12: Informasi Tambahan
-  { id: 13, path: "ekspektasi-kerja" },       // Step 13: Ekspektasi Kerja
-  { id: 14, path: "ringkasan" },              // Step 14: Ringkasan
+  { id: 1, path: "informasi-dasar" },      // Step 1: Informasi Dasar
+  { id: 2, path: "informasi-lanjutan" },   // Step 2: Informasi Lanjutan
+  { id: 3, path: "alamat" },               // Step 3: Alamat
+  { id: 4, path: "pendidikan" },           // Step 4: Pendidikan
+  { id: 5, path: "level-pengalaman" },     // Step 5: Level Pengalaman
+  { id: 6, path: "pengalaman-kerja" },     // Step 6: Pengalaman Kerja
+  { id: 7, path: "ekspektasi-kerja" },     // Step 7: Ekspektasi Kerja
+  { id: 8, path: "cv-upload" },            // Step 8: CV Upload
+  { id: 9, path: "foto-profile" },         // Step 9: Foto Profile
+  { id: 10, path: "ringkasan" },           // Step 10: Ringkasan
 ];
 
 export default function ProgressBar() {
-  const { currentStep, setCurrentStep, completedSteps } = useOnboarding();
+  const { currentStep, setCurrentStep, completedSteps, isStepComplete } = useOnboarding();
   const pathname = usePathname();
+
+  // Calculate the number of completed steps based on the isStepComplete function
+  const calculatedCompletedSteps = useMemo(() => {
+    const completed = [];
+    for (let i = 1; i <= steps.length; i++) {
+      if (i < currentStep || isStepComplete(i)) {
+        completed.push(i);
+      }
+    }
+    return [...new Set(completed)]; // Ensure uniqueness
+  }, [currentStep, isStepComplete]);
 
   // Synchronize the current step with the URL path
   useEffect(() => {
@@ -36,9 +43,15 @@ export default function ProgressBar() {
   }, [pathname, currentStep, setCurrentStep]);
 
   // Calculate progress percentage based on completed steps
-  const progressPercentage = completedSteps.length > 0
-    ? (completedSteps.length / steps.length) * 100
-    : (currentStep / steps.length) * 100;
+  // Use both the stored completedSteps and calculated ones for most accurate representation
+  const allCompletedSteps = useMemo(() => {
+    return [...new Set([...completedSteps, ...calculatedCompletedSteps])];
+  }, [completedSteps, calculatedCompletedSteps]);
+
+  const progressPercentage = Math.min(
+    100, // Cap at 100%
+    (allCompletedSteps.length / steps.length) * 100
+  );
 
   return (
     <div className="w-full py-4 px-2 sm:px-0">
@@ -48,7 +61,7 @@ export default function ProgressBar() {
             Langkah {currentStep} dari {steps.length}
           </p>
           <p className="text-xs text-gray-500">
-            {completedSteps.length} langkah selesai
+            {allCompletedSteps.length} langkah selesai
           </p>
         </div>
         <div className="mt-2 w-full bg-gray-200 rounded-full h-2.5">

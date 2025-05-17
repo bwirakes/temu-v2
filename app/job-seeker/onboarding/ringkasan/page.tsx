@@ -29,22 +29,18 @@ export default function RingkasanPage() {
   useEffect(() => {
     if (!isLoading) {
       // Check if previous steps are complete
-      for (let step = 1; step < 13; step++) {
+      for (let step = 1; step <= 9; step++) {
         if (!isStepComplete(step)) {
           const stepRoutes = [
-            "/onboarding/informasi-dasar",
-            "/onboarding/informasi-lanjutan",
-            "/onboarding/alamat",
-            "/onboarding/social-media",
-            "/onboarding/foto-profil",
-            "/onboarding/level-pengalaman",
-            "/onboarding/pengalaman-kerja",
-            "/onboarding/pendidikan",
-            "/onboarding/keahlian",
-            "/onboarding/sertifikasi",
-            "/onboarding/bahasa",
-            "/onboarding/informasi-tambahan",
-            "/onboarding/ekspektasi-kerja"
+            "/job-seeker/onboarding/informasi-dasar",     // Step 1: Informasi Dasar
+            "/job-seeker/onboarding/informasi-lanjutan",  // Step 2: Informasi Lanjutan
+            "/job-seeker/onboarding/alamat",              // Step 3: Alamat
+            "/job-seeker/onboarding/pendidikan",          // Step 4: Pendidikan
+            "/job-seeker/onboarding/level-pengalaman",    // Step 5: Level Pengalaman
+            "/job-seeker/onboarding/pengalaman-kerja",    // Step 6: Pengalaman Kerja
+            "/job-seeker/onboarding/ekspektasi-kerja",    // Step 7: Ekspektasi Kerja
+            "/job-seeker/onboarding/cv-upload",           // Step 8: CV Upload
+            "/job-seeker/onboarding/foto-profile",        // Step 9: Foto Profile
           ];
           
           if (stepRoutes[step - 1]) {

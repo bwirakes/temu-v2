@@ -1,5 +1,4 @@
 // Job details page - Server Component with ISR
-import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { 
   ArrowLeft, 
@@ -14,12 +13,21 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
-import { getJobById, getEmployerByUserId } from "@/lib/db";
+import { 
+  getJobById, 
+  getEmployerByUserId, 
+  db,
+  jobApplications,
+  userProfiles
+} from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { ApplicantsClientWrapper } from "./applicants-client";
+import { eq, and } from 'drizzle-orm';
+import { Suspense } from "react";
 
 // Import type definitions only
 import type { Job } from "./job-details";
+import type { Applicant } from "./applicants";
 
 // Configure ISR - revalidate job pages every 1 hour (3600 seconds)
 export const revalidate = 3600;
@@ -67,26 +75,28 @@ export async function generateStaticParams() {
 }
 
 // This function gets called at build time and when revalidation occurs
-export async function generateMetadata({ params }: { params: { id: string } }) {
+export async function generateMetadata(props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const job = await getJobById(params.id);
-  
+
   if (!job) {
     return {
       title: 'Job Not Found',
       description: 'The requested job could not be found',
     };
   }
-  
+
   return {
     title: `${job.jobTitle} | Employer Dashboard`,
     description: job.description || `Job details for ${job.jobTitle}`,
   };
 }
 
-export default async function JobDetailPage({ params }: { params: { id: string } }) {
+export default async function JobDetailPage(props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const jobId = params.id;
   const session = await auth();
-  
+
   // Redirect if not authenticated
   if (!session?.user) {
     return {
@@ -96,10 +106,10 @@ export default async function JobDetailPage({ params }: { params: { id: string }
       },
     };
   }
-  
+
   // Get employer ID from the user ID
   const employer = session.user.id ? await getEmployerByUserId(session.user.id) : null;
-  
+
   if (!employer) {
     return {
       redirect: {
@@ -108,14 +118,14 @@ export default async function JobDetailPage({ params }: { params: { id: string }
       },
     };
   }
-  
+
   // Get job details
   const job = await getJobById(jobId);
-  
+
   if (!job) {
     notFound();
   }
-  
+
   // Ensure the job belongs to the authenticated employer
   if (job.employerId !== employer.id) {
     return {
@@ -125,6 +135,35 @@ export default async function JobDetailPage({ params }: { params: { id: string }
       },
     };
   }
+
+  // Get job applications with user profiles (server-side data fetching for SSG/ISR)
+  const applicationsData = await db
+    .select({
+      id: jobApplications.id,
+      status: jobApplications.status,
+      coverLetter: jobApplications.coverLetter,
+      resumeUrl: jobApplications.resumeUrl,
+      name: userProfiles.namaLengkap,
+      email: userProfiles.email,
+      profileId: userProfiles.id
+    })
+    .from(jobApplications)
+    .innerJoin(
+      userProfiles,
+      eq(jobApplications.applicantProfileId, userProfiles.id)
+    )
+    .where(eq(jobApplications.jobId, jobId));
+
+  // Format applicant data for the client component
+  const applicants: Applicant[] = applicationsData.map(application => ({
+    id: application.id,
+    name: application.name || 'Unknown',
+    email: application.email || 'No email',
+    applicationDate: new Date().toISOString(), // Use current date as fallback
+    status: application.status,
+    resumeUrl: application.resumeUrl,
+    coverLetter: application.coverLetter
+  }));
 
   // Transform job data to match the expected format
   const jobData = {
@@ -142,7 +181,7 @@ export default async function JobDetailPage({ params }: { params: { id: string }
     numberOfPositions: job.numberOfPositions,
     workingHours: job.workingHours,
     isConfirmed: job.isConfirmed,
-    applicationCount: 0 // Will be updated from client component
+    applicationCount: applicants.length // Set the accurate count from our server-side fetch
   };
 
   return (
@@ -185,7 +224,7 @@ export default async function JobDetailPage({ params }: { params: { id: string }
             size="sm"
             asChild
           >
-            <Link href={`/job-detail/${job.id}`}>
+            <Link href={`/careers/${employer.id}/${job.id}`}>
             <Eye className="mr-2 h-4 w-4" />
             Lihat Posting
             </Link>
@@ -217,17 +256,13 @@ export default async function JobDetailPage({ params }: { params: { id: string }
           </TabsTrigger>
         </TabsList>
 
-        {/* Applicants Tab Content - This will be a Client Component */}
+        {/* Applicants Tab Content - Pass the server-fetched data */}
         <TabsContent value="applicants" className="mt-6">
-          <Suspense fallback={
-            <div className="p-4 md:p-6 flex flex-col items-center justify-center min-h-[50vh]">
-              <div className="h-12 w-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-              <h3 className="text-lg font-medium text-gray-900">Memuat data pelamar</h3>
-              <p className="mt-1 text-sm text-gray-500">Mohon tunggu sebentar...</p>
-                </div>
-          }>
-            <ApplicantsTabContent jobId={jobId} />
-          </Suspense>
+          <ApplicantsTabContent 
+            jobId={jobId} 
+            initialApplicants={applicants} 
+            jobTitle={job.jobTitle} 
+          />
         </TabsContent>
 
         {/* Job Details Tab Content - Static content */}

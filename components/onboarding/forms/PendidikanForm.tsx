@@ -8,9 +8,12 @@ import { useOnboarding, Pendidikan } from "@/lib/context/OnboardingContext";
 import { Button } from "@/components/ui/button";
 import FormNav from "@/components/FormNav";
 import PendidikanItem from "./PendidikanItem";
+import { useOnboardingApi } from "@/lib/hooks/useOnboardingApi";
+import { toast } from "sonner";
 
 export default function PendidikanForm() {
   const { data, updateFormValues, setCurrentStep } = useOnboarding();
+  const { saveStep, isLoading: isSaving } = useOnboardingApi();
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [pendidikanList, setPendidikanList] = useState<Pendidikan[]>(
@@ -59,20 +62,40 @@ export default function PendidikanForm() {
   };
   
   // Submit the form and go to next step
-  const handleSubmit = () => {
-    setIsSubmitting(true);
-    
-    // Save all education entries to context
-    updateFormValues({
-      pendidikan: pendidikanList,
-    });
-    
-    // Navigate to the next step
-    setTimeout(() => {
+  const handleSubmit = async () => {
+    try {
+      setIsSubmitting(true);
+      
+      // Update context with form values
+      updateFormValues({
+        pendidikan: pendidikanList,
+      });
+      
+      // Save data to API with proper error handling
+      try {
+        await saveStep(4, { pendidikan: pendidikanList });
+        toast.success("Riwayat pendidikan berhasil disimpan");
+        
+        // Navigate to next step
+        setCurrentStep(5);
+        router.push("/job-seeker/onboarding/pengalaman-kerja");
+      } catch (apiError) {
+        console.error("API Error:", apiError);
+        const errorMessage = apiError instanceof Error 
+          ? apiError.message 
+          : "Gagal menyimpan data ke server. Silakan coba lagi.";
+        
+        toast.error(errorMessage);
+      }
+    } catch (error) {
+      console.error("Form submission error:", error);
+      const errorMessage = error instanceof Error 
+        ? error.message 
+        : "Gagal mengirim formulir. Silakan coba lagi.";
+      toast.error(errorMessage);
+    } finally {
       setIsSubmitting(false);
-      setCurrentStep(4);
-      router.push("/job-seeker/onboarding/keahlian");
-    }, 500);
+    }
   };
   
   return (
@@ -116,8 +139,9 @@ export default function PendidikanForm() {
       
       <FormNav 
         onSubmit={handleSubmit}
-        isSubmitting={isSubmitting}
+        isSubmitting={isSubmitting || isSaving}
         disableNext={pendidikanList.length === 0 || pendidikanList.some(p => !p.namaInstitusi || !p.lokasi || !p.jenjangPendidikan || (!p.tanggalLulus && p.tanggalLulus !== "Masih Kuliah"))}
+        saveOnNext={false}
       />
     </div>
   );

@@ -7,6 +7,7 @@ import {
   ReactNode,
   useEffect
 } from "react";
+import { useRouter } from "next/navigation";
 
 // Define types for our form data
 export type PengalamanKerja = {
@@ -35,111 +36,71 @@ export type Pendidikan = {
   nilaiAkhir?: string;
 };
 
-export type Keahlian = {
-  nama: string;
-  tingkat?: "Pemula" | "Menengah" | "Mahir";
-};
-
-export type Bahasa = {
-  nama: string;
-  tingkat?: "Pemula" | "Menengah" | "Mahir";
-};
-
-export type Sertifikasi = {
-  nama: string;
-  penerbit?: string;
-  tanggalTerbit?: string;
-  file?: File;
-};
-
-export type SocialMedia = {
-  instagram?: string;
-  twitter?: string;
-  facebook?: string;
-  tiktok?: string;
-  linkedin?: string;
-  other?: string;
-};
-
-export type CommuteMethod = "private_transport" | "public_transport";
 export type WillingToTravel = "local_only" | "jabodetabek" | "anywhere";
-export type WorkOvertime = "yes" | "no";
-export type EmploymentUrgency = "very_urgent" | "urgent" | "moderate" | "conditional";
+export type LokasiKerja = "WFH" | "WFO" | "Hybrid";
 
-export type EkspektasiKerja = {
-  jobTypes?: string;
-  minSalary: number;
+export interface EkspektasiKerja {
+  jobTypes: string;
   idealSalary: number;
-  commuteMethod?: CommuteMethod;
-  willingToTravel: WillingToTravel;
-  workOvertime?: WorkOvertime;
-  employmentUrgency: EmploymentUrgency;
-};
+  willingToTravel: "not_willing" | "local_only" | "domestic" | "international";
+  preferensiLokasiKerja: "WFH" | "WFO" | "Hybrid";
+}
 
-export type InformasiTambahan = {
-  website?: string;
-  portfolio?: string;
-  tentangSaya?: string;
-  hobi?: string;
-};
+// Define onboarding steps configuration
+export const onboardingSteps = [
+  { id: 1, path: "/job-seeker/onboarding/informasi-dasar", title: "Informasi Dasar" },
+  { id: 2, path: "/job-seeker/onboarding/informasi-lanjutan", title: "Informasi Lanjutan" },
+  { id: 3, path: "/job-seeker/onboarding/alamat", title: "Alamat" },
+  { id: 4, path: "/job-seeker/onboarding/pendidikan", title: "Pendidikan" },
+  { id: 5, path: "/job-seeker/onboarding/level-pengalaman", title: "Level Pengalaman" },
+  { id: 6, path: "/job-seeker/onboarding/pengalaman-kerja", title: "Pengalaman Kerja" },
+  { id: 7, path: "/job-seeker/onboarding/ekspektasi-kerja", title: "Ekspektasi Kerja" },
+  { id: 8, path: "/job-seeker/onboarding/cv-upload", title: "CV Upload" },
+  { id: 9, path: "/job-seeker/onboarding/foto-profile", title: "Foto Profil" },
+  { id: 10, path: "/job-seeker/onboarding/ringkasan", title: "Ringkasan" },
+];
 
-// Define agama options to match the database enum
-export type AgamaType = "Islam" | "Kristen" | "Katolik" | "Hindu" | "Buddha" | "Konghucu";
+// Define which steps are optional
+export const optionalSteps = [6, 8, 9]; // Pengalaman Kerja, CV Upload, and Foto Profile are optional
 
 export type OnboardingData = {
   // Step 1: Informasi Dasar
   namaLengkap: string;
   email: string;
   nomorTelepon: string;
-  tempatLahir: string;
-  statusPernikahan?: "Belum Menikah" | "Menikah" | "Cerai";
   
   // Step 2: Informasi Lanjutan
   tanggalLahir: string;
+  tempatLahir: string;
   jenisKelamin?: "Laki-laki" | "Perempuan" | "Lainnya";
-  beratBadan?: number;
-  tinggiBadan?: number;
-  agama?: AgamaType;
   
   // Step 3: Alamat
   alamat?: {
-    jalan?: string;
-    rt?: string;
-    rw?: string;
-    kelurahan?: string;
-    kecamatan?: string;
     kota?: string;
     provinsi?: string;
     kodePos?: string;
+    jalan?: string;
   };
   
-  // Step 4: Social Media
-  socialMedia?: SocialMedia;
+  // Step 4: Pendidikan
+  pendidikan: Pendidikan[];
   
-  // Step 5: Foto Profil
-  fotoProfil?: File;
-  fotoProfilUrl?: string;
+  // Step 5: Level Pengalaman
+  levelPengalaman?: string;
   
   // Step 6: Pengalaman Kerja
   pengalamanKerja: PengalamanKerja[];
   
-  // Step 7: Riwayat Pendidikan
-  pendidikan: Pendidikan[];
-  
-  // Step 8: Keahlian
-  keahlian: Keahlian[];
-  
-  // Step 9: Sertifikasi
-  sertifikasi?: Sertifikasi[];
-  
-  // Step 10: Bahasa
-  bahasa: Bahasa[];
-  
-  // Step 11: Informasi Tambahan (optional)
-  informasiTambahan?: InformasiTambahan;
-  
-  // Step 12: Ekspektasi Kerja
+  // Step 7: Ekspektasi Kerja
   ekspektasiKerja?: EkspektasiKerja;
+  
+  // Step 8: CV Upload
+  cvFile?: File;
+  cvFileUrl?: string;
+  
+  // Step 9: Profile Photo
+  profilePhotoFile?: File;
+  profilePhotoUrl?: string;
 };
 
 const initialData: OnboardingData = {
@@ -148,37 +109,17 @@ const initialData: OnboardingData = {
   nomorTelepon: "",
   tempatLahir: "",
   tanggalLahir: "",
-  agama: undefined,
   alamat: {
-    jalan: "",
-    rt: "",
-    rw: "",
-    kelurahan: "",
-    kecamatan: "",
     kota: "",
     provinsi: "",
     kodePos: "",
+    jalan: "",
   },
-  socialMedia: {
-    instagram: "",
-    twitter: "",
-    facebook: "",
-    tiktok: "",
-    linkedin: "",
-    other: "",
-  },
-  pengalamanKerja: [],
+  levelPengalaman: undefined,
   pendidikan: [],
-  keahlian: [],
-  sertifikasi: [],
-  bahasa: [],
-  informasiTambahan: {
-    website: "",
-    portfolio: "",
-    tentangSaya: "",
-    hobi: "",
-  },
+  pengalamanKerja: [],
   ekspektasiKerja: undefined,
+  profilePhotoUrl: undefined,
 };
 
 type OnboardingContextType = {
@@ -191,6 +132,12 @@ type OnboardingContextType = {
   getStepValidationErrors: (step: number) => Record<string, string>;
   isLoading: boolean;
   completedSteps: number[];
+  navigateToNextStep: () => void;
+  navigateToPreviousStep: () => void;
+  navigateToStep: (step: number) => void;
+  getStepById: (id: number) => typeof onboardingSteps[0] | undefined;
+  getStepPath: (id: number) => string | undefined;
+  isOptionalStep: (step: number) => boolean;
 };
 
 const OnboardingContext = createContext<OnboardingContextType | undefined>(undefined);
@@ -200,6 +147,7 @@ export const OnboardingProvider = ({ children }: { children: ReactNode }) => {
   const [currentStep, setCurrentStep] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
   const [completedSteps, setCompletedSteps] = useState<number[]>([]);
+  const router = useRouter();
 
   // Load saved data from API when the context initializes
   useEffect(() => {
@@ -253,39 +201,45 @@ export const OnboardingProvider = ({ children }: { children: ReactNode }) => {
       case 1: // Informasi Dasar
         return !!data.namaLengkap && !!data.email && !!data.nomorTelepon;
       case 2: // Informasi Lanjutan
-        return !!data.tanggalLahir;
+        return !!data.tanggalLahir && !!data.tempatLahir;
       case 3: // Alamat
-        return !!data.alamat?.jalan && !!data.alamat?.kota && !!data.alamat?.provinsi && !!data.alamat?.kodePos;
-      case 4: // Social Media (optional, so always complete)
-        return true;
-      case 5: // Upload Foto Profil (optional, so always complete)
-        return true;
-      case 6: // Level Pengalaman
-        return true;
-      case 7: // Pengalaman Kerja
-        return data.pengalamanKerja.length > 0;
-      case 8: // Pendidikan
+        return !!data.alamat?.kota;
+      case 4: // Pendidikan
         return data.pendidikan.length > 0 && 
           data.pendidikan.every(p => !!p.namaInstitusi && !!p.lokasi && !!p.jenjangPendidikan && !!p.tanggalLulus);
-      case 9: // Keahlian
-        return data.keahlian.length > 0;
-      case 10: // Sertifikasi (optional)
+      case 5: // Level Pengalaman
+        return !!data.levelPengalaman;
+      case 6: // Pengalaman Kerja
+        // Optional step - it's valid to have no experience
         return true;
-      case 11: // Bahasa
-        return true;
-      case 12: // Informasi Tambahan (optional)
-        return true;
-      case 13: // Ekspektasi Kerja
-        return !!data.ekspektasiKerja?.minSalary && 
-               !!data.ekspektasiKerja?.idealSalary && 
-               !!data.ekspektasiKerja?.willingToTravel && 
-               !!data.ekspektasiKerja?.employmentUrgency;
-      case 14: // Ringkasan (review)
-        return true;
+      case 7: // Ekspektasi Kerja
+        return !!data.ekspektasiKerja?.idealSalary && 
+               !!data.ekspektasiKerja?.willingToTravel;
+      case 8: // CV Upload
+        return true; // Optional
+      case 9: // Profile Photo
+        return true; // Optional
+      case 10: // Ringkasan
+        return true; // The final summary page
       default:
         return false;
     }
   };
+
+  // Update completedSteps when steps are completed
+  useEffect(() => {
+    const newCompletedSteps = [];
+    for (let i = 1; i <= 10; i++) {
+      if (isStepComplete(i)) {
+        newCompletedSteps.push(i);
+      }
+    }
+    
+    // Only update if there's a change in completedSteps
+    if (JSON.stringify(newCompletedSteps.sort()) !== JSON.stringify(completedSteps.sort())) {
+      setCompletedSteps(newCompletedSteps);
+    }
+  }, [data, isStepComplete]);
 
   const getStepValidationErrors = (step: number): Record<string, string> => {
     const errors: Record<string, string> = {};
@@ -304,27 +258,64 @@ export const OnboardingProvider = ({ children }: { children: ReactNode }) => {
         
       case 2: // Informasi Lanjutan
         if (!data.tanggalLahir) errors.tanggalLahir = "Tanggal lahir wajib diisi";
-        
-        if (data.beratBadan && (data.beratBadan < 30 || data.beratBadan > 200))
-          errors.beratBadan = "Berat badan harus antara 30-200 kg";
-        
-        if (data.tinggiBadan && (data.tinggiBadan < 100 || data.tinggiBadan > 250))
-          errors.tinggiBadan = "Tinggi badan harus antara 100-250 cm";
+        if (!data.tempatLahir) errors.tempatLahir = "Tempat lahir wajib diisi";
         break;
         
       case 3: // Alamat
-        if (!data.alamat?.jalan) errors.jalan = "Alamat jalan wajib diisi";
-        if (!data.alamat?.rt) errors.rt = "RT wajib diisi";
-        if (!data.alamat?.rw) errors.rw = "RW wajib diisi";
-        if (!data.alamat?.kelurahan) errors.kelurahan = "Kelurahan wajib diisi";
-        if (!data.alamat?.kecamatan) errors.kecamatan = "Kecamatan wajib diisi";
         if (!data.alamat?.kota) errors.kota = "Kota wajib diisi";
-        if (!data.alamat?.provinsi) errors.provinsi = "Provinsi wajib diisi";
-        if (!data.alamat?.kodePos) errors.kodePos = "Kode pos wajib diisi";
         break;
     }
     
     return errors;
+  };
+
+  // Helper function to get step by ID
+  const getStepById = (id: number) => {
+    return onboardingSteps.find(step => step.id === id);
+  };
+
+  // Helper function to get step path by ID
+  const getStepPath = (id: number) => {
+    const step = getStepById(id);
+    return step?.path;
+  };
+
+  // Helper function to check if step is optional
+  const isOptionalStep = (step: number) => {
+    return optionalSteps.includes(step);
+  };
+
+  // Navigation functions
+  const navigateToNextStep = () => {
+    if (currentStep < onboardingSteps.length) {
+      const nextStep = currentStep + 1;
+      setCurrentStep(nextStep);
+      const nextPath = getStepPath(nextStep);
+      if (nextPath) {
+        router.push(nextPath);
+      }
+    }
+  };
+
+  const navigateToPreviousStep = () => {
+    if (currentStep > 1) {
+      const prevStep = currentStep - 1;
+      setCurrentStep(prevStep);
+      const prevPath = getStepPath(prevStep);
+      if (prevPath) {
+        router.push(prevPath);
+      }
+    }
+  };
+
+  const navigateToStep = (step: number) => {
+    if (step >= 1 && step <= onboardingSteps.length) {
+      setCurrentStep(step);
+      const stepPath = getStepPath(step);
+      if (stepPath) {
+        router.push(stepPath);
+      }
+    }
   };
 
   return (
@@ -338,7 +329,13 @@ export const OnboardingProvider = ({ children }: { children: ReactNode }) => {
         isStepComplete,
         getStepValidationErrors,
         isLoading,
-        completedSteps
+        completedSteps,
+        navigateToNextStep,
+        navigateToPreviousStep,
+        navigateToStep,
+        getStepById,
+        getStepPath,
+        isOptionalStep
       }}
     >
       {children}

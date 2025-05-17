@@ -17,10 +17,8 @@ interface CustomSession {
 /**
  * PATCH handler for updating job confirmation status
  */
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function PATCH(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     // Extract job ID from params asynchronously
     const jobId = await params.id;

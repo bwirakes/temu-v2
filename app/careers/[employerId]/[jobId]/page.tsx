@@ -90,21 +90,22 @@ interface Employer {
 }
 
 // Metadata
-export async function generateMetadata({ 
-  params 
-}: { 
-  params: { employerId: string; jobId: string } 
-}): Promise<Metadata> {
+export async function generateMetadata(
+  props: { 
+    params: Promise<{ employerId: string; jobId: string }> 
+  }
+): Promise<Metadata> {
+  const params = await props.params;
   const job = await getJobById(params.jobId);
   const employer = job ? await getEmployerById(job.employerId) : null;
-  
+
   if (!job || !employer) {
     return {
       title: 'Lowongan Tidak Ditemukan',
       description: 'Lowongan yang diminta tidak dapat ditemukan.',
     };
   }
-  
+
   return {
     title: `${job.jobTitle} di ${employer.namaPerusahaan}`,
     description: job.description || `Lamar posisi ${job.jobTitle} di ${employer.namaPerusahaan}`,
@@ -250,31 +251,32 @@ function SocialMediaLinks({ socialMedia }: { socialMedia?: Employer['socialMedia
 }
 
 // Main page component
-export default async function JobDetailPage({
-  params,
-}: {
-  params: { employerId: string; jobId: string };
-}) {
+export default async function JobDetailPage(
+  props: {
+    params: Promise<{ employerId: string; jobId: string }>;
+  }
+) {
+  const params = await props.params;
   const { employerId, jobId } = params;
-  
+
   // Get job details
   const job = await getJobById(jobId);
-  
+
   // If job doesn't exist or isn't confirmed, or doesn't belong to this employer, return 404
   if (!job || !job.isConfirmed || job.employerId !== employerId) {
     notFound();
   }
-  
+
   // Get employer details
   const employer = await getEmployerById(employerId);
-  
+
   if (!employer) {
     notFound();
   }
-  
+
   // Get job locations
   const locations = await getJobWorkLocationsByJobId(jobId);
-  
+
   return (
     <div className="bg-notion-background min-h-screen">
       {/* Add padding to account for fixed header */}

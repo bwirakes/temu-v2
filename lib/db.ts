@@ -54,7 +54,7 @@ export const levelPengalamanEnum = pgEnum('level_pengalaman', [
   '5-10 tahun',
   '10 tahun lebih'
 ]);
-
+export const willingToTravelEnum = pgEnum('willing_to_travel', ['local_only', 'jabodetabek', 'anywhere']);
 export const applicationStatusEnum = pgEnum('application_status', [
   'SUBMITTED',
   'REVIEWING',
@@ -64,7 +64,6 @@ export const applicationStatusEnum = pgEnum('application_status', [
   'REJECTED',
   'WITHDRAWN'
 ]);
-
 export const userTypeEnum = pgEnum('user_type', ['job_seeker', 'employer']);
 
 export const users = pgTable('users', {
@@ -127,14 +126,16 @@ export const userProfiles = pgTable('user_profiles', {
     .notNull()
     .references(() => users.id, { onDelete: 'cascade' }),
   namaLengkap: text('nama_lengkap').notNull(),
-  email: text('email').notNull().unique(),
+  email: text('email').notNull(),
   nomorTelepon: text('nomor_telepon').notNull(),
   tanggalLahir: text('tanggal_lahir').notNull(),
+  tempatLahir: text('tempat_lahir'),
   jenisKelamin: jenisKelaminEnum('jenis_kelamin'),
-  beratBadan: integer('berat_badan'),
-  tinggiBadan: integer('tinggi_badan'),
-  agama: agamaEnum('agama'),
-  fotoProfilUrl: text('foto_profil_url'),
+  cvFileUrl: text('cv_file_url'),
+  cvUploadDate: timestamp('cv_upload_date'),
+  profilePhotoUrl: text('profile_photo_url'),
+  levelPengalaman: text('level_pengalaman'),
+  ekspektasiKerja: jsonb('ekspektasi_kerja'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull()
 });
@@ -152,21 +153,6 @@ export const userAddresses = pgTable('user_addresses', {
   kota: text('kota'),
   provinsi: text('provinsi'),
   kodePos: text('kode_pos'),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().notNull()
-});
-
-export const userSocialMedia = pgTable('user_social_media', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  userProfileId: uuid('user_profile_id')
-    .notNull()
-    .references(() => userProfiles.id, { onDelete: 'cascade' }),
-  instagram: text('instagram'),
-  twitter: text('twitter'),
-  facebook: text('facebook'),
-  tiktok: text('tiktok'),
-  linkedin: text('linkedin'),
-  other: text('other'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull()
 });
@@ -199,42 +185,8 @@ export const userPendidikan = pgTable('user_pendidikan', {
   bidangStudi: text('bidang_studi').notNull(),
   tanggalLulus: text('tanggal_lulus').notNull(),
   nilaiAkhir: text('nilai_akhir'),
+  lokasi: text('lokasi'),
   deskripsiTambahan: text('deskripsi_tambahan'),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().notNull()
-});
-
-export const userKeahlian = pgTable('user_keahlian', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  userProfileId: uuid('user_profile_id')
-    .notNull()
-    .references(() => userProfiles.id, { onDelete: 'cascade' }),
-  nama: text('nama').notNull(),
-  tingkat: tingkatKeahlianEnum('tingkat'),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().notNull()
-});
-
-export const userSertifikasi = pgTable('user_sertifikasi', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  userProfileId: uuid('user_profile_id')
-    .notNull()
-    .references(() => userProfiles.id, { onDelete: 'cascade' }),
-  nama: text('nama').notNull(),
-  penerbit: text('penerbit'),
-  tanggalTerbit: text('tanggal_terbit'),
-  fileUrl: text('file_url'),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().notNull()
-});
-
-export const userBahasa = pgTable('user_bahasa', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  userProfileId: uuid('user_profile_id')
-    .notNull()
-    .references(() => userProfiles.id, { onDelete: 'cascade' }),
-  nama: text('nama').notNull(),
-  tingkat: tingkatKeahlianEnum('tingkat'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull()
 });
@@ -360,32 +312,73 @@ export type InsertUserProfile = {
   email: string;
   nomorTelepon: string;
   tanggalLahir: string;
+  tempatLahir?: string | null;
   jenisKelamin?: typeof jenisKelaminEnum.enumValues[number] | null;
-  beratBadan?: number | null;
-  tinggiBadan?: number | null;
-  agama?: typeof agamaEnum.enumValues[number] | null;
-  fotoProfilUrl?: string | null;
+  cvFileUrl?: string | null;
+  cvUploadDate?: Date | null;
+  profilePhotoUrl?: string | null;
+  levelPengalaman?: string | null;
+  ekspektasiKerja?: any | null;
   createdAt?: Date;
   updatedAt?: Date;
 };
 
 export async function createUserProfile(data: InsertUserProfile) {
-  const [profile] = await db
-    .insert(userProfiles)
-    .values(data)
-    .returning();
-  
-  return profile;
+  try {
+    // Validate required fields
+    if (!data.userId || !data.namaLengkap || !data.email || !data.nomorTelepon || !data.tanggalLahir) {
+      throw new Error("Missing required user profile fields");
+    }
+
+    const [profile] = await db
+      .insert(userProfiles)
+      .values({
+        ...data,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      })
+      .returning();
+    
+    return profile;
+  } catch (error) {
+    console.error("Error creating user profile:", error);
+    // Check for unique constraint violation
+    if (error instanceof Error && error.message.includes('unique constraint')) {
+      throw new Error("A profile with this email already exists");
+    }
+    throw error; // Re-throw the error
+  }
 }
 
 export async function updateUserProfile(id: string, data: Partial<InsertUserProfile>) {
-  const [updatedProfile] = await db
-    .update(userProfiles)
-    .set({ ...data, updatedAt: new Date() })
-    .where(eq(userProfiles.id, id))
-    .returning();
-  
-  return updatedProfile;
+  try {
+    // Don't allow updating userId
+    if ('userId' in data) {
+      delete data.userId;
+    }
+    
+    const [updatedProfile] = await db
+      .update(userProfiles)
+      .set({ 
+        ...data, 
+        updatedAt: new Date() 
+      })
+      .where(eq(userProfiles.id, id))
+      .returning();
+    
+    if (!updatedProfile) {
+      throw new Error(`User profile with ID ${id} not found`);
+    }
+    
+    return updatedProfile;
+  } catch (error) {
+    console.error(`Error updating user profile ${id}:`, error);
+    // Check for unique constraint violation
+    if (error instanceof Error && error.message.includes('unique constraint')) {
+      throw new Error("A profile with this email already exists");
+    }
+    throw error; // Re-throw the error
+  }
 }
 
 export async function getUserPengalamanKerjaByProfileId(profileId: string) {
@@ -400,27 +393,6 @@ export async function getUserPendidikanByProfileId(profileId: string) {
     .select()
     .from(userPendidikan)
     .where(eq(userPendidikan.userProfileId, profileId));
-}
-
-export async function getUserKeahlianByProfileId(profileId: string) {
-  return await db
-    .select()
-    .from(userKeahlian)
-    .where(eq(userKeahlian.userProfileId, profileId));
-}
-
-export async function getUserSertifikasiByProfileId(profileId: string) {
-  return await db
-    .select()
-    .from(userSertifikasi)
-    .where(eq(userSertifikasi.userProfileId, profileId));
-}
-
-export async function getUserBahasaByProfileId(profileId: string) {
-  return await db
-    .select()
-    .from(userBahasa)
-    .where(eq(userBahasa.userProfileId, profileId));
 }
 
 export async function createEmployer(data: typeof employers.$inferInsert) {
