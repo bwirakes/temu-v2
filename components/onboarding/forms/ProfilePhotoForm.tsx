@@ -22,7 +22,87 @@ export default function ProfilePhotoForm() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
-  // Auto-upload when a file is selected
+  // Define uploadToBlob before handleSubmit
+  const uploadToBlob = async (file: File): Promise<string> => {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      setErrorMessage(null); // Reset error message before attempting upload
+      
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        // Use the specific error message from the API if available
+        throw new Error(errorData.error || `Upload failed with status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      // Check if we're in mock mode (for development)
+      if (data.url.includes('mock-vercel-blob.vercel.app')) {
+        console.log('Using mock Blob storage in development mode');
+      }
+      
+      return data.url;
+    } catch (error) {
+      console.error('Error uploading to Vercel Blob:', error);
+      throw error;
+    }
+  };
+
+  // Define handleSubmit before the useEffect that references it
+  const handleSubmit = async () => {
+    if (!photoFile && !data.profilePhotoUrl) {
+      // Skip if no file uploaded - this step is optional
+      setCurrentStep(10);
+      router.push("/job-seeker/onboarding/ringkasan");
+      return;
+    }
+    
+    setIsSubmitting(true);
+    setUploadStatus("uploading");
+    setErrorMessage(null);
+    
+    try {
+      // If there's already a photo URL and no new file selected, we can skip upload
+      let photoUrl = data.profilePhotoUrl;
+      
+      // Only upload if there's a new file selected
+      if (photoFile) {
+        photoUrl = await uploadToBlob(photoFile);
+      }
+      
+      // Update context with photo URL
+      const updatedValues = {
+        profilePhotoUrl: photoUrl,
+      };
+      
+      updateFormValues(updatedValues);
+      
+      // Save to API
+      await saveStep(9, updatedValues);
+      
+      setUploadStatus("success");
+      toast.success("Foto profil berhasil diunggah!");
+      
+      // Don't automatically navigate to the next step after upload
+      // Let the user manually continue or skip
+    } catch (error) {
+      console.error("Error uploading file:", error);
+      setUploadStatus("error");
+      setErrorMessage(error instanceof Error ? error.message : "Gagal mengunggah foto. Silakan coba lagi.");
+      toast.error("Gagal mengunggah foto profil");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+  
+  // Auto-upload when a file is selected - Now handleSubmit is defined before this useEffect
   useEffect(() => {
     if (photoFile) {
       // Automatically trigger the upload process when a file is selected
@@ -103,84 +183,6 @@ export default function ProfilePhotoForm() {
     // Reset file input
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
-    }
-  };
-  
-  const uploadToBlob = async (file: File): Promise<string> => {
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-
-      setErrorMessage(null); // Reset error message before attempting upload
-      
-      const response = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        // Use the specific error message from the API if available
-        throw new Error(errorData.error || `Upload failed with status: ${response.status}`);
-      }
-
-      const data = await response.json();
-      
-      // Check if we're in mock mode (for development)
-      if (data.url.includes('mock-vercel-blob.vercel.app')) {
-        console.log('Using mock Blob storage in development mode');
-      }
-      
-      return data.url;
-    } catch (error) {
-      console.error('Error uploading to Vercel Blob:', error);
-      throw error;
-    }
-  };
-
-  const handleSubmit = async () => {
-    if (!photoFile && !data.profilePhotoUrl) {
-      // Skip if no file uploaded - this step is optional
-      setCurrentStep(10);
-      router.push("/job-seeker/onboarding/ringkasan");
-      return;
-    }
-    
-    setIsSubmitting(true);
-    setUploadStatus("uploading");
-    setErrorMessage(null);
-    
-    try {
-      // If there's already a photo URL and no new file selected, we can skip upload
-      let photoUrl = data.profilePhotoUrl;
-      
-      // Only upload if there's a new file selected
-      if (photoFile) {
-        photoUrl = await uploadToBlob(photoFile);
-      }
-      
-      // Update context with photo URL
-      const updatedValues = {
-        profilePhotoUrl: photoUrl,
-      };
-      
-      updateFormValues(updatedValues);
-      
-      // Save to API
-      await saveStep(9, updatedValues);
-      
-      setUploadStatus("success");
-      toast.success("Foto profil berhasil diunggah!");
-      
-      // Don't automatically navigate to the next step after upload
-      // Let the user manually continue or skip
-    } catch (error) {
-      console.error("Error uploading file:", error);
-      setUploadStatus("error");
-      setErrorMessage(error instanceof Error ? error.message : "Gagal mengunggah foto. Silakan coba lagi.");
-      toast.error("Gagal mengunggah foto profil");
-    } finally {
-      setIsSubmitting(false);
     }
   };
   
