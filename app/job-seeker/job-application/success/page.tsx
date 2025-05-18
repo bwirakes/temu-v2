@@ -95,7 +95,7 @@ export default function JobApplicationSuccessPage() {
               className="w-full sm:w-auto" 
               asChild
             >
-              <Link href="/job-seeker/browse-jobs">
+              <Link href="/job-seeker/jobs">
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Cari Lowongan Lain
               </Link>

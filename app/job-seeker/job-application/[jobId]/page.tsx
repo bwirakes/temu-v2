@@ -327,7 +327,7 @@ export default function JobSeekerApplicationPage() {
                 Mohon maaf, kami tidak dapat menemukan lowongan pekerjaan dengan ID {jobId}
               </p>
               <Button asChild className="bg-blue-600 hover:bg-blue-700">
-                <Link href="/job-seeker/browse-jobs">Cari Lowongan Lain</Link>
+                <Link href="/job-seeker/jobs">Cari Lowongan Lain</Link>
               </Button>
             </div>
           </div>

@@ -339,7 +339,7 @@ export default function ApplicationDetailsPage() {
           variant="outline" 
           asChild
         >
-          <Link href={`/job-seeker/browse-jobs/${application.jobPostingId}`}>
+          <Link href={`/job-seeker/jobs/${application.jobPostingId}`}>
             Lihat Detail Lowongan
           </Link>
         </Button>

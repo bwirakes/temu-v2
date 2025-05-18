@@ -233,7 +233,7 @@ export default function JobApplicationsPage() {
                   </Select>
                   <div className="inline-flex gap-x-2">
                     <Link 
-                      href="/job-seeker/browse-jobs"
+                      href="/job-seeker/jobs"
                       className="py-2 px-3 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-transparent bg-blue-600 text-white hover:bg-blue-700"
                     >
                       <Plus className="h-4 w-4" />
@@ -454,7 +454,7 @@ export default function JobApplicationsPage() {
                   </div>
                   <p className="text-gray-600 text-center">Belum ada lamaran yang ditemukan</p>
                   <Link 
-                    href="/job-seeker/browse-jobs"
+                    href="/job-seeker/jobs"
                     className="mt-4 py-2 px-3 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-transparent bg-blue-600 text-white hover:bg-blue-700"
                   >
                     <Plus className="h-4 w-4" />

@@ -278,7 +278,7 @@ export default function JobSeekerDashboard() {
               <div className="text-center py-8">
                 <p className="text-gray-500">Belum ada lamaran</p>
                 <Button asChild className="mt-4 bg-blue-600 hover:bg-blue-700">
-                  <Link href="/job-seeker/browse-jobs">Cari Lowongan</Link>
+                  <Link href="/job-seeker/jobs">Cari Lowongan</Link>
                 </Button>
               </div>
             )}

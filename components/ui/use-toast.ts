@@ -1,2 +1,2 @@
-// Re-export the useToast hook from the hooks directory
-export { useToast, toast } from '../../hooks/use-toast'; 
+// Re-export the toast functionality from the hooks directory
+export { toast } from '../../hooks/use-toast'; 
