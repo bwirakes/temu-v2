@@ -6,7 +6,6 @@ import { CustomUser } from './lib/types';
 // Define path mappings for redirects
 const API_REDIRECTS = {
   '/api/onboarding': '/api/job-seeker/onboarding',
-  '/api/employer/onboard': '/api/employer/onboarding',
 };
 
 // Define path mappings for page redirects
@@ -36,6 +35,15 @@ export async function middleware(request: NextRequest) {
     pathname.endsWith('.svg') ||
     pathname.includes('/images/')
   ) {
+    return NextResponse.next();
+  }
+
+  // Skip middleware for employer onboarding API endpoints
+  if (
+    pathname.startsWith('/api/employer/onboarding') ||
+    pathname.startsWith('/api/employer/check-onboarding')
+  ) {
+    console.log(`Middleware: Allowing access to employer onboarding API: ${pathname}`);
     return NextResponse.next();
   }
 
@@ -157,7 +165,6 @@ export const config = {
     
     // Include specific paths for redirects
     '/api/onboarding/:path*',
-    '/api/employer/onboard/:path*',
     '/onboarding/:path*',
     '/employer-onboarding/:path*',
   ]

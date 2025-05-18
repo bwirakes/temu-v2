@@ -12,7 +12,6 @@ interface AboutImageProps {
 export default function AboutImage({ 
   src, 
   alt, 
-  fallbackSrc = "https://placehold.co/1200x400/e2e8f0/64748b?text=Tim+Temu" 
 }: AboutImageProps) {
   const [imgSrc, setImgSrc] = useState(src);
   
@@ -25,7 +24,7 @@ export default function AboutImage({
       className="object-cover"
       priority
       onError={() => {
-        setImgSrc(fallbackSrc);
+
       }}
     />
   );

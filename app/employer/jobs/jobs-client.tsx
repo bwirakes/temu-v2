@@ -31,10 +31,10 @@ interface Job {
   id: string;
   employerId: string;
   jobTitle: string;
-  contractType: string; // This is now provided with a default value
+  contractType?: string; // This is now optional since it's been removed from schema
   minWorkExperience: number;
   postedDate: string;
-  numberOfPositions: number | null;
+  numberOfPositions: number | null; // Explicitly accept null but not undefined
   isConfirmed: boolean;
   applicationCount: number;
   jobId?: string;
@@ -44,12 +44,14 @@ interface JobsClientWrapperProps {
   jobs: Job[];
 }
 
-const getContractTypeLabel = (type: string): string => {
+const getContractTypeLabel = (type?: string): string => {
+  if (!type) return "Full Time"; // Default value
+  
   switch (type) {
     case "FULL_TIME":
-      return "Penuh Waktu";
+      return "Full Time";
     case "PART_TIME":
-      return "Paruh Waktu";
+      return "Part Time";
     case "CONTRACT":
       return "Kontrak";
     case "INTERNSHIP":
@@ -57,7 +59,7 @@ const getContractTypeLabel = (type: string): string => {
     case "FREELANCE":
       return "Freelance";
     default:
-      return type;
+      return "Full Time";
   }
 };
 

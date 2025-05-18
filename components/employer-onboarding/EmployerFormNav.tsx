@@ -3,6 +3,8 @@
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { useEmployerOnboarding } from "@/lib/context/EmployerOnboardingContext";
+import { useState, useEffect } from "react";
+import { toast } from "sonner";
 
 const routes = [
   "/employer/onboarding/informasi-perusahaan",    // Step 1: Informasi Dasar Badan Usaha
@@ -19,56 +21,89 @@ interface EmployerFormNavProps {
 
 export default function EmployerFormNav({ onSubmit, isSubmitting, disableNext }: EmployerFormNavProps) {
   const router = useRouter();
-  const { currentStep, setCurrentStep, isStepComplete, saveCurrentStepData, isSaving } = useEmployerOnboarding();
+  const { 
+    currentStep, 
+    setCurrentStep, 
+    saveCurrentStepData, 
+    isSaving, 
+    allowedSteps,
+    canNavigateToStep
+  } = useEmployerOnboarding();
+  const [isProcessing, setIsProcessing] = useState(false);
+  
+  // Reset processing state if external submission state changes
+  useEffect(() => {
+    if (!isSubmitting && !isSaving) {
+      setIsProcessing(false);
+    }
+  }, [isSubmitting, isSaving]);
 
   const handleNext = async () => {
-    if (onSubmit) {
-      // This case is used when the form has its own onSubmit handler
-      // The onSubmit handler should handle saving and navigation
-      onSubmit();
-    } else if (currentStep < routes.length) {
-      // Default navigation with auto-save
-      try {
-        // Set the next step locally before saving to ensure it's captured in the API call
-        const nextStep = currentStep + 1;
-        setCurrentStep(nextStep);
-        
-        // Save current step data
+    if (isProcessing) {
+      return;
+    }
+    
+    setIsProcessing(true);
+    
+    try {
+      if (onSubmit) {
+        // This case is used when the form has its own onSubmit handler
+        onSubmit();
+      } else if (currentStep < routes.length) {
+        // Save current step data - the backend will handle advancing to the next step if appropriate
         const saveSuccessful = await saveCurrentStepData();
         
         if (!saveSuccessful) {
-          console.error("Failed to save data");
-          // Revert step change if save failed
-          setCurrentStep(currentStep);
+          toast.error("Gagal menyimpan data. Silakan coba lagi.");
+          setIsProcessing(false);
           return;
         }
         
-        // Navigate to next step - ensure we're using the current step before the increment
-        router.push(routes[currentStep]);
-      } catch (error) {
-        console.error("Error navigating to next step:", error);
-        // Revert step change on error
-        setCurrentStep(currentStep);
+        toast.success("Perubahan berhasil disimpan");
+        
+        // The step advancement and navigation is now handled by the context's saveCurrentStepData function
+        // which receives this information from the backend
+      } else {
+        setIsProcessing(false);
       }
+    } catch (error) {
+      console.error("Error saving data:", error);
+      toast.error("Terjadi kesalahan. Silakan coba lagi.");
+      setIsProcessing(false);
     }
   };
 
   const handlePrevious = () => {
+    if (isProcessing) {
+      return;
+    }
+    
     if (currentStep > 1) {
       const prevStep = currentStep - 1;
-      setCurrentStep(prevStep);
-      router.push(routes[prevStep - 1]);
+      
+      // Check if we're allowed to navigate to the previous step
+      if (canNavigateToStep(prevStep)) {
+        setCurrentStep(prevStep);
+        
+        setTimeout(() => {
+          const prevRoute = routes[prevStep - 1];
+          router.push(prevRoute);
+        }, 100);
+      } else {
+        toast.error("Anda tidak dapat kembali ke langkah sebelumnya");
+      }
     }
   };
 
   const isLastStep = currentStep === routes.length;
+  const isDisabled = disableNext || isSubmitting || isSaving || isProcessing;
 
   return (
     <div className="flex justify-between mt-8">
       <Button
         variant="outline"
         onClick={handlePrevious}
-        disabled={currentStep === 1 || isSubmitting || isSaving}
+        disabled={currentStep === 1 || isDisabled || !canNavigateToStep(currentStep - 1)}
         className="px-6"
       >
         Sebelumnya
@@ -76,10 +111,10 @@ export default function EmployerFormNav({ onSubmit, isSubmitting, disableNext }:
       
       <Button
         onClick={handleNext}
-        disabled={disableNext || isSubmitting || isSaving}
+        disabled={isDisabled}
         className={`px-6 ${isLastStep ? 'bg-green-600 hover:bg-green-700' : ''}`}
       >
-        {isSubmitting || isSaving ? (
+        {isSubmitting || isSaving || isProcessing ? (
           <div className="flex items-center">
             <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>

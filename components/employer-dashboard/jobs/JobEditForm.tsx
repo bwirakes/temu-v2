@@ -30,7 +30,7 @@ import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 
 // Define contract type locally
-type ContractType = "FULL_TIME" | "PART_TIME" | "CONTRACT" | "INTERNSHIP" | "FREELANCE";
+// type ContractType = "FULL_TIME" | "PART_TIME" | "CONTRACT" | "INTERNSHIP" | "FREELANCE";
 
 // Define the schema for the form
 const jobSchema = z.object({
@@ -52,7 +52,7 @@ const jobSchema = z.object({
   ageRangeMax: z.number().max(100, "Maksimal umur 100 tahun"),
   
   // Additional Information
-  contractType: z.enum(["FULL_TIME", "PART_TIME", "CONTRACT", "INTERNSHIP", "FREELANCE"]).optional(),
+  // contractType field removed
 });
 
 type JobFormValues = z.infer<typeof jobSchema>;
@@ -108,7 +108,6 @@ export default function JobEditForm({ jobId, onSave, onCancel }: JobEditFormProp
       // Existing fields
       ageRangeMin: 18,
       ageRangeMax: 55,
-      contractType: "FULL_TIME" as ContractType,
     },
   });
 
@@ -154,7 +153,6 @@ export default function JobEditForm({ jobId, onSave, onCancel }: JobEditFormProp
           // Existing fields
           ageRangeMin: job.expectations?.ageRange?.min || 18,
           ageRangeMax: job.expectations?.ageRange?.max || 55,
-          contractType: job.contractType as ContractType || "FULL_TIME",
         });
         
         // Fetch work locations
@@ -232,7 +230,6 @@ export default function JobEditForm({ jobId, onSave, onCancel }: JobEditFormProp
       // Format data for the API
       const jobData = {
         jobTitle: data.jobTitle,
-        contractType: data.contractType,
         minWorkExperience: data.minWorkExperience,
         numberOfPositions: data.numberOfPositions,
         // New fields
@@ -653,35 +650,6 @@ export default function JobEditForm({ jobId, onSave, onCancel }: JobEditFormProp
             <p className="text-xs text-gray-500">
               Masukkan 0 jika tidak ada kuota khusus
             </p>
-          </div>
-
-          {/* Contract Type */}
-          <div className="space-y-2">
-            <LabelText htmlFor="contractType">Jenis Kontrak Kerja</LabelText>
-            <Select
-              value={form.watch("contractType") || "none"}
-              onValueChange={(value) => {
-                if (value === "none") {
-                  form.setValue("contractType", undefined);
-                } else {
-                  // Type assertion to ensure value is a valid ContractType
-                  const contractType = value as ContractType;
-                  form.setValue("contractType", contractType);
-                }
-              }}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Pilih Jenis Kontrak" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">Pilih Jenis Kontrak</SelectItem>
-                <SelectItem value="FULL_TIME">Full Time</SelectItem>
-                <SelectItem value="PART_TIME">Part Time</SelectItem>
-                <SelectItem value="CONTRACT">Kontrak</SelectItem>
-                <SelectItem value="INTERNSHIP">Magang</SelectItem>
-                <SelectItem value="FREELANCE">Freelance</SelectItem>
-              </SelectContent>
-            </Select>
           </div>
         </CardContent>
       </Card>

@@ -42,24 +42,26 @@ export const revalidate = 3600; // Revalidate every hour
 interface Job {
   id: string;
   employerId: string;
+  jobId?: string; // Make jobId optional with the ? operator
   jobTitle: string;
   minWorkExperience: number;
   postedDate: string;
+  // Allow numberOfPositions to be null (this matches what's returned from the database)
   numberOfPositions: number | null;
   isConfirmed: boolean;
   applicationCount: number;
-  // Add a field for contractType with default value since it's been removed
-  contractType: string;
-  // Add jobId which may be needed by client
-  jobId?: string;
+  // Make contractType optional since it's being removed
+  contractType?: string;
 }
 
-const getContractTypeLabel = (type: string): string => {
+const getContractTypeLabel = (type?: string): string => {
+  if (!type) return "Full Time"; // Default value
+  
   switch (type) {
     case "FULL_TIME":
-      return "Penuh Waktu";
+      return "Full Time";
     case "PART_TIME":
-      return "Paruh Waktu";
+      return "Part Time";
     case "CONTRACT":
       return "Kontrak";
     case "INTERNSHIP":
@@ -67,7 +69,7 @@ const getContractTypeLabel = (type: string): string => {
     case "FREELANCE":
       return "Freelance";
     default:
-      return type;
+      return "Full Time";
   }
 };
 
@@ -116,7 +118,8 @@ export default async function JobsPage() {
         jobTitle: job.jobTitle,
         minWorkExperience: job.minWorkExperience,
         postedDate: job.postedDate.toISOString(),
-        numberOfPositions: job.numberOfPositions || null,
+        // Keep numberOfPositions as null if it's null in the database
+        numberOfPositions: job.numberOfPositions,
         isConfirmed: job.isConfirmed,
         applicationCount,
         // Add default contractType since it's been removed from schema

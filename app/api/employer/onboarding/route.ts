@@ -1,24 +1,14 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { createEmployer, updateEmployerOnboardingProgress } from '@/lib/db';
+import { createEmployer, updateEmployerOnboardingProgress, db, employerOnboardingProgress } from '@/lib/db';
+import { eq } from 'drizzle-orm';
 import { z } from 'zod';
+import { CustomSession } from '@/lib/types';
 
-// Validation schema for the request body
-const onboardingRequestSchema = z.object({
+// Simplified validation schema for required fields only
+const employerRequiredSchema = z.object({
   namaPerusahaan: z.string().min(1, "Nama perusahaan wajib diisi"),
-  merekUsaha: z.string().optional(),
-  industri: z.string().min(1, "Industri wajib diisi"),
-  alamatKantor: z.string().min(1, "Alamat kantor wajib diisi"),
   email: z.string().min(1, "Email wajib diisi").email("Format email tidak valid"),
-  website: z.string().optional(),
-  socialMedia: z.object({
-    instagram: z.string().optional(),
-    linkedin: z.string().optional(),
-    facebook: z.string().optional(),
-    twitter: z.string().optional(),
-    tiktok: z.string().optional(),
-  }).optional(),
-  logoUrl: z.string().optional(),
   pic: z.object({
     nama: z.string().min(1, "Nama PIC wajib diisi"),
     nomorTelepon: z.string().min(1, "Nomor telepon PIC wajib diisi")
@@ -26,16 +16,22 @@ const onboardingRequestSchema = z.object({
   }),
 });
 
-// Define the custom session type to match what's in lib/auth.ts
-interface CustomSession {
-  user?: {
-    id?: string;
-    name?: string | null;
-    email?: string | null;
-    image?: string | null;
-    userType?: 'job_seeker' | 'employer';
+// Define the employer data type based on the database schema
+type EmployerData = {
+  userId: string;
+  namaPerusahaan: string;
+  merekUsaha: string | null;
+  industri: string;
+  alamatKantor: string;
+  email: string;
+  website: string | null;
+  socialMedia: Record<string, string> | null;
+  logoUrl: string | null;
+  pic: {
+    nama: string;
+    nomorTelepon: string;
   };
-}
+};
 
 export async function POST(request: Request) {
   try {
@@ -43,7 +39,7 @@ export async function POST(request: Request) {
     const session = await auth() as CustomSession;
     
     // Check if the user is authenticated
-    if (!session || !session.user) {
+    if (!session?.user?.id) {
       return NextResponse.json(
         { error: "Unauthorized: Authentication required" },
         { status: 401 }
@@ -58,46 +54,54 @@ export async function POST(request: Request) {
       );
     }
     
-    // Get the user ID from the session
     const userId = session.user.id;
-    if (!userId) {
+    
+    // Get the saved onboarding data
+    const [progress] = await db
+      .select()
+      .from(employerOnboardingProgress)
+      .where(eq(employerOnboardingProgress.userId, userId));
+    
+    if (!progress || !progress.data) {
       return NextResponse.json(
-        { error: "User ID not found in session" },
+        { error: "Onboarding data not found" },
         { status: 400 }
       );
     }
     
-    // Parse and validate the request body
-    const requestData = await request.json();
-    const validationResult = onboardingRequestSchema.safeParse(requestData);
+    // Validate required fields
+    const validationResult = employerRequiredSchema.safeParse(progress.data);
     
     if (!validationResult.success) {
       return NextResponse.json(
         { 
-          error: "Validation failed", 
+          error: "Required fields missing", 
           details: validationResult.error.format() 
         },
         { status: 400 }
       );
     }
     
-    const data = validationResult.data;
+    // Extract valid data and ensure all required fields are present
+    const validData = validationResult.data;
+    const data = progress.data as Record<string, any>;
     
     // Prepare the employer data for database insertion
-    const employerData = {
+    const employerData: EmployerData = {
       userId,
-      namaPerusahaan: data.namaPerusahaan,
+      namaPerusahaan: validData.namaPerusahaan,
       merekUsaha: data.merekUsaha || null,
-      industri: data.industri,
-      alamatKantor: data.alamatKantor,
-      email: data.email,
+      industri: data.industri || "",
+      alamatKantor: data.alamatKantor || "",
+      email: validData.email,
       website: data.website || null,
       // Handle socialMedia - set to null if empty or undefined
-      socialMedia: data.socialMedia && Object.values(data.socialMedia).some(value => value) 
-        ? data.socialMedia 
-        : null,
+      socialMedia: data.socialMedia && typeof data.socialMedia === 'object' && 
+        Object.values(data.socialMedia).some(value => value) 
+          ? data.socialMedia 
+          : null,
       logoUrl: data.logoUrl || null,
-      pic: data.pic, // Required field
+      pic: validData.pic, // Required and validated field
     };
     
     // Create the employer record in the database
@@ -114,7 +118,8 @@ export async function POST(request: Request) {
     return NextResponse.json(
       { 
         success: true, 
-        employerId: newEmployer.id 
+        employerId: newEmployer.id,
+        message: "Employer registration completed successfully"
       },
       { status: 201 }
     );

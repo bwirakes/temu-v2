@@ -20,7 +20,6 @@ interface CustomSession {
  */
 const jobUpdateSchema = z.object({
   jobTitle: z.string().min(1, "Job title is required"),
-  contractType: z.string().min(1, "Contract type is required"),
   minWorkExperience: z.number().int().min(0, "Work experience must be a positive number"),
   numberOfPositions: z.number().int().positive().optional(),
   lastEducation: z.enum(["SD", "SMP", "SMA/SMK", "D1", "D2", "D3", "D4", "S1", "S2", "S3"]).optional(),

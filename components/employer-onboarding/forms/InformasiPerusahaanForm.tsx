@@ -49,46 +49,44 @@ export default function InformasiPerusahaanForm() {
     try {
       setIsSubmitting(true);
       
-      // First, update the form values in context
+      console.log("Form values to be saved:", values);
+      
+      // First, ensure data is deeply cloned to avoid reference issues
+      const valuesToSave = JSON.parse(JSON.stringify(values));
+      
+      // Update the form values in context
       updateFormValues({
-        namaPerusahaan: values.namaPerusahaan,
-        merekUsaha: values.merekUsaha,
-        industri: values.industri,
-        alamatKantor: values.alamatKantor,
-        email: values.email,
+        namaPerusahaan: valuesToSave.namaPerusahaan,
+        merekUsaha: valuesToSave.merekUsaha,
+        industri: valuesToSave.industri || "",
+        alamatKantor: valuesToSave.alamatKantor || "",
+        email: valuesToSave.email,
       });
       
       // Now that data is updated in context, increment the step before saving
-      // This ensures the API knows we're progressing to step 2
       setCurrentStep(2);
       
-      // Log the current state before saving
-      console.log("About to save data with step:", 2);
-      
       // Now save the data with the updated step
+      console.log("About to save data with step 2");
+      
       const saveSuccessful = await saveCurrentStepData();
       
       if (saveSuccessful) {
         console.log("Save successful, navigating to next step");
         toast.success("Informasi perusahaan berhasil disimpan");
         
-        // Use setTimeout to ensure the state update completes before navigation
-        setTimeout(() => {
-          // Force a hard navigation
-          window.location.href = "/employer/onboarding/kehadiran-online";
-        }, 100);
+        // Navigate to the next page
+        router.push("/employer/onboarding/kehadiran-online");
       } else {
         console.error("Failed to save data");
-        // Revert step increment if save failed
         setCurrentStep(1);
         toast.error("Gagal menyimpan data. Silakan coba lagi.");
+        setIsSubmitting(false);
       }
     } catch (error) {
       console.error("Error during form submission:", error);
-      // Revert step increment on error
       setCurrentStep(1);
       toast.error("Terjadi kesalahan. Silakan coba lagi.");
-    } finally {
       setIsSubmitting(false);
     }
   };
@@ -150,7 +148,7 @@ export default function InformasiPerusahaanForm() {
         {/* Industri */}
         <div className="space-y-2">
           <FormLabel htmlFor="industri">
-            Industri dan Bidang Usaha <span className="text-red-500">*</span>
+            Industri dan Bidang Usaha <span className="text-gray-500 text-sm">(opsional)</span>
           </FormLabel>
           <Input
             id="industri"
@@ -169,7 +167,7 @@ export default function InformasiPerusahaanForm() {
         {/* Alamat Kantor */}
         <div className="space-y-2">
           <FormLabel htmlFor="alamatKantor">
-            Alamat Kantor Utama <span className="text-red-500">*</span>
+            Alamat Kantor Utama <span className="text-gray-500 text-sm">(opsional)</span>
           </FormLabel>
           <Textarea
             id="alamatKantor"

@@ -626,8 +626,8 @@ export const employerOnboardingProgress = pgTable('employer_onboarding_progress'
     // Step 1: Informasi Dasar Badan Usaha
     namaPerusahaan: string;
     merekUsaha?: string;
-    industri: string;
-    alamatKantor: string;
+    industri?: string;
+    alamatKantor?: string;
     email: string;
     
     // Step 2: Kehadiran Online dan Identitas Merek
@@ -756,43 +756,109 @@ export async function updateEmployerOnboardingProgress(userId: string, data: {
   data?: any;
 }) {
   try {
+    console.log(`DB: Updating employer onboarding progress for user ${userId}`);
+    console.log(`DB: Data to save:`, data);
+    
     // Check if a progress record already exists
     const [existingProgress] = await db
       .select()
       .from(employerOnboardingProgress)
       .where(eq(employerOnboardingProgress.userId, userId));
     
+    console.log(`DB: Existing progress record found:`, existingProgress ? 'YES' : 'NO');
+    
     if (existingProgress) {
       // Update existing record
+      console.log(`DB: Updating existing record for user ${userId}`);
+      
+      // Prepare update data - ensure we're handling data field properly
+      const updateData = {
+        currentStep: data.currentStep !== undefined ? data.currentStep : existingProgress.currentStep,
+        status: data.status || existingProgress.status,
+        data: data.data || existingProgress.data,
+        lastUpdated: new Date()
+      };
+      
+      console.log(`DB: Update data:`, updateData);
+      
       const [updatedProgress] = await db
         .update(employerOnboardingProgress)
-        .set({
-          ...data,
-          lastUpdated: new Date()
-        })
+        .set(updateData)
         .where(eq(employerOnboardingProgress.userId, userId))
         .returning();
       
+      console.log(`DB: Update successful, returned:`, updatedProgress);
       return updatedProgress;
     } else {
       // Create new record
-      const [newProgress] = await db
-        .insert(employerOnboardingProgress)
-        .values({
-          userId,
-          currentStep: data.currentStep || 1,
-          status: data.status || 'IN_PROGRESS',
-          data: data.data || {},
-          lastUpdated: new Date(),
-          createdAt: new Date()
-        })
-        .returning();
+      console.log(`DB: Creating new record for user ${userId}`);
       
-      return newProgress;
+      // Prepare insert data with defaults for missing fields
+      const insertData = {
+        userId,
+        currentStep: data.currentStep || 1,
+        status: data.status || 'IN_PROGRESS',
+        data: data.data || {},
+        lastUpdated: new Date(),
+        createdAt: new Date()
+      };
+      
+      console.log(`DB: Insert data:`, insertData);
+      
+      try {
+        const [newProgress] = await db
+          .insert(employerOnboardingProgress)
+          .values(insertData)
+          .returning();
+        
+        console.log(`DB: Insert successful, returned:`, newProgress);
+        return newProgress;
+      } catch (insertError) {
+        console.error(`DB: Insert failed with error:`, insertError);
+        
+        // If insert fails, try again with a different approach as fallback
+        console.log(`DB: Trying alternative insert approach...`);
+        
+        const query = `
+          INSERT INTO employer_onboarding_progress 
+          (id, user_id, current_step, status, data, last_updated, created_at) 
+          VALUES 
+          (gen_random_uuid(), $1, $2, $3, $4, $5, $6)
+          RETURNING *;
+        `;
+        
+        const insertParams = [
+          userId,
+          insertData.currentStep,
+          insertData.status,
+          insertData.data,
+          insertData.lastUpdated,
+          insertData.createdAt
+        ];
+        
+        const result = await sql.unsafe(query, insertParams);
+        console.log(`DB: Alternative insert result:`, result);
+        
+        // Return the first row of the result
+        return result[0] || null;
+      }
     }
     
   } catch (error) {
     console.error('Error updating employer onboarding progress:', error);
+    
+    // Log additional details to help diagnose the issue
+    if (error instanceof Error) {
+      console.error('Error type:', error.constructor.name);
+      console.error('Error message:', error.message);
+      console.error('Error stack:', error.stack);
+      
+      // Try to extract more details if this is a database error
+      if ('code' in error) {
+        console.error('SQL Error code:', (error as any).code);
+      }
+    }
+    
     throw error;
   }
 }

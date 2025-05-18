@@ -41,12 +41,14 @@ const getStatusBadge = (isConfirmed: boolean) => {
   }
 };
 
-const getContractTypeLabel = (type: string): string => {
+const getContractTypeLabel = (type?: string): string => {
+  if (!type) return "Full Time"; // Default value
+  
   switch (type) {
     case "FULL_TIME":
-      return "Penuh Waktu";
+      return "Full Time";
     case "PART_TIME":
-      return "Paruh Waktu";
+      return "Part Time";
     case "CONTRACT":
       return "Kontrak";
     case "INTERNSHIP":
@@ -54,7 +56,7 @@ const getContractTypeLabel = (type: string): string => {
     case "FREELANCE":
       return "Freelance";
     default:
-      return type;
+      return "Full Time";
   }
 };
 
@@ -223,7 +225,7 @@ export default async function JobDetailPage(props: { params: Promise<{ id: strin
             {getStatusBadge(job.isConfirmed)}
           </div>
           <p className="text-muted-foreground mt-1">
-            {getContractTypeLabel('FULL_TIME')} • {job.numberOfPositions || 1} posisi • 
+            {getContractTypeLabel(undefined)} • {job?.numberOfPositions || 1} posisi • 
             Diposting pada {formatDate(job.postedDate)}
           </p>
         </div>
