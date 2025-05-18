@@ -8,13 +8,6 @@ import { db, getUserProfileByUserId, updateUserProfile } from "@/lib/db";
 const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2MB max for profile photos
 
-// Check if we're in mock mode for development
-const isMockMode = () => {
-  return process.env.NEXT_PUBLIC_MOCK_BLOB === 'true' || 
-         process.env.BLOB_READ_WRITE_TOKEN === 'your_vercel_blob_token_here' ||
-         process.env.BLOB_READ_WRITE_TOKEN === 'vercel_blob_development_token';
-};
-
 export async function POST(request: NextRequest) {
   try {
     // Verify user is authenticated
@@ -76,23 +69,6 @@ export async function POST(request: NextRequest) {
     const uniqueId = nanoid(10);
     const fileExtension = file.name.split('.').pop()?.toLowerCase() || 'jpg';
     const fileName = `profile-photos/${session.user.id}-${uniqueId}.${fileExtension}`;
-    
-    // Check if we're in mock mode for development
-    if (isMockMode()) {
-      console.log("Using mock mode for Vercel Blob uploads");
-      const mockUrl = `https://mock-vercel-blob.vercel.app/${fileName}`;
-      
-      // Update the user profile with the mock URL
-      await updateUserProfile(userProfile.id, {
-        profilePhotoUrl: mockUrl,
-        updatedAt: new Date()
-      });
-      
-      return NextResponse.json({ 
-        success: true,
-        url: mockUrl 
-      });
-    }
     
     // Check if BLOB_READ_WRITE_TOKEN is configured
     if (!process.env.BLOB_READ_WRITE_TOKEN) {

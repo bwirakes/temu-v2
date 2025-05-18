@@ -2,13 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { put } from "@vercel/blob";
 import { nanoid } from "nanoid";
 
-// Check if we're in mock mode for development
-const isMockMode = () => {
-  return process.env.NEXT_PUBLIC_MOCK_BLOB === 'true' || 
-         process.env.BLOB_READ_WRITE_TOKEN === 'your_vercel_blob_token_here' ||
-         process.env.BLOB_READ_WRITE_TOKEN === 'vercel_blob_development_token';
-};
-
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
@@ -45,14 +38,6 @@ export async function POST(request: NextRequest) {
     // Generate a unique filename using nanoid
     const uniqueId = nanoid();
     const fileName = `${uniqueId}-${file.name.replace(/\s+/g, "-")}`;
-    
-    // Check if we're in mock mode for development
-    if (isMockMode()) {
-      console.log("Using mock mode for Vercel Blob uploads");
-      // Return a fake URL for development purposes
-      const mockUrl = `https://mock-vercel-blob.vercel.app/${fileName}`;
-      return NextResponse.json({ url: mockUrl });
-    }
     
     // Check if BLOB_READ_WRITE_TOKEN is configured
     if (!process.env.BLOB_READ_WRITE_TOKEN) {

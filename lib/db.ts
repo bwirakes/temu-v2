@@ -458,6 +458,17 @@ export async function getJobById(jobId: string) {
   return job;
 }
 
+/**
+ * Get a job by its human-readable ID (e.g., 'job-41058')
+ */
+export async function getJobByHumanId(humanId: string) {
+  const [job] = await db
+    .select()
+    .from(jobs)
+    .where(eq(jobs.jobId, humanId));
+  return job;
+}
+
 export async function getJobsByEmployerId(employerId: string) {
   return await db
     .select()

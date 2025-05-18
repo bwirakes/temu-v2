@@ -28,11 +28,6 @@ module.exports = {
         search: ''
       },
       {
-        protocol: 'https',
-        hostname: 'mock-vercel-blob.vercel.app',
-        search: ''
-      },
-      {
         protocol: 'http',
         hostname: 'localhost',
         search: ''

@@ -39,11 +39,6 @@ export default function ProfilePhotoForm() {
 
       const data = await response.json();
       
-      // Check if we're in mock mode (for development)
-      if (data.url.includes('mock-vercel-blob.vercel.app')) {
-        console.log('Using mock Blob storage in development mode');
-      }
-      
       return data.url;
     } catch (error) {
       console.error('Error uploading to Vercel Blob:', error);

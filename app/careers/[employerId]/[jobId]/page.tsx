@@ -8,7 +8,8 @@ import {
   getAllEmployerIds, 
   getConfirmedJobIdsByEmployerId, 
   getEmployerById, 
-  getJobById, 
+  getJobById,
+  getJobByHumanId,
   getJobWorkLocationsByJobId 
 } from '@/lib/db';
 import { Badge } from "@/components/ui/badge";
@@ -16,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Suspense } from 'react';
 import JobDetailLoader from '../../components/job-detail-loader';
+import { MapPinIcon } from '@heroicons/react/24/outline';
 
 // Add export config for ISR
 export const revalidate = 3600; // Revalidate every hour
@@ -89,7 +91,15 @@ export async function generateMetadata(
   }
 ): Promise<Metadata> {
   const params = await props.params;
-  const job = await getJobById(params.jobId);
+  
+  // Check if jobId is a UUID or a human-readable ID
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(params.jobId);
+  
+  // Use the appropriate function based on the ID format
+  const job = isUuid 
+    ? await getJobById(params.jobId)
+    : await getJobByHumanId(params.jobId);
+    
   const employer = job ? await getEmployerById(job.employerId) : null;
 
   if (!job || !employer) {
@@ -115,12 +125,14 @@ export async function generateStaticParams() {
   for (const employer of employers) {
     const jobIds = await getConfirmedJobIdsByEmployerId(employer.id);
     
-    // Add a path for each job
+    // Add a path for each job, ensure we're using the human-readable jobId if available
     for (const job of jobIds) {
-      paths.push({
-        employerId: employer.id,
-        jobId: job.jobId || job.id, // Use human-readable jobId if available, otherwise fallback to UUID
-      });
+      if (job.jobId) {
+        paths.push({
+          employerId: employer.id,
+          jobId: job.jobId, // Use the human-readable ID, not the UUID
+        });
+      }
     }
   }
   
@@ -226,8 +238,13 @@ function SocialMediaLinks({ socialMedia }: { socialMedia?: Employer['socialMedia
 
 // Job detail component
 async function JobDetail({ employerId, jobId }: { employerId: string; jobId: string }) {
-  // Get job details
-  const job = await getJobById(jobId);
+  // Check if jobId is a UUID or a human-readable ID
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(jobId);
+  
+  // Use the appropriate function based on the ID format
+  const job = isUuid 
+    ? await getJobById(jobId)
+    : await getJobByHumanId(jobId);
 
   // If job doesn't exist or isn't confirmed, or doesn't belong to this employer, return 404
   if (!job || !job.isConfirmed || job.employerId !== employerId) {
@@ -241,8 +258,8 @@ async function JobDetail({ employerId, jobId }: { employerId: string; jobId: str
     notFound();
   }
 
-  // Get job locations
-  const locations = await getJobWorkLocationsByJobId(jobId);
+  // Get job locations using the UUID from the job object
+  const locations = await getJobWorkLocationsByJobId(job.id);
 
   // Extract the contract type from the job ID
   const contractType = job.jobId?.split('-')[0] || 'Full-time';
@@ -438,23 +455,23 @@ async function JobDetail({ employerId, jobId }: { employerId: string; jobId: str
               </svg>
               Lokasi Kerja
             </h2>
-            <div className="space-y-4">
-              {locations.map((location) => (
-                <div key={location.id} className="p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors duration-150">
-                  <p className="font-medium text-gray-900 flex items-center">
-                    {location.isRemote && (
-                      <span className="inline-block mr-2 text-green-600">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                        </svg>
-                      </span>
-                    )}
-                    {location.city}, {location.province}
-                    {location.isRemote && <span className="ml-2 text-sm text-green-600">(Remote tersedia)</span>}
-                  </p>
-                  {location.address && <p className="text-gray-500 text-sm mt-1">{location.address}</p>}
-                </div>
-              ))}
+            <div className="flex flex-col space-y-2">
+              {locations && locations.length > 0 ? (
+                locations.map((item: JobLocation, index: number) => (
+                  <div key={index} className="flex items-start space-x-2">
+                    <MapPinIcon className="h-5 w-5 text-gray-500 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-medium">
+                        {item.city}, {item.province}
+                        {item.isRemote && " (Remote)"}
+                      </p>
+                      {item.address && <p className="text-xs text-gray-500">{item.address}</p>}
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <p className="text-sm text-gray-500">Lokasi tidak tersedia</p>
+              )}
             </div>
           </CardContent>
         )}
