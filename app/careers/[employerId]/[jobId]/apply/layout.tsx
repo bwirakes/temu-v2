@@ -4,8 +4,12 @@ import { notFound } from 'next/navigation';
 
 // Metadata 
 export async function generateMetadata(
-  { params }: { params: { employerId: string; jobId: string } }
+  props: { 
+    params: Promise<{ employerId: string; jobId: string }> 
+  }
 ): Promise<Metadata> {
+  const params = await props.params;
+  
   // Check if jobId is a UUID or a human-readable ID
   const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(params.jobId);
   
