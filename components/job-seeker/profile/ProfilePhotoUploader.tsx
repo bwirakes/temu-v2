@@ -6,6 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Camera, X, Upload, Loader2 } from "lucide-react";
+import Image from "next/image";
 
 interface ProfilePhotoUploaderProps {
   currentPhotoUrl?: string | null;
@@ -118,7 +119,7 @@ export default function ProfilePhotoUploader({
       <div className="relative group">
         <div className="h-24 w-24 rounded-full overflow-hidden transition-transform duration-200 hover:scale-[1.03]">
           {currentPhotoUrl ? (
-            <img src={currentPhotoUrl} alt={userName} className="h-full w-full object-cover" />
+            <Image src={currentPhotoUrl} alt={userName} width={96} height={96} className="h-full w-full object-cover" priority={false} loading="lazy" />
           ) : (
             <div className="bg-blue-100 h-full w-full flex items-center justify-center">
               <span className="text-xl font-semibold text-blue-700">{initials}</span>
@@ -155,7 +156,7 @@ export default function ProfilePhotoUploader({
             {previewUrl && (
               <div className="relative">
                 <div className="h-32 w-32 rounded-full overflow-hidden border-2 border-blue-100">
-                  <img src={previewUrl} alt="Preview" className="h-full w-full object-cover" />
+                  <Image src={previewUrl} alt="Preview" width={128} height={128} className="h-full w-full object-cover" priority={false} loading="lazy" />
                 </div>
                 <Button
                   size="icon"

@@ -273,17 +273,19 @@ export default function RingkasanProfil() {
               <p className="text-sm font-medium text-gray-900">Foto Profile Terunggah</p>
             </div>
             <div className="w-16 h-16 rounded-full overflow-hidden border border-gray-200 relative">
-              {/* Using img tag instead of Image component to avoid Next.js image optimization issues */}
-              <img 
+              <Image 
                 src={data.profilePhotoUrl} 
                 alt="Profile"
+                width={64}
+                height={64}
                 className="w-full h-full object-cover"
                 onError={(e) => {
-                  // If image fails to load, replace with a placeholder
                   const target = e.target as HTMLImageElement;
-                  target.onerror = null; // Prevent infinite loop
+                  target.onerror = null;
                   target.src = "https://placehold.co/200x200/e2e8f0/64748b?text=Profile";
                 }}
+                priority={false}
+                loading="lazy"
               />
             </div>
           </div>

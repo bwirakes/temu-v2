@@ -5,6 +5,7 @@
 
 import * as React from 'react';
 import { cn } from '@/lib/utils';
+import Image from 'next/image';
 
 interface AvatarProps extends React.HTMLAttributes<HTMLDivElement> {}
 
@@ -38,13 +39,21 @@ const AvatarImage = React.forwardRef<HTMLImageElement, AvatarImageProps>(
       }
     }, [onLoadingStatusChange, status]);
 
+    const { width, height, src, ...restProps } = props;
+
     return (
-      <img
+      <Image
         ref={ref}
         className={cn('aspect-square h-full w-full', className)}
         onLoad={() => setStatus('loaded')}
         onError={() => setStatus('error')}
-        {...props}
+        alt={props.alt || ''}
+        src={typeof src === 'string' ? src : 'https://placehold.co/40x40'}
+        width={typeof width === 'number' ? width : (typeof width === 'string' ? parseInt(width, 10) || 40 : 40)}
+        height={typeof height === 'number' ? height : (typeof height === 'string' ? parseInt(height, 10) || 40 : 40)}
+        priority={false}
+        loading="lazy"
+        {...restProps}
       />
     );
   }

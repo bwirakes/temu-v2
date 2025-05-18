@@ -6,6 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { toast } from "sonner";
+import Image from "next/image";
 
 import { 
   useEmployerOnboarding, 
@@ -214,10 +215,15 @@ export default function KehadiranOnlineForm() {
           <div className="space-y-3">
             {logoPreview && (
               <div className="mb-4">
-                <img 
+                <Image 
                   src={logoPreview} 
                   alt="Logo preview" 
-                  className="max-h-40 border rounded-md"
+                  width={160} 
+                  height={160} 
+                  className="max-h-40 border rounded-md object-contain"
+                  style={{ width: 'auto', height: 'auto' }}
+                  priority={false}
+                  loading="lazy"
                 />
               </div>
             )}

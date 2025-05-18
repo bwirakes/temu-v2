@@ -28,37 +28,27 @@ export function useFileUpload() {
         [fileId]: { isUploading: true, progress: 0, error: null },
       }));
 
-      // Step 1: Get presigned URL from server
-      const presignedUrlResponse = await fetch("/api/upload", {
+      // Create FormData and append the file
+      const formData = new FormData();
+      formData.append("file", file);
+      
+      // If needed, we can add additional metadata
+      if (fileCategory) {
+        formData.append("fileCategory", fileCategory);
+      }
+
+      // Send the file to our API route that uses Vercel Blob
+      const response = await fetch("/api/upload", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          fileName: file.name,
-          fileType: file.type,
-          fileSize: file.size,
-          fileCategory,
-        }),
+        body: formData,
       });
 
-      if (!presignedUrlResponse.ok) {
-        const error = await presignedUrlResponse.json();
-        throw new Error(error.error || "Failed to get upload URL");
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to upload file");
       }
 
-      const { uploadUrl, fileUrl } = await presignedUrlResponse.json();
-
-      // Step 2: Upload file to S3 using the presigned URL
-      const uploadResponse = await fetch(uploadUrl, {
-        method: "PUT",
-        body: file,
-        headers: {
-          "Content-Type": file.type,
-        },
-      });
-
-      if (!uploadResponse.ok) {
-        throw new Error("Failed to upload file");
-      }
+      const { url } = await response.json();
 
       // Update state on success
       setUploadState((prev) => ({
@@ -68,10 +58,10 @@ export function useFileUpload() {
 
       // Call success callback
       if (onSuccess) {
-        onSuccess(fileUrl, file.name);
+        onSuccess(url, file.name);
       }
 
-      return { fileUrl, fileName: file.name };
+      return { fileUrl: url, fileName: file.name };
     } catch (error) {
       console.error("Error uploading file:", error);
       

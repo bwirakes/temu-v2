@@ -200,13 +200,16 @@ export const JobApplicationProvider = ({
       return Promise.reject(errors);
     }
 
-    setIsSubmitting(true);
-
     try {
-      // In a real app with a full database setup, we would use the user's actual profile ID
-      // For our current implementation, the API handles linking to the user via session
-      // So we'll just pass a placeholder ID that the server will override
-      const applicantProfileId = "current-user"; 
+      setIsSubmitting(true);
+      
+      // Get the applicant profile ID
+      const res = await fetch('/api/job-seeker/profile');
+      if (!res.ok) {
+        throw new Error("Failed to get applicant profile");
+      }
+      
+      const { id: applicantProfileId } = await res.json();
       
       // Save to database and get reference code
       const { referenceCode } = await saveApplicationToDatabase(applicantProfileId);
@@ -221,7 +224,7 @@ export const JobApplicationProvider = ({
     } finally {
       setIsSubmitting(false);
     }
-  }, [data, validate, router, saveApplicationToDatabase]);
+  }, [validate, router, saveApplicationToDatabase]);
 
   // Clear form data
   const clearForm = useCallback(() => {

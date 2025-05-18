@@ -13,7 +13,7 @@ export const jobApplicationSchema = z.object({
   coverLetter: z.string().min(50, { message: "Surat lamaran minimal 50 karakter" })
     .max(2000, { message: "Surat lamaran maksimal 2000 karakter" })
     .optional(),
-  education: z.enum(["SMA", "Diploma", "S1", "S2", "S3"], {
+  education: z.enum(["SD", "SMP", "SMA/SMK", "D1", "D2", "D3", "D4", "S1", "S2", "S3"], {
     required_error: "Pendidikan terakhir harus dipilih",
   }).optional(),
   additionalNotes: z.string().optional(),
@@ -66,7 +66,8 @@ export async function submitJobApplication(formData: JobApplicationFormData) {
         applicantProfileId: userProfileId,
         jobId: validatedData.jobId,
         status: 'SUBMITTED', // Using applicationStatusEnum values
-        coverLetter: validatedData.coverLetter || "",
+        additionalNotes: validatedData.coverLetter || validatedData.additionalNotes || "",
+        education: validatedData.education,
         resumeUrl: validatedData.resumeUrl || "",
       })
       .returning();

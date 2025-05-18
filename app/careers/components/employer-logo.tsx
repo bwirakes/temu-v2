@@ -76,12 +76,15 @@ export default function EmployerLogo({ logoUrl, companyName, size = 'sm' }: Empl
     return (
       <div className={`${sizeClasses[size]} relative flex-shrink-0`}>
         {isLoading && initialsElement}
-        <img
-          src={logoUrl}
+        <Image
+          src={logoUrl!}
           alt={companyName}
+          fill
           className={`w-full h-full object-contain rounded-md transition-opacity duration-200 ${isLoading ? 'opacity-0' : 'opacity-100'}`}
           onError={() => setHasError(true)}
-          onLoad={() => setIsLoading(false)}
+          onLoadingComplete={() => setIsLoading(false)}
+          priority={false}
+          loading="lazy"
         />
       </div>
     );

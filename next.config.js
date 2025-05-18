@@ -1,4 +1,5 @@
-export default {
+/** @type {import('next').NextConfig} */
+module.exports = {
   images: {
     remotePatterns: [
       {
@@ -47,4 +48,4 @@ export default {
   experimental: {
     optimizePackageImports: ["next-auth"]
   }
-};
+}; 

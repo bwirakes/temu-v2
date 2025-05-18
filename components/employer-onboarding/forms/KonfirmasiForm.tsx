@@ -8,6 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { FormLabel } from "@/components/employer-onboarding/ui/FormLabel";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CheckCircle2, Building2, Globe, UserCircle, AlertCircle } from "lucide-react";
+import Image from "next/image";
 
 export default function KonfirmasiForm() {
   const { data, updateFormValues, saveCurrentStepData } = useEmployerOnboarding();
@@ -153,10 +154,15 @@ export default function KonfirmasiForm() {
               <div className="grid grid-cols-3 gap-2">
                 <p className="text-sm font-medium text-gray-500">Logo</p>
                 <div className="col-span-2">
-                  <img 
+                  <Image 
                     src={data.logoUrl} 
                     alt="Logo perusahaan" 
-                    className="max-h-20 border rounded-md"
+                    width={80} 
+                    height={80} 
+                    className="max-h-20 border rounded-md object-contain"
+                    style={{ width: 'auto', height: 'auto' }}
+                    priority={false}
+                    loading="lazy"
                   />
                 </div>
               </div>

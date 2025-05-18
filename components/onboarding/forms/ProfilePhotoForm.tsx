@@ -28,7 +28,7 @@ export default function ProfilePhotoForm() {
       // Automatically trigger the upload process when a file is selected
       handleSubmit();
     }
-  }, [photoFile]);
+  }, [photoFile, handleSubmit]);
   
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -227,17 +227,19 @@ export default function ProfilePhotoForm() {
           {imagePreview ? (
             <div className="flex flex-col items-center">
               <div className="relative w-48 h-48 mb-4 rounded-full overflow-hidden border-4 border-white shadow-md">
-                {/* Use img tag instead of Next.js Image component to avoid optimization issues */}
-                <img 
+                <Image 
                   src={imagePreview} 
                   alt="Profile preview"
+                  width={192}
+                  height={192}
                   className="h-full w-full object-cover"
                   onError={(e) => {
-                    // If image fails to load, replace with a placeholder
                     const target = e.target as HTMLImageElement;
-                    target.onerror = null; // Prevent infinite loop
+                    target.onerror = null;
                     target.src = "https://placehold.co/200x200/e2e8f0/64748b?text=Profile";
                   }}
+                  priority={false}
+                  loading="lazy"
                 />
                 <button
                   type="button"

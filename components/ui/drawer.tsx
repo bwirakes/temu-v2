@@ -1,58 +1,83 @@
 'use client';
 
+// Temporarily replacing Vaul implementation due to missing dependency
+// This file can be replaced with the proper implementation after installing 'vaul'
+
 import * as React from 'react';
-import { Drawer as DrawerPrimitive } from 'vaul';
-
 import { cn } from '@/lib/utils';
+import { X } from 'lucide-react';
 
-const Drawer = ({
-  shouldScaleBackground = true,
-  ...props
-}: React.ComponentProps<typeof DrawerPrimitive.Root>) => (
-  <DrawerPrimitive.Root
-    shouldScaleBackground={shouldScaleBackground}
-    {...props}
-  />
-);
-Drawer.displayName = 'Drawer';
+// Basic placeholder components
+interface DrawerProps {
+  shouldScaleBackground?: boolean;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  children?: React.ReactNode;
+}
 
-const DrawerTrigger = DrawerPrimitive.Trigger;
+const Drawer = ({ children, open, onOpenChange }: DrawerProps) => {
+  return <>{children}</>;
+};
 
-const DrawerPortal = DrawerPrimitive.Portal;
-
-const DrawerClose = DrawerPrimitive.Close;
-
-const DrawerOverlay = React.forwardRef<
-  React.ElementRef<typeof DrawerPrimitive.Overlay>,
-  React.ComponentPropsWithoutRef<typeof DrawerPrimitive.Overlay>
+const DrawerTrigger = React.forwardRef<
+  HTMLButtonElement,
+  React.ButtonHTMLAttributes<HTMLButtonElement>
 >(({ className, ...props }, ref) => (
-  <DrawerPrimitive.Overlay
+  <button
     ref={ref}
-    className={cn('fixed inset-0 z-50 bg-black/80', className)}
+    className={cn('', className)}
     {...props}
   />
 ));
-DrawerOverlay.displayName = DrawerPrimitive.Overlay.displayName;
+DrawerTrigger.displayName = 'DrawerTrigger';
 
-const DrawerContent = React.forwardRef<
-  React.ElementRef<typeof DrawerPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof DrawerPrimitive.Content>
->(({ className, children, ...props }, ref) => (
-  <DrawerPortal>
-    <DrawerOverlay />
-    <DrawerPrimitive.Content
-      ref={ref}
-      className={cn(
-        'fixed inset-x-0 bottom-0 z-50 mt-24 flex h-auto flex-col rounded-t-[10px] border bg-background',
-        className
-      )}
-      {...props}
-    >
-      <div className="mx-auto mt-4 h-2 w-[100px] rounded-full bg-muted" />
-      {children}
-    </DrawerPrimitive.Content>
-  </DrawerPortal>
-));
+// Create a specific interface for DrawerContent props
+interface DrawerContentProps extends React.HTMLAttributes<HTMLDivElement> {
+  snapPoints?: number[];
+  activeSnapPoint?: number;
+  setActiveSnapPoint?: (point: number) => void;
+  onOpenChange?: (open: boolean) => void;
+}
+
+const DrawerContent = React.forwardRef<HTMLDivElement, DrawerContentProps>(
+  ({ className, children, onOpenChange, snapPoints, activeSnapPoint, setActiveSnapPoint, ...props }, ref) => {
+    // Move hooks to the top
+    const handleClose = React.useCallback(() => {
+      if (onOpenChange) {
+        onOpenChange(false);
+      }
+    }, [onOpenChange]);
+
+    if (typeof document !== 'undefined') {
+      // Only show the drawer content if we're on the client side and the drawer is open
+      const parentEl = document.querySelector('[data-drawer-open="true"]');
+      if (!parentEl) return null;
+    }
+
+    return (
+      <div className="fixed inset-0 z-50 bg-black/80">
+        <div 
+          className={cn(
+            'fixed inset-x-0 bottom-0 z-50 mt-24 rounded-t-[10px] bg-background',
+            className
+          )}
+          ref={ref}
+          {...props}
+        >
+          <div className="mx-auto mt-4 h-2 w-[100px] rounded-full bg-muted" />
+          {children}
+          <button
+            onClick={handleClose}
+            className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground"
+          >
+            <X className="h-4 w-4" />
+            <span className="sr-only">Close</span>
+          </button>
+        </div>
+      </div>
+    );
+  }
+);
 DrawerContent.displayName = 'DrawerContent';
 
 const DrawerHeader = ({
@@ -78,10 +103,10 @@ const DrawerFooter = ({
 DrawerFooter.displayName = 'DrawerFooter';
 
 const DrawerTitle = React.forwardRef<
-  React.ElementRef<typeof DrawerPrimitive.Title>,
-  React.ComponentPropsWithoutRef<typeof DrawerPrimitive.Title>
+  HTMLParagraphElement,
+  React.HTMLAttributes<HTMLHeadingElement>
 >(({ className, ...props }, ref) => (
-  <DrawerPrimitive.Title
+  <h4
     ref={ref}
     className={cn(
       'text-lg font-semibold leading-none tracking-tight',
@@ -90,29 +115,58 @@ const DrawerTitle = React.forwardRef<
     {...props}
   />
 ));
-DrawerTitle.displayName = DrawerPrimitive.Title.displayName;
+DrawerTitle.displayName = 'DrawerTitle';
 
 const DrawerDescription = React.forwardRef<
-  React.ElementRef<typeof DrawerPrimitive.Description>,
-  React.ComponentPropsWithoutRef<typeof DrawerPrimitive.Description>
+  HTMLParagraphElement,
+  React.HTMLAttributes<HTMLParagraphElement>
 >(({ className, ...props }, ref) => (
-  <DrawerPrimitive.Description
+  <p
     ref={ref}
     className={cn('text-sm text-muted-foreground', className)}
     {...props}
   />
 ));
-DrawerDescription.displayName = DrawerPrimitive.Description.displayName;
+DrawerDescription.displayName = 'DrawerDescription';
+
+const DrawerClose = React.forwardRef<
+  HTMLButtonElement,
+  React.ButtonHTMLAttributes<HTMLButtonElement>
+>(({ className, ...props }, ref) => (
+  <button
+    ref={ref}
+    className={cn(
+      'absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none',
+      className
+    )}
+    {...props}
+  >
+    <X className="h-4 w-4" />
+    <span className="sr-only">Close</span>
+  </button>
+));
+DrawerClose.displayName = 'DrawerClose';
+
+const DrawerOverlay = React.forwardRef<
+  HTMLDivElement,
+  React.HTMLAttributes<HTMLDivElement>
+>(({ className, ...props }, ref) => (
+  <div
+    ref={ref}
+    className={cn('fixed inset-0 z-50 bg-black/80', className)}
+    {...props}
+  />
+));
+DrawerOverlay.displayName = 'DrawerOverlay';
 
 export {
   Drawer,
-  DrawerPortal,
-  DrawerOverlay,
   DrawerTrigger,
-  DrawerClose,
   DrawerContent,
   DrawerHeader,
   DrawerFooter,
   DrawerTitle,
   DrawerDescription,
+  DrawerClose,
+  DrawerOverlay,
 };

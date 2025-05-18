@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 
-export default function AuthErrorPage() {
+// Error component that uses useSearchParams
+function ErrorContent() {
   const searchParams = useSearchParams();
   const [errorMessage, setErrorMessage] = useState<string>('Terjadi kesalahan selama proses autentikasi');
 
@@ -68,5 +69,29 @@ export default function AuthErrorPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+// Loading fallback for the Suspense boundary
+function ErrorLoadingFallback() {
+  return (
+    <div className="mt-7 bg-white border border-gray-200 rounded-xl shadow-2xs dark:bg-neutral-900 dark:border-neutral-700">
+      <div className="p-4 sm:p-7">
+        <div className="text-center">
+          <h1 className="block text-2xl font-bold text-gray-800 dark:text-white">Memuat...</h1>
+          <p className="mt-3 text-gray-600 dark:text-neutral-400">
+            Sedang memuat informasi kesalahan
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function AuthErrorPage() {
+  return (
+    <Suspense fallback={<ErrorLoadingFallback />}>
+      <ErrorContent />
+    </Suspense>
   );
 } 

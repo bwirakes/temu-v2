@@ -13,6 +13,7 @@ import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle, Save, User } from "lucide-react";
 import { toast } from "../../../hooks/use-toast";
+import Image from "next/image";
 
 // Mock user data - in a real app, this would come from an API or context
 const userData = {
@@ -409,10 +410,15 @@ export default function EmployerSettingsPage() {
                       <div className="space-y-3">
                         {logoPreview && (
                           <div className="mb-4">
-                            <img 
+                            <Image 
                               src={logoPreview} 
                               alt="Logo preview" 
-                              className="max-h-40 border rounded-md"
+                              width={160} 
+                              height={160} 
+                              className="max-h-40 border rounded-md object-contain"
+                              style={{ width: 'auto', height: 'auto' }}
+                              priority={false}
+                              loading="lazy"
                             />
                           </div>
                         )}
