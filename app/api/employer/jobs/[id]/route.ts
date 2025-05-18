@@ -22,7 +22,8 @@ interface CustomSession {
   };
 }
 
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     // Get the job ID from URL parameters
     const jobId = params.id;
@@ -93,14 +94,16 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       .select({
         id: jobApplications.id,
         status: jobApplications.status,
-        coverLetter: jobApplications.coverLetter,
+        additionalNotes: jobApplications.additionalNotes,
+        education: jobApplications.education,
         resumeUrl: jobApplications.resumeUrl,
         // Use current_timestamp as a placeholder
         applicationDate: sql<string>`CURRENT_TIMESTAMP`,
         // Join with user profile to get applicant information
         name: userProfiles.namaLengkap,
         email: userProfiles.email,
-        profileId: userProfiles.id
+        profileId: userProfiles.id,
+        cvFileUrl: userProfiles.cvFileUrl
       })
       .from(jobApplications)
       .innerJoin(
@@ -118,8 +121,10 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       applicationDate: new Date(application.applicationDate).toISOString(),
       status: application.status,
       resumeUrl: application.resumeUrl,
-      coverLetter: application.coverLetter,
-      profileId: application.profileId
+      additionalNotes: application.additionalNotes,
+      education: application.education,
+      profileId: application.profileId,
+      cvFileUrl: application.cvFileUrl
     }));
 
     // Calculate the actual application count

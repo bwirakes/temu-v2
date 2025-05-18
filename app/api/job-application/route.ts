@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { jobApplicationService } from '@/lib/services/JobApplicationService';
+import { v4 as uuidv4 } from 'uuid';
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
+import { db, jobApplications, getUserProfileByUserId } from '@/lib/db';
 
 // Define the session type to match what's in lib/auth.ts
 interface CustomSession {
@@ -21,11 +22,27 @@ const applicationSchema = z.object({
   fullName: z.string().min(3, { message: "Full name must be at least 3 characters" }),
   email: z.string().email({ message: "Valid email is required" }),
   phone: z.string().min(10, { message: "Phone number must be at least 10 characters" }),
-  coverLetter: z.string().optional(),
   education: z.enum(["SD", "SMP", "SMA/SMK", "D1", "D2", "D3", "D4", "S1", "S2", "S3"]).optional(),
-  additionalNotes: z.string().optional(),
+  additionalNotes: z.string().min(50, { message: "Additional notes must be at least 50 characters" })
+    .max(2000, { message: "Additional notes must not exceed 2000 characters" }),
   resumeUrl: z.string().optional(),
+  cvFileUrl: z.string().optional(),
 });
+
+/**
+ * Generate a human-readable application reference code
+ * Format: JA-{YEAR}{MONTH}{DAY}-{FIRST 6 CHARS OF UUID}
+ */
+function generateReferenceCode(id: string): string {
+  const date = new Date();
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  
+  const shortId = id.substring(0, 6).toUpperCase();
+  
+  return `JA-${year}${month}${day}-${shortId}`;
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -65,34 +82,53 @@ export async function POST(request: NextRequest) {
     
     const data = validationResult.data;
     
-    // Create applicant data object
-    const applicantData = {
-      fullName: data.fullName,
-      email: data.email,
-      phone: data.phone,
-      coverLetter: data.coverLetter,
-      resumeUrl: data.resumeUrl,
-    };
+    // Get user profile
+    const userProfile = await getUserProfileByUserId(session.user.id);
     
-    // Submit the application using the service
-    const { application, referenceCode } = await jobApplicationService.submitApplication(
-      data.jobId,
-      applicantData
-    );
+    if (!userProfile) {
+      return NextResponse.json(
+        { error: "User profile not found" },
+        { status: 404 }
+      );
+    }
+    
+    // Generate a unique ID for the application
+    const applicationId = uuidv4();
+    
+    // Save the application to the database
+    const [savedApplication] = await db
+      .insert(jobApplications)
+      .values({
+        id: applicationId,
+        applicantProfileId: userProfile.id,
+        jobId: data.jobId,
+        status: 'SUBMITTED',
+        additionalNotes: data.additionalNotes,
+        education: data.education || null,
+        resumeUrl: data.resumeUrl || null,
+        cvFileUrl: data.cvFileUrl || null,
+      })
+      .returning();
+    
+    console.log("Application saved to database:", savedApplication);
+    
+    // Generate a reference code
+    const referenceCode = generateReferenceCode(applicationId);
     
     // Revalidate the job detail pages to update applicant counts
     revalidatePath(`/employer/jobs/${data.jobId}`);
     revalidatePath(`/job-detail/${data.jobId}`);
+    revalidatePath(`/job-seeker/applications`);
     
     // Return success response with the application data and reference code
     return NextResponse.json(
       { 
         success: true, 
         application: {
-          id: application.id,
-          jobPostingId: application.jobPostingId,
-          status: application.status,
-          createdAt: application.createdAt,
+          id: savedApplication.id,
+          jobPostingId: savedApplication.jobId,
+          status: savedApplication.status,
+          createdAt: new Date(),
         },
         referenceCode,
         revalidated: true
@@ -104,7 +140,7 @@ export async function POST(request: NextRequest) {
     console.error('Error submitting job application:', error);
     
     return NextResponse.json(
-      { error: "Failed to submit application" },
+      { error: "Failed to submit application", message: error instanceof Error ? error.message : "Unknown error" },
       { status: 500 }
     );
   }

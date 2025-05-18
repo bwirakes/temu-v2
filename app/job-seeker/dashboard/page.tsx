@@ -143,7 +143,7 @@ export default function JobSeekerDashboard() {
           </Card>
         </Link>
 
-        <Link href="/job-seeker/browse-jobs">
+        <Link href="/job-seeker/jobs">
           <Card className="h-full hover:shadow-md transition-shadow cursor-pointer">
             <CardHeader className="pb-2">
               <CardTitle className="flex items-center gap-2">

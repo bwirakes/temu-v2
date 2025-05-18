@@ -8,7 +8,6 @@ import { auth } from '@/lib/auth';
  */
 const jobPostingSchema = z.object({
   jobTitle: z.string().min(1, "Job title is required"),
-  contractType: z.string().min(1, "Contract type is required"),
   minWorkExperience: z.number().int().min(0, "Work experience must be a positive number"),
   numberOfPositions: z.number().int().positive().optional(),
   lastEducation: z.enum(["SD", "SMP", "SMA/SMK", "D1", "D2", "D3", "D4", "S1", "S2", "S3"]).optional(),
@@ -35,6 +34,15 @@ const jobPostingSchema = z.object({
     .optional(),
   isConfirmed: z.boolean().default(false),
 });
+
+/**
+ * Function to generate a human-readable job ID
+ */
+function generateJobId(): string {
+  const prefix = 'job';
+  const random = Math.floor(10000 + Math.random() * 90000); // 5-digit number between 10000-99999
+  return `${prefix}-${random}`;
+}
 
 /**
  * POST handler for creating a new job posting
@@ -76,15 +84,25 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Generate a human-readable job ID
+    const jobId = generateJobId();
+
     // Prepare data for insertion
     const jobData = {
-      ...validationResult.data,
       employerId, // Use the fetched and verified employerId
-      // Ensure new fields are properly included
+      jobId, // Add the generated human-readable ID
+      jobTitle: validationResult.data.jobTitle,
+      minWorkExperience: validationResult.data.minWorkExperience,
+      numberOfPositions: validationResult.data.numberOfPositions,
       lastEducation: validationResult.data.lastEducation,
       requiredCompetencies: validationResult.data.requiredCompetencies || [],
-      acceptedDisabilityTypes: validationResult.data.additionalRequirements?.acceptedDisabilityTypes || [],
-      numberOfDisabilityPositions: validationResult.data.additionalRequirements?.numberOfDisabilityPositions || 0,
+      expectations: validationResult.data.expectations || { ageRange: undefined },
+      additionalRequirements: {
+        gender: validationResult.data.additionalRequirements?.gender || "ANY",
+        acceptedDisabilityTypes: validationResult.data.additionalRequirements?.acceptedDisabilityTypes || undefined,
+        numberOfDisabilityPositions: validationResult.data.additionalRequirements?.numberOfDisabilityPositions || undefined
+      },
+      isConfirmed: validationResult.data.isConfirmed
     };
 
     // Create job posting

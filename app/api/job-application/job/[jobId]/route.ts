@@ -58,6 +58,9 @@ export async function GET(request: NextRequest, props: { params: Promise<{ jobId
           applicant: {
             fullName: app.applicant.fullName,
             email: app.applicant.email,
+            cvFileUrl: app.applicant.cvFileUrl || null,
+            education: app.applicant.education || null,
+            additionalNotes: app.applicant.additionalNotes || null,
           },
           status: app.status,
           createdAt: app.createdAt,

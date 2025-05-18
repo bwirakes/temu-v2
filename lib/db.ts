@@ -235,39 +235,23 @@ export const jobs = pgTable('jobs', {
   employerId: uuid('employer_id')
     .notNull()
     .references(() => employers.id, { onDelete: 'cascade' }),
+  jobId: text('job_id').notNull(),
   jobTitle: text('job_title').notNull(),
-  contractType: text('contract_type').notNull(),
-  salaryRange: jsonb('salary_range').$type<{
-    min?: number;
-    max?: number;
-    isNegotiable: boolean;
-  }>(),
   minWorkExperience: integer('min_work_experience').notNull(),
-  applicationDeadline: timestamp('application_deadline'),
-  requirements: jsonb('requirements').$type<string[]>(),
-  responsibilities: jsonb('responsibilities').$type<string[]>(),
-  description: text('description'),
   postedDate: timestamp('posted_date').defaultNow().notNull(),
   numberOfPositions: integer('number_of_positions'),
-  workingHours: text('working_hours'),
   lastEducation: lastEducationEnum('last_education'),
   requiredCompetencies: jsonb('required_competencies').$type<string[]>(),
-  acceptedDisabilityTypes: jsonb('accepted_disability_types').$type<string[]>(),
-  numberOfDisabilityPositions: integer('number_of_disability_positions').default(0),
   expectations: jsonb('expectations').$type<{
     ageRange?: {
       min: number;
       max: number;
     };
-    expectedCharacter?: string;
-    foreignLanguage?: string;
   }>(),
   additionalRequirements: jsonb('additional_requirements').$type<{
     gender?: "MALE" | "FEMALE" | "ANY" | "ALL";
-    requiredDocuments?: string;
-    specialSkills?: string;
-    technologicalSkills?: string;
-    suitableForDisability?: boolean;
+    acceptedDisabilityTypes?: string[];
+    numberOfDisabilityPositions?: number;
   }>(),
   isConfirmed: boolean('is_confirmed').default(false).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
@@ -296,8 +280,10 @@ export const jobApplications = pgTable('job_applications', {
     .notNull()
     .references(() => jobs.id, { onDelete: 'cascade' }),
   status: applicationStatusEnum('status').default('SUBMITTED').notNull(),
-  coverLetter: text('cover_letter'),
+  additionalNotes: text('additional_notes'),
+  education: lastEducationEnum('education'),
   resumeUrl: text('resume_url'),
+  cvFileUrl: text('cv_file_url'),
 }, (t) => {
   return {
     unqApplicantJob: uniqueIndex('unq_applicant_job').on(t.applicantProfileId, t.jobId),
@@ -598,12 +584,15 @@ export async function getAllEmployerIds() {
 /**
  * Gets all confirmed job IDs for a specific employer
  * @param employerId The ID of the employer
- * @returns Array of job IDs
+ * @returns Array of job IDs with both UUID and human-readable IDs
  */
 export async function getConfirmedJobIdsByEmployerId(employerId: string) {
   try {
     const result = await db
-      .select({ id: jobs.id })
+      .select({ 
+        id: jobs.id,
+        jobId: jobs.jobId 
+      })
       .from(jobs)
       .where(and(
         eq(jobs.employerId, employerId),
@@ -800,5 +789,26 @@ export async function updateEmployerOnboardingProgress(userId: string, data: {
   } catch (error) {
     console.error('Error updating employer onboarding progress:', error);
     throw error;
+  }
+}
+
+/**
+ * Gets all confirmed job IDs from the jobs table
+ * @returns Array of confirmed job IDs with both UUID and human-readable IDs
+ */
+export async function getAllConfirmedJobIds() {
+  try {
+    const result = await db
+      .select({ 
+        id: jobs.id,
+        jobId: jobs.jobId 
+      })
+      .from(jobs)
+      .where(eq(jobs.isConfirmed, true));
+    
+    return result;
+  } catch (error) {
+    console.error('Error fetching all confirmed job IDs:', error);
+    return [];
   }
 }

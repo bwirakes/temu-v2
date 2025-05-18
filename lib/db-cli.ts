@@ -58,6 +58,18 @@ export const applicationStatusEnum = pgEnum('application_status', [
 ]);
 
 export const userTypeEnum = pgEnum('user_type', ['job_seeker', 'employer']);
+export const lastEducationEnum = pgEnum('last_education', [
+  'SD',
+  'SMP',
+  'SMA/SMK',
+  'D1',
+  'D2',
+  'D3',
+  'D4',
+  'S1',
+  'S2',
+  'S3'
+]);
 
 export const users = pgTable('users', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -217,33 +229,21 @@ export const jobs = pgTable('jobs', {
     .references(() => employers.id, { onDelete: 'cascade' }),
   jobTitle: text('job_title').notNull(),
   contractType: text('contract_type').notNull(),
-  salaryRange: jsonb('salary_range').$type<{
-    min?: number;
-    max?: number;
-    isNegotiable: boolean;
-  }>(),
   minWorkExperience: integer('min_work_experience').notNull(),
-  applicationDeadline: timestamp('application_deadline'),
-  requirements: jsonb('requirements').$type<string[]>(),
-  responsibilities: jsonb('responsibilities').$type<string[]>(),
-  description: text('description'),
   postedDate: timestamp('posted_date').defaultNow().notNull(),
   numberOfPositions: integer('number_of_positions'),
-  workingHours: text('working_hours'),
+  lastEducation: lastEducationEnum('last_education'),
+  requiredCompetencies: jsonb('required_competencies').$type<string[]>(),
   expectations: jsonb('expectations').$type<{
     ageRange?: {
       min: number;
       max: number;
     };
-    expectedCharacter?: string;
-    foreignLanguage?: string;
   }>(),
   additionalRequirements: jsonb('additional_requirements').$type<{
-    gender?: "MALE" | "FEMALE" | "ANY";
-    requiredDocuments?: string;
-    specialSkills?: string;
-    technologicalSkills?: string;
-    suitableForDisability?: boolean;
+    gender?: "MALE" | "FEMALE" | "ANY" | "ALL";
+    acceptedDisabilityTypes?: string[];
+    numberOfDisabilityPositions?: number;
   }>(),
   isConfirmed: boolean('is_confirmed').default(false).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),

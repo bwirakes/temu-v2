@@ -33,10 +33,10 @@ export default function LogoutConfirmPage() {
           </svg>
         </div>
         <h1 className="block text-2xl font-bold text-gray-800 dark:text-white">
-          Sign Out Confirmation
+          Konfirmasi Keluar
         </h1>
         <p className="mt-3 text-gray-600 dark:text-neutral-400">
-          Are you sure you want to sign out of your account?
+          Apakah Anda yakin ingin keluar dari akun Anda?
         </p>
       </div>
 
@@ -49,10 +49,10 @@ export default function LogoutConfirmPage() {
           {isLoading ? (
             <>
               <span className="animate-spin h-4 w-4 border-2 border-white border-r-transparent rounded-full mr-2"></span>
-              Signing Out...
+              Sedang Keluar...
             </>
           ) : (
-            'Yes, Sign Out'
+            'Ya, Keluar'
           )}
         </button>
         <button
@@ -60,7 +60,7 @@ export default function LogoutConfirmPage() {
           disabled={isLoading}
           className="py-3 px-4 inline-flex justify-center items-center gap-x-2 text-sm font-medium rounded-lg border border-gray-200 bg-white text-gray-800 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-300 focus:ring-offset-2 transition-all dark:bg-neutral-800 dark:border-neutral-700 dark:text-white dark:hover:bg-neutral-700 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          Cancel
+          Batal
         </button>
       </div>
     </div>

@@ -29,13 +29,13 @@ export type JobApplicationData = {
   phone: string;
   
   // Application Details
-  coverLetter?: string;
   education?: "SD" | "SMP" | "SMA/SMK" | "D1" | "D2" | "D3" | "D4" | "S1" | "S2" | "S3";
   resume?: File;
   resumeUrl?: string;
+  cvFileUrl?: string; // URL to the job seeker's CV file
   
   // Additional Information
-  additionalNotes?: string;
+  additionalNotes: string;
   
   // Application preferences
   agreeToTerms: boolean;
@@ -55,13 +55,11 @@ export const jobApplicationSchema = z.object({
   fullName: z.string().min(3, { message: "Nama lengkap harus diisi minimal 3 karakter" }),
   email: z.string().email({ message: "Format email tidak valid" }),
   phone: z.string().min(10, { message: "Nomor telepon minimal 10 digit" }),
-  coverLetter: z.string().min(50, { message: "Surat lamaran minimal 50 karakter" })
-    .max(2000, { message: "Surat lamaran maksimal 2000 karakter" })
-    .optional(),
   education: z.enum(["SD", "SMP", "SMA/SMK", "D1", "D2", "D3", "D4", "S1", "S2", "S3"], {
     required_error: "Pendidikan terakhir harus dipilih",
   }).optional(),
-  additionalNotes: z.string().optional(),
+  additionalNotes: z.string().min(50, { message: "Informasi tambahan minimal 50 karakter" })
+    .max(2000, { message: "Informasi tambahan maksimal 2000 karakter" }),
   agreeToTerms: z.boolean().refine(val => val === true, {
     message: "Anda harus menyetujui syarat dan ketentuan",
   }),
@@ -74,12 +72,12 @@ const initialData: JobApplicationData = {
   fullName: "",
   email: "",
   phone: "",
-  coverLetter: "",
   education: undefined,
   additionalNotes: "",
   agreeToTerms: false,
   shareData: false,
   status: "DRAFT",
+  cvFileUrl: "", // Initialize with empty string
 };
 
 // Context type definition
@@ -97,11 +95,35 @@ type JobApplicationContextType = {
 const JobApplicationContext = createContext<JobApplicationContextType | undefined>(undefined);
 
 // Context provider component
-export const JobApplicationProvider = ({ children, jobId }: { children: ReactNode; jobId: string }) => {
+export const JobApplicationProvider = ({ 
+  children, 
+  jobId,
+  profileData 
+}: { 
+  children: ReactNode; 
+  jobId: string;
+  profileData?: {
+    fullName?: string;
+    email?: string;
+    phone?: string;
+    cvFileUrl?: string;
+    education?: "SD" | "SMP" | "SMA/SMK" | "D1" | "D2" | "D3" | "D4" | "S1" | "S2" | "S3";
+  }
+}) => {
   const router = useRouter();
   const [data, setData] = useState<JobApplicationData>({
     ...initialData,
     jobId: jobId,
+    // Initialize with profile data if available
+    ...(profileData ? {
+      fullName: profileData.fullName || "",
+      email: profileData.email || "",
+      phone: profileData.phone || "",
+      cvFileUrl: profileData.cvFileUrl || "",
+      education: profileData.education,
+      // If profile data is provided, default shareData to true
+      shareData: profileData.cvFileUrl ? true : false,
+    } : {})
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -146,8 +168,10 @@ export const JobApplicationProvider = ({ children, jobId }: { children: ReactNod
         fullName: data.fullName,
         email: data.email,
         phone: data.phone,
-        coverLetter: data.coverLetter || "",
+        additionalNotes: data.additionalNotes,
+        education: data.education,
         resumeUrl: data.resumeUrl || "",
+        cvFileUrl: data.cvFileUrl || "", // Explicitly include cvFileUrl
       });
       
       // Update local state with the response from the API

@@ -8,7 +8,6 @@ import { createContext, useContext, useState, ReactNode } from 'react';
 export interface JobPostingData {
   jobId: string;
   jobTitle: string;
-  contractType: string;
   minWorkExperience: number;
   lastEducation?: string;
   requiredCompetencies?: string[];
@@ -21,7 +20,7 @@ export interface JobPostingData {
   };
   additionalRequirements?: {
     gender?: "MALE" | "FEMALE" | "ANY" | "ALL" | undefined;
-    acceptedDisabilityTypes?: string[];
+    acceptedDisabilityTypes?: string[] | null;
     numberOfDisabilityPositions?: number | null;
   };
   // Flag to indicate if the job posting has been confirmed
@@ -43,7 +42,6 @@ interface JobPostingContextType {
 const defaultJobPostingData: JobPostingData = {
   jobId: '',
   jobTitle: '',
-  contractType: '',
   minWorkExperience: 0,
   lastEducation: '',
   requiredCompetencies: [],
@@ -56,7 +54,7 @@ const defaultJobPostingData: JobPostingData = {
   },
   additionalRequirements: {
     gender: "ANY",
-    acceptedDisabilityTypes: [],
+    acceptedDisabilityTypes: null,
     numberOfDisabilityPositions: null
   },
   isConfirmed: false
@@ -76,10 +74,49 @@ export const JobPostingProvider = ({ children }: { children: ReactNode }) => {
     console.log('Updating form values:', values);
     
     setJobData(prevData => {
+      // Ensure number values are properly parsed from form inputs
+      const processedValues = { ...values };
+      
+      // Handle number conversions
+      if (typeof values.minWorkExperience === 'string') {
+        processedValues.minWorkExperience = parseInt(values.minWorkExperience, 10);
+      }
+      
+      if (typeof values.numberOfPositions === 'string') {
+        processedValues.numberOfPositions = parseInt(values.numberOfPositions, 10);
+      }
+      
+      // Handle nested number conversions
+      if (values.expectations?.ageRange) {
+        const ageRange = { ...values.expectations.ageRange };
+        
+        if (typeof ageRange.min === 'string') {
+          ageRange.min = parseInt(ageRange.min, 10);
+        }
+        
+        if (typeof ageRange.max === 'string') {
+          ageRange.max = parseInt(ageRange.max, 10);
+        }
+        
+        processedValues.expectations = {
+          ...values.expectations,
+          ageRange
+        };
+      }
+      
+      if (values.additionalRequirements?.numberOfDisabilityPositions && 
+          typeof values.additionalRequirements.numberOfDisabilityPositions === 'string') {
+        processedValues.additionalRequirements = {
+          ...values.additionalRequirements,
+          numberOfDisabilityPositions: parseInt(values.additionalRequirements.numberOfDisabilityPositions, 10)
+        };
+      }
+      
       const newData = {
         ...prevData,
-        ...values
+        ...processedValues
       };
+      
       console.log('New job data:', newData);
       return newData;
     });
@@ -134,11 +171,15 @@ export const JobPostingProvider = ({ children }: { children: ReactNode }) => {
     
     // Add validation for step 4 (additional info form)
     if (step === 4) {
-      // Validate disability-related fields if relevant
-      const hasDisabilityPositions = jobData.additionalRequirements?.numberOfDisabilityPositions && 
-                                    jobData.additionalRequirements.numberOfDisabilityPositions > 0;
+      // Disability fields are now optional, so we only validate if the user has explicitly 
+      // indicated they want to provide positions for people with disabilities
+      const hasDisabilityPositions = 
+        jobData.additionalRequirements?.numberOfDisabilityPositions !== null &&
+        jobData.additionalRequirements?.numberOfDisabilityPositions !== undefined &&
+        jobData.additionalRequirements.numberOfDisabilityPositions > 0;
       
       if (hasDisabilityPositions) {
+        // Only validate disability types if positions are specified
         if (!jobData.additionalRequirements?.acceptedDisabilityTypes || 
             jobData.additionalRequirements.acceptedDisabilityTypes.length === 0) {
           errors.acceptedDisabilityTypes = 'Pilih minimal satu jenis disabilitas';

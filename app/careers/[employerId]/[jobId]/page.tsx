@@ -11,6 +11,11 @@ import {
   getJobById, 
   getJobWorkLocationsByJobId 
 } from '@/lib/db';
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Suspense } from 'react';
+import JobDetailLoader from '../../components/job-detail-loader';
 
 // Add export config for ISR
 export const revalidate = 3600; // Revalidate every hour
@@ -29,44 +34,28 @@ interface JobLocation {
 
 interface Job {
   id: string;
+  jobId: string; // Human-readable job ID (e.g., job-12345)
   jobTitle: string;
-  contractType: string;
   postedDate: Date | string;
-  applicationDeadline?: Date | string | null;
-  numberOfPositions?: number | null;
-  workingHours?: string | null;
+  numberOfPositions?: number;
   isConfirmed: boolean;
   createdAt: Date | string;
   updatedAt: Date | string;
-  description?: string | null;
   employerId: string;
-  salaryRange?: {
-    min?: number;
-    max?: number;
-    isNegotiable: boolean;
-  } | null;
   minWorkExperience: number;
-  requirements?: string[] | null;
-  responsibilities: string[] | null;
   lastEducation?: "SD" | "SMP" | "SMA/SMK" | "D1" | "D2" | "D3" | "D4" | "S1" | "S2" | "S3" | null;
-  requiredCompetencies?: string[] | null;
-  acceptedDisabilityTypes?: string[] | null;
-  numberOfDisabilityPositions?: number | null;
+  requiredCompetencies?: string[];
   expectations?: {
     ageRange?: {
       min: number;
       max: number;
     };
-    expectedCharacter?: string;
-    foreignLanguage?: string;
-  } | null;
+  };
   additionalRequirements?: {
     gender?: "MALE" | "FEMALE" | "ANY" | "ALL";
-    requiredDocuments?: string;
-    specialSkills?: string;
-    technologicalSkills?: string;
-    suitableForDisability?: boolean;
-  } | null;
+    acceptedDisabilityTypes?: string[];
+    numberOfDisabilityPositions?: number;
+  };
 }
 
 interface Employer {
@@ -112,7 +101,7 @@ export async function generateMetadata(
 
   return {
     title: `${job.jobTitle} di ${employer.namaPerusahaan}`,
-    description: job.description || `Lamar posisi ${job.jobTitle} di ${employer.namaPerusahaan}`,
+    description: `Lamar posisi ${job.jobTitle} di ${employer.namaPerusahaan}`,
   };
 }
 
@@ -130,32 +119,13 @@ export async function generateStaticParams() {
     for (const job of jobIds) {
       paths.push({
         employerId: employer.id,
-        jobId: job.id,
+        jobId: job.jobId || job.id, // Use human-readable jobId if available, otherwise fallback to UUID
       });
     }
   }
   
   return paths;
 }
-
-// Helper function to format salary
-const formatSalary = (salaryRange: Job['salaryRange']) => {
-  if (!salaryRange) return 'Tidak ditentukan';
-  
-  if (salaryRange.isNegotiable) {
-    return 'Dapat dinegosiasikan';
-  }
-  
-  if (salaryRange.min && salaryRange.max) {
-    return `Rp ${salaryRange.min.toLocaleString()} - Rp ${salaryRange.max.toLocaleString()}`;
-  } else if (salaryRange.min) {
-    return `Dari Rp ${salaryRange.min.toLocaleString()}`;
-  } else if (salaryRange.max) {
-    return `Hingga Rp ${salaryRange.max.toLocaleString()}`;
-  }
-  
-  return 'Tidak ditentukan';
-};
 
 // Social media links component
 function SocialMediaLinks({ socialMedia }: { socialMedia?: Employer['socialMedia'] }) {
@@ -196,7 +166,7 @@ function SocialMediaLinks({ socialMedia }: { socialMedia?: Employer['socialMedia
           href={`https://instagram.com/${socialMedia.instagram}`} 
           target="_blank" 
           rel="noopener noreferrer"
-          className="text-notion-text-light hover:text-pink-600"
+          className="text-gray-500 hover:text-pink-600 transition-colors"
           aria-label="Instagram"
         >
           {socialIcons.instagram}
@@ -208,7 +178,7 @@ function SocialMediaLinks({ socialMedia }: { socialMedia?: Employer['socialMedia
           href={socialMedia.linkedin} 
           target="_blank" 
           rel="noopener noreferrer"
-          className="text-notion-text-light hover:text-blue-700"
+          className="text-gray-500 hover:text-blue-700 transition-colors"
           aria-label="LinkedIn"
         >
           {socialIcons.linkedin}
@@ -220,7 +190,7 @@ function SocialMediaLinks({ socialMedia }: { socialMedia?: Employer['socialMedia
           href={socialMedia.facebook} 
           target="_blank" 
           rel="noopener noreferrer"
-          className="text-notion-text-light hover:text-blue-600"
+          className="text-gray-500 hover:text-blue-600 transition-colors"
           aria-label="Facebook"
         >
           {socialIcons.facebook}
@@ -232,7 +202,7 @@ function SocialMediaLinks({ socialMedia }: { socialMedia?: Employer['socialMedia
           href={socialMedia.twitter} 
           target="_blank" 
           rel="noopener noreferrer"
-          className="text-notion-text-light hover:text-blue-400"
+          className="text-gray-500 hover:text-blue-400 transition-colors"
           aria-label="Twitter"
         >
           {socialIcons.twitter}
@@ -244,7 +214,7 @@ function SocialMediaLinks({ socialMedia }: { socialMedia?: Employer['socialMedia
           href={`https://tiktok.com/@${socialMedia.tiktok}`} 
           target="_blank" 
           rel="noopener noreferrer"
-          className="text-notion-text-light hover:text-black"
+          className="text-gray-500 hover:text-black transition-colors"
           aria-label="TikTok"
         >
           {socialIcons.tiktok}
@@ -254,15 +224,8 @@ function SocialMediaLinks({ socialMedia }: { socialMedia?: Employer['socialMedia
   );
 }
 
-// Main page component
-export default async function JobDetailPage(
-  props: {
-    params: Promise<{ employerId: string; jobId: string }>;
-  }
-) {
-  const params = await props.params;
-  const { employerId, jobId } = params;
-
+// Job detail component
+async function JobDetail({ employerId, jobId }: { employerId: string; jobId: string }) {
   // Get job details
   const job = await getJobById(jobId);
 
@@ -281,17 +244,336 @@ export default async function JobDetailPage(
   // Get job locations
   const locations = await getJobWorkLocationsByJobId(jobId);
 
+  // Extract the contract type from the job ID
+  const contractType = job.jobId?.split('-')[0] || 'Full-time';
+
   return (
-    <div className="bg-notion-background min-h-screen">
+    <>
+      <div>
+        <h1 className="text-2xl md:text-3xl font-bold mb-2">{job.jobTitle}</h1>
+        <p className="text-gray-500 mb-6">{employer.namaPerusahaan}</p>
+      </div>
+      
+      {/* Job header card */}
+      <Card className="shadow-sm hover:shadow-md transition-shadow duration-200 mb-6">
+        <CardHeader className="pb-3">
+          <div className="flex flex-col md:flex-row justify-between">
+            <div>
+              <div className="flex flex-wrap gap-2 mb-4">
+                <Badge variant="secondary" className="text-xs font-medium">
+                  {contractType}
+                </Badge>
+                {job.numberOfPositions && (
+                  <Badge variant="secondary" className="text-xs font-medium">
+                    {job.numberOfPositions} posisi
+                  </Badge>
+                )}
+                {job.minWorkExperience > 0 && (
+                  <Badge variant="outline" className="text-xs font-medium">
+                    {job.minWorkExperience} tahun pengalaman
+                  </Badge>
+                )}
+              </div>
+            </div>
+            
+            <div className="mt-4 md:mt-0">
+              {employer.logoUrl ? (
+                <div className="w-16 h-16 relative flex-shrink-0 bg-white p-2 rounded-lg border border-gray-200">
+                  <Image
+                    src={employer.logoUrl}
+                    alt={employer.namaPerusahaan}
+                    fill
+                    priority
+                    sizes="64px"
+                    className="object-contain"
+                  />
+                </div>
+              ) : (
+                <div className="h-16 w-16 bg-blue-50 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <span className="text-xl font-bold text-blue-600">
+                    {employer.namaPerusahaan.substring(0, 2).toUpperCase()}
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+        </CardHeader>
+            
+        <CardContent className="pb-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <p className="text-sm text-gray-500">Tanggal Posting</p>
+              <p className="font-medium">{format(new Date(job.postedDate), 'dd MMMM yyyy', { locale: id })}</p>
+            </div>
+          </div>
+        </CardContent>
+            
+        {/* Apply button */}
+        <CardFooter className="border-t pt-4">
+          <Link
+            href={`/job-application/${jobId}`}
+            className="w-full"
+          >
+            <Button className="w-full" size="lg">
+              <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 13l-3 3m0 0l-3-3m3 3V8m0 13a9 9 0 110-18 9 9 0 010 18z"></path>
+              </svg>
+              Lamar Posisi Ini
+            </Button>
+          </Link>
+        </CardFooter>
+      </Card>
+      
+      {/* Job details card */}
+      <Card className="shadow-sm hover:shadow-md transition-shadow duration-200 mb-6">
+        <CardHeader>
+          <CardTitle className="text-xl font-medium">Detail Lowongan</CardTitle>
+        </CardHeader>
+        
+        {/* Min Work Experience */}
+        {job.minWorkExperience > 0 && (
+          <CardContent className="border-b pt-0 pb-6">
+            <h2 className="text-lg font-medium mb-4 flex items-center text-gray-900">
+              <svg className="w-5 h-5 mr-2 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+              </svg>
+              Pengalaman Kerja
+            </h2>
+            <div className="p-3 bg-gray-50 rounded-lg">
+              <p className="text-gray-600">
+                Minimal {job.minWorkExperience} tahun
+              </p>
+            </div>
+          </CardContent>
+        )}
+        
+        {/* Last Education */}
+        {(job.lastEducation !== null && job.lastEducation !== undefined) && (
+          <CardContent className="border-b pt-0 pb-6">
+            <h2 className="text-lg font-medium mb-4 flex items-center text-gray-900">
+              <svg className="w-5 h-5 mr-2 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 14l9-5-9-5-9 5 9 5z" />
+                <path d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998a12.078 12.078 0 01.665-6.479L12 14z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 14l9-5-9-5-9 5 9 5zm0 0l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998a12.078 12.078 0 01.665-6.479L12 14zm-4 6v-7.5l4-2.222" />
+              </svg>
+              Pendidikan Terakhir
+            </h2>
+            <div className="p-3 bg-gray-50 rounded-lg">
+              <p className="text-gray-600">
+                Minimal {job.lastEducation}
+              </p>
+            </div>
+          </CardContent>
+        )}
+        
+        {/* Required Competencies */}
+        {Array.isArray(job.requiredCompetencies) && job.requiredCompetencies.length > 0 && (
+          <CardContent className="border-b pt-0 pb-6">
+            <h2 className="text-lg font-medium mb-4 flex items-center text-gray-900">
+              <svg className="w-5 h-5 mr-2 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+              </svg>
+              Kompetensi yang Dibutuhkan
+            </h2>
+            <ul className="space-y-3 text-gray-600">
+              {job.requiredCompetencies.map((item, index) => (
+                <li key={index} className="flex items-start">
+                  <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-yellow-100 text-yellow-800 mr-3 flex-shrink-0 text-xs font-medium">
+                    {index + 1}
+                  </span>
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        )}
+        
+        {/* Accepted Disability Types */}
+        {job.additionalRequirements && 
+         Array.isArray(job.additionalRequirements.acceptedDisabilityTypes) && 
+         job.additionalRequirements.acceptedDisabilityTypes.length > 0 && (
+          <CardContent className="border-b pt-0 pb-6">
+            <h2 className="text-lg font-medium mb-4 flex items-center text-gray-900">
+              <svg className="w-5 h-5 mr-2 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+              </svg>
+              Jenis Disabilitas yang Diterima
+            </h2>
+            <div className="space-y-2 text-gray-600">
+              <ul className="list-disc list-inside space-y-1">
+                {job.additionalRequirements.acceptedDisabilityTypes.map((item: string, index: number) => (
+                  <li key={index}>{item}</li>
+                ))}
+              </ul>
+            </div>
+          </CardContent>
+        )}
+        
+        {/* Number of Disability Positions */}
+        {job.additionalRequirements && 
+         typeof job.additionalRequirements.numberOfDisabilityPositions === 'number' && 
+         job.additionalRequirements.numberOfDisabilityPositions > 0 && (
+          <CardContent className="border-b pt-0 pb-6">
+            <h2 className="text-lg font-medium mb-4 flex items-center text-gray-900">
+              <svg className="w-5 h-5 mr-2 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+              </svg>
+              Jumlah Posisi untuk Disabilitas
+            </h2>
+            <div className="p-3 bg-gray-50 rounded-lg">
+              <p className="text-gray-600">
+                {job.additionalRequirements.numberOfDisabilityPositions} posisi
+              </p>
+            </div>
+          </CardContent>
+        )}
+        
+        {/* Work Locations */}
+        {locations && locations.length > 0 && (
+          <CardContent className="pt-0 pb-6">
+            <h2 className="text-lg font-medium mb-4 flex items-center text-gray-900">
+              <svg className="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
+              </svg>
+              Lokasi Kerja
+            </h2>
+            <div className="space-y-4">
+              {locations.map((location) => (
+                <div key={location.id} className="p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors duration-150">
+                  <p className="font-medium text-gray-900 flex items-center">
+                    {location.isRemote && (
+                      <span className="inline-block mr-2 text-green-600">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                      </span>
+                    )}
+                    {location.city}, {location.province}
+                    {location.isRemote && <span className="ml-2 text-sm text-green-600">(Remote tersedia)</span>}
+                  </p>
+                  {location.address && <p className="text-gray-500 text-sm mt-1">{location.address}</p>}
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        )}
+      </Card>
+      
+      {/* Company info card */}
+      <Card className="shadow-sm hover:shadow-md transition-shadow duration-200">
+        <CardHeader>
+          <CardTitle className="text-xl font-medium flex items-center">
+            <svg className="w-5 h-5 mr-2 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+            </svg>
+            Tentang Perusahaan
+          </CardTitle>
+        </CardHeader>
+        
+        <CardContent>
+          <div className="flex flex-col md:flex-row items-start gap-6">
+            <div className="flex-shrink-0">
+              {employer.logoUrl && employer.logoUrl !== 'https://via.placeholder.com/100' ? (
+                <div className="w-20 h-20 relative flex-shrink-0 bg-white p-2 rounded-lg border border-gray-200">
+                  <Image
+                    src={employer.logoUrl}
+                    alt={employer.namaPerusahaan}
+                    fill
+                    priority
+                    sizes="80px"
+                    className="object-contain"
+                  />
+                </div>
+              ) : (
+                <div className="w-20 h-20 bg-blue-50 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <span className="text-xl font-bold text-blue-600">
+                    {employer.namaPerusahaan.substring(0, 2).toUpperCase()}
+                  </span>
+                </div>
+              )}
+            </div>
+            
+            <div className="flex-grow">
+              <h3 className="text-lg font-medium text-gray-900 mb-2">
+                {employer.namaPerusahaan}
+                {employer.merekUsaha && ` (${employer.merekUsaha})`}
+              </h3>
+              <p className="text-gray-500 mb-2 flex items-center">
+                <svg className="w-4 h-4 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                </svg>
+                Industri: {employer.industri}
+              </p>
+              <p className="text-gray-500 mb-4 flex items-center">
+                <svg className="w-4 h-4 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                </svg>
+                Lokasi: {employer.alamatKantor}
+              </p>
+            
+              <div className="flex flex-wrap gap-4">
+                {employer.website && (
+                  <a 
+                    href={employer.website.startsWith('http') ? employer.website : `https://${employer.website}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:text-blue-800 flex items-center transition-colors duration-150"
+                  >
+                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path>
+                    </svg>
+                    Website
+                  </a>
+                )}
+              </div>
+          
+              {/* Social media links */}
+              {employer.socialMedia && Object.values(employer.socialMedia).some(link => !!link) && (
+                <div className="mt-4">
+                  <p className="text-sm text-gray-500 mb-2">Ikuti kami di:</p>
+                  <SocialMediaLinks socialMedia={employer.socialMedia} />
+                </div>
+              )}
+            </div>
+          </div>
+        </CardContent>
+        
+        <CardFooter className="border-t pt-4">
+          <Link
+            href={`/careers/${employerId}`}
+            className="w-full"
+          >
+            <Button variant="outline" className="w-full" size="lg">
+              <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+              </svg>
+              Lihat Semua Lowongan dari {employer.namaPerusahaan}
+            </Button>
+          </Link>
+        </CardFooter>
+      </Card>
+    </>
+  );
+}
+
+// Main page component
+export default async function JobDetailPage(
+  props: {
+    params: Promise<{ employerId: string; jobId: string }>;
+  }
+) {
+  return (
+    <div className="bg-gray-50 min-h-screen">
       {/* Add padding to account for fixed header */}
       <div className="pt-16"></div>
-      
-      <div className="notion-container py-12 max-w-4xl mx-auto px-4 sm:px-6">
+      <div className="max-w-[85rem] mx-auto space-y-6 px-4 sm:px-6 py-6 md:py-8">
         {/* Back button */}
-        <div className="mb-6 animation-delay-100 animate-fade-in">
+        <div className="mb-6">
           <Link 
-            href={`/careers/${employerId}`}
-            className="inline-flex items-center text-sm font-medium text-notion-text hover:text-notion-text-light transition duration-150 ease-in-out"
+            href={`/careers/${(await props.params).employerId}`}
+            className="inline-flex items-center text-sm font-medium text-gray-600 hover:text-gray-900 transition duration-150 ease-in-out"
           >
             <svg className="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
@@ -300,411 +582,12 @@ export default async function JobDetailPage(
           </Link>
         </div>
         
-        {/* Job header */}
-        <div className="notion-card mb-8 overflow-hidden animation-delay-200 animate-fade-in shadow-sm hover:shadow-md transition-shadow duration-200">
-          <div className="p-6 border-b border-notion-border bg-notion-background-gray">
-            <div className="flex flex-col md:flex-row justify-between">
-              <div>
-                <h1 className="text-2xl font-medium text-notion-text mb-2">{job.jobTitle}</h1>
-                <p className="text-xl text-notion-text-light mb-4">{employer.namaPerusahaan}</p>
-              
-                <div className="flex flex-wrap gap-2 mb-4">
-                  <span className="px-3 py-1 bg-notion-highlight-blue text-notion-text text-xs font-medium rounded-notion">
-                    {job.contractType}
-                  </span>
-                  {job.numberOfPositions && (
-                    <span className="px-3 py-1 bg-notion-highlight-green text-notion-text text-xs font-medium rounded-notion">
-                      {job.numberOfPositions} posisi
-                    </span>
-                  )}
-                  {job.minWorkExperience > 0 && (
-                    <span className="px-3 py-1 bg-notion-highlight-orange text-notion-text text-xs font-medium rounded-notion">
-                      {job.minWorkExperience} tahun pengalaman
-                    </span>
-                  )}
-                </div>
-              </div>
-              
-              {employer.logoUrl && (
-                <div className="w-24 h-24 relative flex-shrink-0 mt-4 md:mt-0 bg-white p-2 rounded-notion border border-notion-border">
-                  <Image
-                    src={employer.logoUrl}
-                    alt={employer.namaPerusahaan}
-                    fill
-                    className="object-contain"
-                  />
-                </div>
-              )}
-            </div>
-          </div>
-          
-          <div className="p-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="notion-property group">
-                <p className="text-sm text-notion-text-light group-hover:text-notion-text transition-colors duration-150">Tanggal Posting</p>
-                <p className="font-medium text-notion-text">{format(new Date(job.postedDate), 'dd MMMM yyyy', { locale: id })}</p>
-              </div>
-              
-              {job.applicationDeadline && (
-                <div className="notion-property group">
-                  <p className="text-sm text-notion-text-light group-hover:text-notion-text transition-colors duration-150">Batas Waktu Pendaftaran</p>
-                  <p className="font-medium text-notion-text-red">{format(new Date(job.applicationDeadline), 'dd MMMM yyyy', { locale: id })}</p>
-                </div>
-              )}
-              
-              {job.workingHours && (
-                <div className="notion-property group">
-                  <p className="text-sm text-notion-text-light group-hover:text-notion-text transition-colors duration-150">Jam Kerja</p>
-                  <p className="font-medium text-notion-text">{job.workingHours}</p>
-                </div>
-              )}
-              
-              {job.salaryRange && (
-                <div className="notion-property group">
-                  <p className="text-sm text-notion-text-light group-hover:text-notion-text transition-colors duration-150">Kisaran Gaji</p>
-                  <p className="font-medium text-notion-text">{formatSalary(job.salaryRange)}</p>
-                </div>
-              )}
-            </div>
-          </div>
-          
-          {/* Apply button */}
-          <div className="border-t border-notion-border p-4">
-            <Link
-              href={`/job-application/${jobId}`}
-              className="notion-button w-full flex justify-center items-center gap-2 hover:bg-notion-blue-dark transition-colors duration-150"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 13l-3 3m0 0l-3-3m3 3V8m0 13a9 9 0 110-18 9 9 0 010 18z"></path>
-              </svg>
-              Lamar Posisi Ini
-            </Link>
-          </div>
-        </div>
-        
-        {/* Job details */}
-        <div className="notion-card mb-8 animation-delay-300 animate-fade-in shadow-sm hover:shadow-md transition-shadow duration-200">
-          {/* Description */}
-          {job.description && (
-            <div className="p-6 border-b border-notion-border">
-              <h2 className="text-xl font-medium text-notion-text mb-4 flex items-center">
-                <svg className="w-5 h-5 mr-2 text-notion-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                </svg>
-                Deskripsi Pekerjaan
-              </h2>
-              <div className="prose max-w-none text-notion-text-light">
-                <p className="whitespace-pre-line">{job.description}</p>
-              </div>
-            </div>
-          )}
-          
-          {/* Responsibilities */}
-          {job.responsibilities && job.responsibilities.length > 0 && (
-            <div className="p-6 border-b border-notion-border">
-              <h2 className="text-xl font-medium text-notion-text mb-4 flex items-center">
-                <svg className="w-5 h-5 mr-2 text-notion-green" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                </svg>
-                Tanggung Jawab
-              </h2>
-              <ul className="space-y-3 text-notion-text-light">
-                {job.responsibilities.map((item, index) => (
-                  <li key={index} className="flex items-start">
-                    <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-notion-highlight-green text-notion-text mr-3 flex-shrink-0 text-xs font-medium">
-                      {index + 1}
-                    </span>
-                    <span>{item}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-          
-          {/* Requirements */}
-          {job.requirements && job.requirements.length > 0 && (
-            <div className="p-6 border-b border-notion-border">
-              <h2 className="text-xl font-medium text-notion-text mb-4 flex items-center">
-                <svg className="w-5 h-5 mr-2 text-notion-orange" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
-                </svg>
-                Persyaratan
-              </h2>
-              <ul className="space-y-3 text-notion-text-light">
-                {job.requirements.map((item, index) => (
-                  <li key={index} className="flex items-start">
-                    <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-notion-highlight-orange text-notion-text mr-3 flex-shrink-0 text-xs font-medium">
-                      {index + 1}
-                    </span>
-                    <span>{item}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-          
-          {/* Last Education */}
-          {job.lastEducation && (
-            <div className="p-6 border-b border-notion-border">
-              <h2 className="text-xl font-medium text-notion-text mb-4 flex items-center">
-                <svg className="w-5 h-5 mr-2 text-notion-blue-light" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M12 14l9-5-9-5-9 5 9 5z" />
-                  <path d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 14l9-5-9-5-9 5 9 5zm0 0l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14zm-4 6v-7.5l4-2.222" />
-                </svg>
-                Pendidikan Terakhir
-              </h2>
-              <div className="notion-property group p-3 bg-notion-background-gray rounded-notion">
-                <p className="text-notion-text-light">
-                  Minimal {job.lastEducation}
-                </p>
-              </div>
-            </div>
-          )}
-          
-          {/* Required Competencies */}
-          {job.requiredCompetencies && job.requiredCompetencies.length > 0 && (
-            <div className="p-6 border-b border-notion-border">
-              <h2 className="text-xl font-medium text-notion-text mb-4 flex items-center">
-                <svg className="w-5 h-5 mr-2 text-notion-yellow" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
-                </svg>
-                Kompetensi yang Dibutuhkan
-              </h2>
-              <ul className="space-y-3 text-notion-text-light">
-                {job.requiredCompetencies.map((item, index) => (
-                  <li key={index} className="flex items-start">
-                    <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-notion-highlight-yellow text-notion-text mr-3 flex-shrink-0 text-xs font-medium">
-                      {index + 1}
-                    </span>
-                    <span>{item}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-          
-          {/* Accepted Disability Types */}
-          {job.additionalRequirements?.suitableForDisability && job.acceptedDisabilityTypes && job.acceptedDisabilityTypes.length > 0 && (
-            <div className="p-6 border-b border-notion-border">
-              <h2 className="text-xl font-medium text-notion-text mb-4 flex items-center">
-                <svg className="w-5 h-5 mr-2 text-notion-purple-light" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                </svg>
-                Jenis Disabilitas yang Diterima
-              </h2>
-              <ul className="space-y-3 text-notion-text-light">
-                {job.acceptedDisabilityTypes.map((item, index) => (
-                  <li key={index} className="flex items-start">
-                    <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-notion-highlight-purple text-notion-text mr-3 flex-shrink-0 text-xs font-medium">
-                      {index + 1}
-                    </span>
-                    <span>{item}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-          
-          {/* Number of Disability Positions */}
-          {job.additionalRequirements?.suitableForDisability && job.numberOfDisabilityPositions !== null && job.numberOfDisabilityPositions !== undefined && (
-            <div className="p-6 border-b border-notion-border">
-              <h2 className="text-xl font-medium text-notion-text mb-4 flex items-center">
-                <svg className="w-5 h-5 mr-2 text-notion-green" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                </svg>
-                Jumlah Posisi untuk Disabilitas
-              </h2>
-              <div className="notion-property group p-3 bg-notion-background-gray rounded-notion">
-                <p className="text-notion-text-light">
-                  {job.numberOfDisabilityPositions} posisi
-                </p>
-              </div>
-            </div>
-          )}
-          
-          {/* Expectations */}
-          {job.expectations && (
-            <div className="p-6 border-b border-notion-border">
-              <h2 className="text-xl font-medium text-notion-text mb-4 flex items-center">
-                <svg className="w-5 h-5 mr-2 text-notion-purple" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
-                </svg>
-                Ekspektasi Kandidat
-              </h2>
-              <div className="space-y-4">
-                {job.expectations.expectedCharacter && (
-                  <div className="notion-property group p-3 bg-notion-background-gray rounded-notion">
-                    <h3 className="text-base font-medium text-notion-text">Karakter yang Diharapkan</h3>
-                    <p className="text-notion-text-light">{job.expectations.expectedCharacter}</p>
-                  </div>
-                )}
-                
-                {job.expectations.foreignLanguage && (
-                  <div className="notion-property group p-3 bg-notion-background-gray rounded-notion">
-                    <h3 className="text-base font-medium text-notion-text">Bahasa Asing</h3>
-                    <p className="text-notion-text-light">{job.expectations.foreignLanguage}</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-          
-          {/* Additional Requirements */}
-          {job.additionalRequirements && (
-            <div className="p-6 border-b border-notion-border">
-              <h2 className="text-xl font-medium text-notion-text mb-4 flex items-center">
-                <svg className="w-5 h-5 mr-2 text-notion-red" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
-                </svg>
-                Persyaratan Tambahan
-              </h2>
-              <div className="space-y-4">
-                {job.additionalRequirements.requiredDocuments && (
-                  <div className="notion-property group p-3 bg-notion-background-gray rounded-notion">
-                    <h3 className="text-base font-medium text-notion-text">Dokumen yang Diperlukan</h3>
-                    <p className="text-notion-text-light whitespace-pre-line">{job.additionalRequirements.requiredDocuments}</p>
-                  </div>
-                )}
-                
-                {job.additionalRequirements.specialSkills && (
-                  <div className="notion-property group p-3 bg-notion-background-gray rounded-notion">
-                    <h3 className="text-base font-medium text-notion-text">Keahlian Khusus</h3>
-                    <p className="text-notion-text-light whitespace-pre-line">{job.additionalRequirements.specialSkills}</p>
-                  </div>
-                )}
-                
-                {job.additionalRequirements.technologicalSkills && (
-                  <div className="notion-property group p-3 bg-notion-background-gray rounded-notion">
-                    <h3 className="text-base font-medium text-notion-text">Keahlian Teknologi</h3>
-                    <p className="text-notion-text-light whitespace-pre-line">{job.additionalRequirements.technologicalSkills}</p>
-                  </div>
-                )}
-                
-                {job.additionalRequirements.suitableForDisability && (
-                  <div className="notion-property group p-3 bg-notion-background-gray rounded-notion">
-                    <h3 className="text-base font-medium text-notion-text">Cocok untuk Penyandang Disabilitas</h3>
-                    <p className="text-notion-text-light">Ya</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-          
-          {/* Work Locations */}
-          {locations && locations.length > 0 && (
-            <div className="p-6">
-              <h2 className="text-xl font-medium text-notion-text mb-4 flex items-center">
-                <svg className="w-5 h-5 mr-2 text-notion-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                </svg>
-                Lokasi Kerja
-              </h2>
-              <div className="space-y-4">
-                {locations.map((location) => (
-                  <div key={location.id} className="p-3 bg-notion-background-gray rounded-notion hover:bg-notion-background-gray-hover transition-colors duration-150">
-                    <p className="font-medium text-notion-text flex items-center">
-                      {location.isRemote && (
-                        <span className="inline-block mr-2 text-notion-green">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                          </svg>
-                        </span>
-                      )}
-                      {location.city}, {location.province}
-                      {location.isRemote && <span className="ml-2 text-sm text-notion-green">(Remote tersedia)</span>}
-                    </p>
-                    {location.address && <p className="text-notion-text-light text-sm mt-1">{location.address}</p>}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-        
-        {/* Company info */}
-        <div className="notion-card animation-delay-400 animate-fade-in shadow-sm hover:shadow-md transition-shadow duration-200">
-          <div className="p-6 border-b border-notion-border bg-notion-background-gray">
-            <h2 className="text-xl font-medium text-notion-text mb-4 flex items-center">
-              <svg className="w-5 h-5 mr-2 text-notion-purple" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
-              </svg>
-              Tentang Perusahaan
-            </h2>
-          </div>
-          
-          <div className="p-6">
-            <div className="flex flex-col md:flex-row items-start gap-6">
-              {employer.logoUrl && employer.logoUrl !== 'https://via.placeholder.com/100' && (
-                <div className="w-24 h-24 relative flex-shrink-0 bg-white p-2 rounded-notion border border-notion-border">
-                  <Image
-                    src={employer.logoUrl}
-                    alt={employer.namaPerusahaan}
-                    fill
-                    className="object-contain"
-                  />
-                </div>
-              )}
-              
-              <div className="flex-grow">
-                <h3 className="text-lg font-medium text-notion-text mb-2">
-                  {employer.namaPerusahaan}
-                  {employer.merekUsaha && ` (${employer.merekUsaha})`}
-                </h3>
-                <p className="text-notion-text-light mb-2 flex items-center">
-                  <svg className="w-4 h-4 mr-2 text-notion-text-light" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
-                  </svg>
-                  Industri: {employer.industri}
-                </p>
-                <p className="text-notion-text-light mb-4 flex items-center">
-                  <svg className="w-4 h-4 mr-2 text-notion-text-light" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                  </svg>
-                  Lokasi: {employer.alamatKantor}
-                </p>
-              
-                <div className="flex flex-wrap gap-4">
-                  {employer.website && (
-                    <a 
-                      href={employer.website.startsWith('http') ? employer.website : `https://${employer.website}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-notion-text hover:text-notion-blue flex items-center transition-colors duration-150"
-                    >
-                      <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path>
-                      </svg>
-                      Website
-                    </a>
-                  )}
-                </div>
-              
-                {/* Social media links */}
-                {employer.socialMedia && Object.values(employer.socialMedia).some(link => !!link) && (
-                  <div className="mt-4">
-                    <p className="text-sm text-notion-text-light mb-2">Ikuti kami di:</p>
-                    <SocialMediaLinks socialMedia={employer.socialMedia} />
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-          
-          <div className="border-t border-notion-border p-4">
-            <Link
-              href={`/careers/${employerId}`}
-              className="notion-button-secondary w-full flex justify-center items-center gap-2 hover:bg-notion-background-gray-hover transition-colors duration-150"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
-              </svg>
-              Lihat Semua Lowongan dari {employer.namaPerusahaan}
-            </Link>
-          </div>
-        </div>
+        <Suspense fallback={<JobDetailLoader />}>
+          <JobDetail 
+            employerId={(await props.params).employerId} 
+            jobId={(await props.params).jobId} 
+          />
+        </Suspense>
       </div>
     </div>
   );

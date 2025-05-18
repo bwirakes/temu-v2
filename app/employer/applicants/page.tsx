@@ -5,6 +5,7 @@ import { ChevronRight } from "lucide-react";
 import ApplicantSidebar from "@/components/employer-dashboard/applicants/ApplicantSidebar";
 import ApplicantMobileDrawer from "@/components/employer-dashboard/applicants/ApplicantMobileDrawer";
 import { Applicant } from "@/components/employer-dashboard/applicants/types";
+import { useRouter } from "next/navigation";
 
 // Mock data for applicants
 const applicants: Applicant[] = [
@@ -87,6 +88,7 @@ export default function ApplicantsPage() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const router = useRouter();
 
   useEffect(() => {
     const checkIfMobile = () => {
@@ -102,13 +104,7 @@ export default function ApplicantsPage() {
   }, []);
 
   const handleApplicantClick = (applicant: Applicant) => {
-    setSelectedApplicant(applicant);
-    // Open sidebar on desktop, drawer on mobile
-    if (!isMobile) {
-      setIsSidebarOpen(true);
-    } else {
-      setIsDrawerOpen(true);
-    }
+    router.push(`/employer/applicants/${applicant.id}`);
   };
 
   const getStatusColor = (status: string) => {

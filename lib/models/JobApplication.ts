@@ -4,8 +4,10 @@ export interface JobApplicant {
   fullName: string;
   email: string;
   phone: string;
-  coverLetter?: string;
+  additionalNotes?: string;
+  education?: "SD" | "SMP" | "SMA/SMK" | "D1" | "D2" | "D3" | "D4" | "S1" | "S2" | "S3";
   resumeUrl?: string;
+  cvFileUrl?: string; // URL to the job seeker's CV file
 }
 
 export interface JobApplication {

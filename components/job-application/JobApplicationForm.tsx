@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
@@ -12,7 +12,8 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { LoaderCircle } from "lucide-react";
+import { LoaderCircle, FileText, Download, Upload, X } from "lucide-react";
+import { toast } from "@/components/ui/use-toast";
 
 // Import our JobApplication context
 import { useJobApplication, jobApplicationSchema } from "@/lib/context/JobApplicationContext";
@@ -32,6 +33,9 @@ export default function JobApplicationForm({ jobId }: JobApplicationFormProps) {
     updateForm, 
     submitApplication 
   } = useJobApplication();
+
+  const [file, setFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
   
   // Initialize form with default values from context
   const form = useForm<ApplicationFormValues>({
@@ -41,7 +45,6 @@ export default function JobApplicationForm({ jobId }: JobApplicationFormProps) {
       fullName: data.fullName || "",
       email: data.email || "",
       phone: data.phone || "",
-      coverLetter: data.coverLetter || "",
       education: data.education,
       additionalNotes: data.additionalNotes || "",
       agreeToTerms: data.agreeToTerms || false,
@@ -57,6 +60,84 @@ export default function JobApplicationForm({ jobId }: JobApplicationFormProps) {
     
     return () => subscription.unsubscribe();
   }, [form, updateForm]);
+
+  // Handle CV file upload
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = e.target.files?.[0];
+    if (!selectedFile) return;
+    
+    // Validate file type (PDF, DOC, DOCX)
+    const validTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+    if (!validTypes.includes(selectedFile.type)) {
+      toast({
+        title: "Format file tidak didukung",
+        description: "Harap unggah file dalam format PDF, DOC, atau DOCX",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Validate file size (max 5MB)
+    if (selectedFile.size > 5 * 1024 * 1024) {
+      toast({
+        title: "Ukuran file terlalu besar",
+        description: "Ukuran file maksimal adalah 5MB",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setFile(selectedFile);
+  };
+  
+  // Handle CV upload
+  const uploadCV = async () => {
+    if (!file) return;
+    
+    setIsUploading(true);
+    
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+      
+      if (!response.ok) {
+        throw new Error('Upload failed');
+      }
+      
+      const data = await response.json();
+      
+      // Update form with the new CV file URL
+      updateForm({ cvFileUrl: data.url });
+      
+      toast({
+        title: "CV berhasil diunggah",
+        description: "CV Anda telah berhasil diunggah dan akan digunakan dalam lamaran ini",
+      });
+      
+      // Clear the file input
+      setFile(null);
+      
+    } catch (error) {
+      console.error('Error uploading CV:', error);
+      toast({
+        title: "Gagal mengunggah CV",
+        description: "Terjadi kesalahan saat mengunggah CV. Silakan coba lagi.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploading(false);
+    }
+  };
+  
+  // Remove uploaded CV file
+  const removeFile = () => {
+    setFile(null);
+  };
 
   // Handle form submission
   async function onSubmit(formData: ApplicationFormValues) {
@@ -80,6 +161,8 @@ export default function JobApplicationForm({ jobId }: JobApplicationFormProps) {
     }
   }
 
+  const hasCvFile = !!data.cvFileUrl;
+
   return (
     <Card id="job-application-form">
       <CardHeader>
@@ -93,28 +176,145 @@ export default function JobApplicationForm({ jobId }: JobApplicationFormProps) {
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             <div className="space-y-4">
-              <FormField
-                control={form.control}
-                name="shareData"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-start space-x-3 space-y-0 mb-6 rounded-md border p-4 bg-blue-50">
-                    <FormControl>
-                      <Checkbox
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
-                    <div className="space-y-1 leading-none">
-                      <FormLabel>
-                        Gunakan data CV yang tersimpan
-                      </FormLabel>
-                      <FormDescription>
-                        Dengan mencentang ini, Anda menyetujui untuk berbagi data CV Anda dengan perusahaan terkait.
-                      </FormDescription>
+              {hasCvFile && (
+                <div className="mb-6 rounded-md border p-4 bg-blue-50">
+                  <div className="flex flex-col md:flex-row gap-4">
+                    <div className="w-full md:w-1/3 border rounded-lg flex items-center justify-center p-3 bg-white">
+                      <FileText className="h-8 w-8 text-gray-400" />
                     </div>
-                  </FormItem>
+                    <div className="w-full md:w-2/3">
+                      <h3 className="font-medium text-gray-900">CV Tersedia</h3>
+                      <p className="text-sm text-gray-500 mt-1">
+                        CV yang sudah Anda unggah sebelumnya dapat digunakan dalam lamaran ini
+                      </p>
+                      
+                      <div className="flex gap-2 mt-3">
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          className="h-8 text-sm" 
+                          type="button" 
+                          asChild
+                        >
+                          <a href={data.cvFileUrl} target="_blank" rel="noopener noreferrer">
+                            <FileText className="h-4 w-4 mr-1" />
+                            Lihat CV
+                          </a>
+                        </Button>
+                      </div>
+                      
+                      <FormField
+                        control={form.control}
+                        name="shareData"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-start space-x-3 space-y-0 mt-4">
+                            <FormControl>
+                              <Checkbox
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                            <div className="space-y-1 leading-none">
+                              <FormLabel>
+                                Gunakan CV ini dalam lamaran
+                              </FormLabel>
+                              <FormDescription>
+                                Dengan mencentang ini, CV Anda yang tersimpan akan digunakan dalam lamaran pekerjaan ini.
+                              </FormDescription>
+                            </div>
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {/* New CV Upload Section */}
+              <div className="mb-6 rounded-md border p-4">
+                <h3 className="font-medium text-gray-900 mb-2">Unggah CV Baru</h3>
+                <p className="text-sm text-gray-500 mb-4">
+                  Anda dapat mengunggah CV baru untuk lamaran ini. Format yang didukung: PDF, DOC, DOCX (Maks. 5MB)
+                </p>
+                
+                {file ? (
+                  <div className="flex items-center justify-between p-3 border rounded-md bg-gray-50">
+                    <div className="flex items-center">
+                      <FileText className="h-5 w-5 text-blue-600 mr-2" />
+                      <span className="text-sm font-medium truncate max-w-[200px]">{file.name}</span>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={uploadCV}
+                        disabled={isUploading}
+                      >
+                        {isUploading ? (
+                          <>
+                            <LoaderCircle className="h-4 w-4 mr-1 animate-spin" />
+                            <span>Mengunggah...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Upload className="h-4 w-4 mr-1" />
+                            <span>Unggah</span>
+                          </>
+                        )}
+                      </Button>
+                      <Button 
+                        type="button" 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={removeFile}
+                        disabled={isUploading}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center p-6 border-2 border-dashed rounded-md">
+                    <label htmlFor="cv-upload" className="flex flex-col items-center cursor-pointer">
+                      <Upload className="h-8 w-8 text-gray-400 mb-2" />
+                      <span className="text-sm font-medium text-gray-700">Klik untuk memilih file</span>
+                      <input
+                        id="cv-upload"
+                        type="file"
+                        className="hidden"
+                        accept=".pdf,.doc,.docx"
+                        onChange={handleFileChange}
+                      />
+                    </label>
+                  </div>
                 )}
-              />
+              </div>
+              
+              {!hasCvFile && !file && (
+                <FormField
+                  control={form.control}
+                  name="shareData"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 mb-6 rounded-md border p-4 bg-blue-50">
+                      <FormControl>
+                        <Checkbox
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                        />
+                      </FormControl>
+                      <div className="space-y-1 leading-none">
+                        <FormLabel>
+                          Gunakan data CV yang tersimpan
+                        </FormLabel>
+                        <FormDescription>
+                          Dengan mencentang ini, Anda menyetujui untuk berbagi data CV Anda dengan perusahaan terkait.
+                        </FormDescription>
+                      </div>
+                    </FormItem>
+                  )}
+                />
+              )}
               
               <FormField
                 control={form.control}
@@ -237,37 +437,16 @@ export default function JobApplicationForm({ jobId }: JobApplicationFormProps) {
                 name="additionalNotes"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Informasi Tambahan</FormLabel>
+                    <FormLabel>Informasi Tambahan <span className="text-red-500">*</span></FormLabel>
                     <FormControl>
                       <Textarea 
                         placeholder="Bagikan informasi, wawasan, dan pengalaman lain yang relevan untuk perusahaan" 
-                        className="min-h-[100px]"
+                        className="min-h-[180px]"
                         {...field} 
                       />
                     </FormControl>
                     <FormDescription>
-                      Tambahkan informasi lain yang ingin Anda sampaikan kepada calon pemberi kerja yang relevan dengan posisi ini.
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              
-              <FormField
-                control={form.control}
-                name="coverLetter"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Surat Lamaran</FormLabel>
-                    <FormControl>
-                      <Textarea 
-                        placeholder="Tuliskan surat lamaran Anda" 
-                        className="min-h-[150px]"
-                        {...field} 
-                      />
-                    </FormControl>
-                    <FormDescription>
-                      Jelaskan mengapa Anda tertarik dengan posisi ini dan mengapa Anda adalah kandidat yang tepat.
+                      Tuliskan informasi tambahan seperti pengalaman, keterampilan, dan minat Anda yang relevan dengan posisi ini.
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -278,7 +457,7 @@ export default function JobApplicationForm({ jobId }: JobApplicationFormProps) {
                 control={form.control}
                 name="agreeToTerms"
                 render={({ field }) => (
-                  <FormItem className="flex flex-row items-start space-x-3 space-y-0 mt-6">
+                  <FormItem className="flex flex-row items-start space-x-3 space-y-0 p-4 border rounded-md">
                     <FormControl>
                       <Checkbox
                         checked={field.value}
@@ -287,32 +466,21 @@ export default function JobApplicationForm({ jobId }: JobApplicationFormProps) {
                     </FormControl>
                     <div className="space-y-1 leading-none">
                       <FormLabel>
-                        Syarat dan Ketentuan
+                        Saya menyetujui syarat dan ketentuan
                       </FormLabel>
                       <FormDescription>
-                        Dengan mencentang ini, Anda menyetujui syarat dan ketentuan yang berlaku untuk proses pelamaran pekerjaan ini.
+                        Dengan mencentang, Anda menyatakan bahwa informasi yang Anda berikan adalah benar dan akurat.
                       </FormDescription>
-                      <FormMessage />
                     </div>
                   </FormItem>
                 )}
               />
             </div>
             
-            <div className="pt-4 border-t">
-              <Button 
-                type="submit" 
-                className="w-full bg-blue-600 hover:bg-blue-700" 
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? (
-                  <>
-                    <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
-                    Mengirimkan lamaran...
-                  </>
-                ) : (
-                  "Kirim Lamaran"
-                )}
+            <div className="flex justify-end pt-4">
+              <Button type="submit" disabled={isSubmitting} className="bg-blue-600 hover:bg-blue-700">
+                {isSubmitting && <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />}
+                Kirim Lamaran
               </Button>
             </div>
           </form>

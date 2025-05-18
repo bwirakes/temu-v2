@@ -64,7 +64,7 @@ export default function JobSeekerSidebar({ isOpen, onClose }: SidebarProps) {
     },
     {
       label: "Cari Lowongan",
-      href: "/job-seeker/browse-jobs",
+      href: "/job-seeker/jobs",
       icon: <Search size={20} />
     }
   ];

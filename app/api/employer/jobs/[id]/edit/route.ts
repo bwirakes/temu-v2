@@ -51,10 +51,8 @@ const jobUpdateSchema = z.object({
 /**
  * PUT handler for updating an existing job posting
  */
-export async function PUT(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function PUT(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     // Get the authenticated user's session
     const session = await auth() as CustomSession;
@@ -172,10 +170,8 @@ export async function PATCH(request: NextRequest, props: { params: Promise<{ id:
 /**
  * Handle other HTTP methods
  */
-export async function GET(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function GET(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     // Get the authenticated user's session
     const session = await auth() as CustomSession;

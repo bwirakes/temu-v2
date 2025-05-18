@@ -15,6 +15,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 // Import context providers
 import { JobPostingContext } from '@/lib/context/JobPostingContext';
 import { JobApplicationProvider } from '@/lib/context/JobApplicationContext';
+import { toast } from '@/components/ui/use-toast';
 
 // Define the CustomSession type
 interface CustomSession {
@@ -25,6 +26,18 @@ interface CustomSession {
     image?: string | null;
     userType?: 'job_seeker' | 'employer';
   };
+}
+
+// Define the profile data type
+interface ProfileData {
+  id: string;
+  namaLengkap: string;
+  email: string;
+  nomorTelepon: string;
+  cvFileUrl?: string;
+  cvUploadDate?: string;
+  pendidikanTerakhir?: string; // Add field for last education
+  // Other profile fields...
 }
 
 export default function JobSeekerApplicationPage() {
@@ -39,6 +52,10 @@ export default function JobSeekerApplicationPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [jobDetails, setJobDetails] = useState<any>(null);
+  const [profileData, setProfileData] = useState<ProfileData | null>(null);
+  const [isLoadingProfile, setIsLoadingProfile] = useState(true);
+  const [hasApplied, setHasApplied] = useState(false);
+  const [referenceCode, setReferenceCode] = useState<string | null>(null);
 
   // Check if user is authenticated and is a job seeker
   useEffect(() => {
@@ -57,12 +74,147 @@ export default function JobSeekerApplicationPage() {
     }
   }, [status, session, router, jobId]);
 
+  // Check if the user has already applied to this job
+  useEffect(() => {
+    const checkApplicationStatus = async () => {
+      if (status !== 'authenticated' || session?.user?.userType !== 'job_seeker') return;
+      
+      try {
+        const response = await fetch(`/api/job-application/check/${jobId}`);
+        if (!response.ok) {
+          throw new Error('Failed to check application status');
+        }
+        
+        const data = await response.json();
+        
+        if (data.hasApplied) {
+          setHasApplied(true);
+          setReferenceCode(data.referenceCode);
+          
+          // Show a toast and redirect to the success page
+          toast({
+            title: "Anda sudah melamar pekerjaan ini",
+            description: "Redirecting to halaman status lamaran...",
+          });
+          
+          // Redirect to the success page with the reference code
+          setTimeout(() => {
+            router.push(`/job-seeker/job-application/success?reference=${data.referenceCode}`);
+          }, 1500);
+        }
+      } catch (error) {
+        console.error("Error checking application status:", error);
+      }
+    };
+    
+    checkApplicationStatus();
+  }, [status, session, jobId, router]);
+
   useEffect(() => {
     // Fetch job details only if user is authenticated and is a job seeker
     if (status === 'authenticated' && session?.user?.userType === 'job_seeker') {
       fetchJobData();
+      fetchProfileData(); // Fetch profile data when authenticated
     }
   }, [status, session]);
+
+  // Fetch the user's profile data
+  const fetchProfileData = async () => {
+    try {
+      setIsLoadingProfile(true);
+      
+      // Fetch the user's profile from the API
+      const response = await fetch('/api/job-seeker/profile');
+      
+      if (!response.ok) {
+        console.error('Failed to fetch profile data:', response.status);
+        return;
+      }
+      
+      const result = await response.json();
+      
+      if (result.success && result.data) {
+        console.log('Profile data loaded successfully:', result.data);
+        
+        // Find the latest education record
+        let highestEducation = undefined;
+        
+        if (result.data.pendidikan && result.data.pendidikan.length > 0) {
+          console.log('Found pendidikan data:', result.data.pendidikan);
+          
+          // Sort education by date if available, assuming newer is higher level
+          const sortedEducation = [...result.data.pendidikan].sort((a, b) => {
+            // Try to parse dates if available
+            const dateA = a.tanggalLulus ? new Date(a.tanggalLulus) : new Date(0);
+            const dateB = b.tanggalLulus ? new Date(b.tanggalLulus) : new Date(0);
+            // Sort most recent first
+            return dateB.getTime() - dateA.getTime();
+          });
+          
+          // Get the most recent education
+          const latestEducation = sortedEducation[0];
+          console.log('Latest education:', latestEducation);
+          
+          // Map to our expected format
+          highestEducation = mapEducationLevelToEnum(latestEducation.jenjangPendidikan);
+          console.log('Mapped education level:', highestEducation);
+        } else {
+          console.log('No pendidikan data found in profile');
+        }
+        
+        // Ensure we process any education data from the result
+        const profileWithEducation = {
+          ...result.data,
+          pendidikanTerakhir: highestEducation
+        };
+        
+        console.log('Final profile with education:', profileWithEducation);
+        setProfileData(profileWithEducation);
+      } else {
+        console.warn('Profile data response was not successful or empty:', result);
+      }
+    } catch (error) {
+      console.error('Error fetching profile data:', error);
+    } finally {
+      setIsLoadingProfile(false);
+    }
+  };
+
+  // Helper function to map education level to our enum values
+  const mapEducationLevelToEnum = (educationLevel: string): string | undefined => {
+    const educationMapping: Record<string, string> = {
+      'SD': 'SD',
+      'SMP': 'SMP',
+      'SMA': 'SMA/SMK',
+      'SMK': 'SMA/SMK',
+      'SMA/SMK': 'SMA/SMK',
+      'D1': 'D1',
+      'D2': 'D2',
+      'D3': 'D3',
+      'D4': 'D4',
+      'S1': 'S1',
+      'S2': 'S2',
+      'S3': 'S3',
+      // Add more mappings if needed
+    };
+    
+    // Try to find a direct match first
+    if (educationLevel in educationMapping) {
+      return educationMapping[educationLevel];
+    }
+    
+    // If no direct match, try a case-insensitive match
+    const normalizedLevel = educationLevel.toUpperCase();
+    for (const [key, value] of Object.entries(educationMapping)) {
+      if (normalizedLevel.includes(key)) {
+        return value;
+      }
+    }
+    
+    // Log if we couldn't map the education level
+    console.warn(`Could not map education level: ${educationLevel}`);
+    return undefined;
+  };
 
   const fetchJobData = async () => {
     try {
@@ -184,10 +336,41 @@ export default function JobSeekerApplicationPage() {
     );
   }
 
+  // If user has applied already, show loading state while redirecting
+  if (hasApplied) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center">
+        <div className="bg-white p-8 rounded-lg shadow-sm border border-gray-200 max-w-md w-full text-center">
+          <Loader2 className="h-12 w-12 animate-spin text-blue-600 mx-auto mb-4" />
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">
+            Anda sudah melamar pekerjaan ini
+          </h2>
+          <p className="text-gray-500 mb-6">
+            Anda akan dialihkan ke halaman status lamaran...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   // We'll create a JobPosting wrapper with our fetched data
   const jobPostingData = {
-    ...jobDetails
+    ...jobDetails,
+    jobId: jobId,
+    jobTitle: jobDetails.jobTitle,
+    minWorkExperience: jobDetails.minWorkExperience
   };
+
+  // Prepare profile data for the JobApplicationProvider
+  const applicationProfileData = profileData ? {
+    fullName: profileData.namaLengkap,
+    email: profileData.email,
+    phone: profileData.nomorTelepon,
+    cvFileUrl: profileData.cvFileUrl,
+    education: profileData.pendidikanTerakhir as "SD" | "SMP" | "SMA/SMK" | "D1" | "D2" | "D3" | "D4" | "S1" | "S2" | "S3" | undefined
+  } : undefined;
+
+  console.log('Application profile data being passed to provider:', applicationProfileData);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -218,8 +401,11 @@ export default function JobSeekerApplicationPage() {
                 currentStep: 1,
                 setCurrentStep: () => {} 
               }}>
-                {/* Wrap the form with JobApplicationProvider */}
-                <JobApplicationProvider jobId={jobId}>
+                {/* Wrap the form with JobApplicationProvider and pass profile data */}
+                <JobApplicationProvider 
+                  jobId={jobId} 
+                  profileData={applicationProfileData}
+                >
                   <JobApplicationForm jobId={jobId} />
                 </JobApplicationProvider>
               </JobPostingContext.Provider>
@@ -260,17 +446,6 @@ function JobSummary({ jobDetails }: { jobDetails: any }) {
             </ul>
           </div>
           
-          <div>
-            <h5 className="text-sm font-medium text-gray-500">Jenis Kontrak</h5>
-            <p className="mt-1 text-sm text-gray-900">
-              {jobDetails.contractType === "FULL_TIME" ? "Full Time" :
-               jobDetails.contractType === "PART_TIME" ? "Part Time" :
-               jobDetails.contractType === "CONTRACT" ? "Kontrak" :
-               jobDetails.contractType === "INTERNSHIP" ? "Magang" :
-               "Freelance"}
-            </p>
-          </div>
-          
           {jobDetails.salaryRange && (
             <div>
               <h5 className="text-sm font-medium text-gray-500">Kisaran Gaji</h5>
@@ -290,23 +465,34 @@ function JobSummary({ jobDetails }: { jobDetails: any }) {
             </p>
           </div>
           
-          <div>
-            <h5 className="text-sm font-medium text-gray-500">Batas Waktu Pendaftaran</h5>
-            <p className="mt-1 text-sm text-gray-900">
-              {jobDetails.applicationDeadline instanceof Date ? 
-                jobDetails.applicationDeadline.toLocaleDateString("id-ID", {
-                  year: "numeric",
-                  month: "long",
-                  day: "numeric"
-                }) : 
-                new Date(jobDetails.applicationDeadline).toLocaleDateString("id-ID", {
-                  year: "numeric",
-                  month: "long",
-                  day: "numeric"
-                })
-              }
-            </p>
-          </div>
+          {jobDetails.lastEducation && (
+            <div>
+              <h5 className="text-sm font-medium text-gray-500">Pendidikan Minimum</h5>
+              <p className="mt-1 text-sm text-gray-900">
+                {jobDetails.lastEducation}
+              </p>
+            </div>
+          )}
+          
+          {jobDetails.requiredCompetencies && jobDetails.requiredCompetencies.length > 0 && (
+            <div>
+              <h5 className="text-sm font-medium text-gray-500">Kompetensi yang Dibutuhkan</h5>
+              <ul className="mt-1 text-sm text-gray-900 list-disc pl-5">
+                {jobDetails.requiredCompetencies.map((competency: string, index: number) => (
+                  <li key={index}>{competency}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          
+          {jobDetails.numberOfPositions && (
+            <div>
+              <h5 className="text-sm font-medium text-gray-500">Jumlah Posisi</h5>
+              <p className="mt-1 text-sm text-gray-900">
+                {jobDetails.numberOfPositions} orang
+              </p>
+            </div>
+          )}
         </CardContent>
       </Card>
       

@@ -12,10 +12,10 @@ export default function LogoutSuccessPage() {
           </svg>
         </div>
         <h1 className="block text-2xl font-bold text-gray-800 dark:text-white">
-          Signed Out Successfully
+          Berhasil Keluar
         </h1>
         <p className="mt-3 text-gray-600 dark:text-neutral-400">
-          You have been successfully signed out of your account.
+          Anda telah berhasil keluar dari akun Anda.
         </p>
       </div>
 
@@ -24,7 +24,7 @@ export default function LogoutSuccessPage() {
           href="/auth/signin"
           className="py-3 px-4 inline-flex justify-center items-center gap-x-2 text-sm font-medium rounded-lg border border-transparent bg-blue-600 text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2 transition-all"
         >
-          Sign In Again
+          Masuk Kembali
         </Link>
       </div>
     </div>

@@ -77,6 +77,7 @@ export async function generateStaticParams() {
 // This function gets called at build time and when revalidation occurs
 export async function generateMetadata(props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
+  
   const job = await getJobById(params.id);
 
   if (!job) {
@@ -88,7 +89,7 @@ export async function generateMetadata(props: { params: Promise<{ id: string }> 
 
   return {
     title: `${job.jobTitle} | Employer Dashboard`,
-    description: job.description || `Job details for ${job.jobTitle}`,
+    description: `Job details for ${job.jobTitle}`,
   };
 }
 
@@ -141,8 +142,10 @@ export default async function JobDetailPage(props: { params: Promise<{ id: strin
     .select({
       id: jobApplications.id,
       status: jobApplications.status,
-      coverLetter: jobApplications.coverLetter,
+      additionalNotes: jobApplications.additionalNotes,
+      education: jobApplications.education,
       resumeUrl: jobApplications.resumeUrl,
+      cvFileUrl: userProfiles.cvFileUrl,
       name: userProfiles.namaLengkap,
       email: userProfiles.email,
       profileId: userProfiles.id
@@ -162,7 +165,9 @@ export default async function JobDetailPage(props: { params: Promise<{ id: strin
     applicationDate: new Date().toISOString(), // Use current date as fallback
     status: application.status,
     resumeUrl: application.resumeUrl,
-    coverLetter: application.coverLetter
+    cvFileUrl: application.cvFileUrl,
+    additionalNotes: application.additionalNotes,
+    education: application.education
   }));
 
   // Transform job data to match the expected format
@@ -171,33 +176,21 @@ export default async function JobDetailPage(props: { params: Promise<{ id: strin
     employerId: job.employerId,
     jobTitle: job.jobTitle,
     contractType: job.contractType,
-    salaryRange: job.salaryRange || { isNegotiable: false },
     minWorkExperience: job.minWorkExperience,
-    applicationDeadline: job.applicationDeadline ? job.applicationDeadline.toISOString() : null,
-    requirements: job.requirements || [],
-    responsibilities: job.responsibilities || [],
-    description: job.description,
     postedDate: job.postedDate.toISOString(),
     numberOfPositions: job.numberOfPositions,
-    workingHours: job.workingHours,
     isConfirmed: job.isConfirmed,
     applicationCount: applicants.length, // Set the accurate count from our server-side fetch
     lastEducation: job.lastEducation,
     requiredCompetencies: job.requiredCompetencies || [],
-    acceptedDisabilityTypes: job.acceptedDisabilityTypes || [],
-    numberOfDisabilityPositions: job.numberOfDisabilityPositions,
     expectations: job.expectations ? {
-      ageRange: job.expectations.ageRange,
-      expectedCharacter: job.expectations.expectedCharacter,
-      foreignLanguage: job.expectations.foreignLanguage
-    } : null,
-    additionalRequirements: job.additionalRequirements ? {
-      gender: job.additionalRequirements.gender,
-      requiredDocuments: job.additionalRequirements.requiredDocuments,
-      specialSkills: job.additionalRequirements.specialSkills,
-      technologicalSkills: job.additionalRequirements.technologicalSkills,
-      suitableForDisability: job.additionalRequirements.suitableForDisability
-    } : null
+      ageRange: job.expectations.ageRange
+    } : undefined,
+    additionalRequirements: {
+      gender: job.additionalRequirements?.gender,
+      acceptedDisabilityTypes: job.additionalRequirements?.acceptedDisabilityTypes || [],
+      numberOfDisabilityPositions: job.additionalRequirements?.numberOfDisabilityPositions || 0
+    }
   };
 
   return (

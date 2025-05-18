@@ -1,7 +1,6 @@
 import { ReactNode } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import SessionMonitor from './components/session-monitor';
 
 export const metadata = {
   title: 'Job Fair Nasional Tahun 2025',
@@ -15,7 +14,6 @@ export default function CareersLayout({
 }) {
   return (
     <div className="min-h-screen flex flex-col">
-      <SessionMonitor />
       <main className="flex-grow">
         {children}
       </main>

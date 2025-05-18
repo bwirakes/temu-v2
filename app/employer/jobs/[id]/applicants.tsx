@@ -43,7 +43,9 @@ export interface Applicant {
   applicationDate: string;
   status: 'SUBMITTED' | 'REVIEWING' | 'INTERVIEW' | 'OFFERED' | 'ACCEPTED' | 'REJECTED' | 'WITHDRAWN';
   resumeUrl: string | null;
-  coverLetter: string | null;
+  cvFileUrl: string | null;
+  additionalNotes: string | null;
+  education?: "SD" | "SMP" | "SMA/SMK" | "D1" | "D2" | "D3" | "D4" | "S1" | "S2" | "S3" | null;
   matchScore?: number;
 }
 
@@ -328,9 +330,17 @@ export function ApplicantsTab({ jobId, initialApplicants, jobTitle }: Applicants
                       )}
                     </div>
                     <p className="text-sm text-muted-foreground">{applicant.email}</p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Melamar pada {formatDate(applicant.applicationDate)}
-                    </p>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
+                      <span>Melamar pada {formatDate(applicant.applicationDate)}</span>
+                      {applicant.education && (
+                        <>
+                          <span>•</span>
+                          <Badge variant="outline" className="text-xs h-5">
+                            {applicant.education}
+                          </Badge>
+                        </>
+                      )}
+                    </div>
                   </div>
 
                   <div className="flex flex-wrap gap-2">
@@ -351,6 +361,17 @@ export function ApplicantsTab({ jobId, initialApplicants, jobTitle }: Applicants
                       >
                         <Download className="mr-2 h-4 w-4" />
                         Unduh Resume
+                      </Button>
+                    )}
+
+                    {applicant.cvFileUrl && (
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => window.open(applicant.cvFileUrl!, '_blank')}
+                      >
+                        <Download className="mr-2 h-4 w-4" />
+                        Lihat CV
                       </Button>
                     )}
 

@@ -59,6 +59,85 @@ async function runMigrations() {
       console.log('✅ level_pengalaman column already exists.');
     }
     
+    // Check if additional_notes column exists in job_applications table
+    const additionalNotesCheckResult = await sql`
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_name = 'job_applications' 
+      AND column_name = 'additional_notes'
+    `;
+    
+    // Add additional_notes column if it doesn't exist
+    if (additionalNotesCheckResult.length === 0) {
+      console.log('Adding additional_notes column to job_applications table...');
+      await sql`
+        ALTER TABLE job_applications
+        ADD COLUMN additional_notes TEXT
+      `;
+      console.log('✅ additional_notes column added successfully.');
+    } else {
+      console.log('✅ additional_notes column already exists.');
+    }
+    
+    // Check if cv_file_url column exists in job_applications table
+    const cvFileUrlCheckResult = await sql`
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_name = 'job_applications' 
+      AND column_name = 'cv_file_url'
+    `;
+    
+    // Add cv_file_url column if it doesn't exist
+    if (cvFileUrlCheckResult.length === 0) {
+      console.log('Adding cv_file_url column to job_applications table...');
+      await sql`
+        ALTER TABLE job_applications
+        ADD COLUMN cv_file_url TEXT
+      `;
+      console.log('✅ cv_file_url column added successfully.');
+    } else {
+      console.log('✅ cv_file_url column already exists.');
+    }
+    
+    // Check if education column exists in job_applications table
+    const educationCheckResult = await sql`
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_name = 'job_applications' 
+      AND column_name = 'education'
+    `;
+    
+    // Add education column if it doesn't exist
+    if (educationCheckResult.length === 0) {
+      console.log('Adding education column to job_applications table...');
+      
+      // First, check if the last_education enum type exists
+      const enumCheckResult = await sql`
+        SELECT typname FROM pg_type 
+        WHERE typname = 'last_education'
+      `;
+      
+      if (enumCheckResult.length === 0) {
+        // Create the enum type if it doesn't exist
+        console.log('Creating last_education enum type...');
+        await sql`
+          CREATE TYPE last_education AS ENUM (
+            'SD', 'SMP', 'SMA/SMK', 'D1', 'D2', 'D3', 'D4', 'S1', 'S2', 'S3'
+          )
+        `;
+        console.log('✅ last_education enum type created successfully.');
+      }
+      
+      // Add the education column using the enum type
+      await sql`
+        ALTER TABLE job_applications
+        ADD COLUMN education last_education
+      `;
+      console.log('✅ education column added successfully.');
+    } else {
+      console.log('✅ education column already exists.');
+    }
+    
     console.log('All migrations completed successfully! ✨');
     
     // Close the database connection

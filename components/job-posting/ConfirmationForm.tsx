@@ -47,12 +47,49 @@ export default function ConfirmationForm() {
 
     try {
       setIsSubmitting(true);
+      
+      // Validate required fields before submission
+      if (!data.jobTitle || data.minWorkExperience === undefined) {
+        toast.error("Data tidak lengkap", {
+          description: "Harap lengkapi semua field yang diperlukan"
+        });
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Check if disability-related fields are provided
+      const hasDisabilityData = 
+        data.additionalRequirements?.acceptedDisabilityTypes?.length &&
+        data.additionalRequirements.numberOfDisabilityPositions &&
+        data.additionalRequirements.numberOfDisabilityPositions > 0;
+
+      // Ensure we're sending valid number values
+      const jobPostingData = {
+        ...data,
+        minWorkExperience: Number(data.minWorkExperience),
+        isConfirmed: true, // Automatically confirm on submission
+        numberOfPositions: data.numberOfPositions ? Number(data.numberOfPositions) : 1,
+        // Ensure nested objects are properly structured
+        expectations: {
+          ageRange: data.expectations?.ageRange ? {
+            min: data.expectations.ageRange.min ? Number(data.expectations.ageRange.min) : 18,
+            max: data.expectations.ageRange.max ? Number(data.expectations.ageRange.max) : 45,
+          } : undefined
+        },
+        additionalRequirements: {
+          gender: data.additionalRequirements?.gender || "ANY",
+          // Set disability fields based on whether they're provided
+          acceptedDisabilityTypes: hasDisabilityData ? 
+            data.additionalRequirements?.acceptedDisabilityTypes : null,
+          numberOfDisabilityPositions: hasDisabilityData ? 
+            Number(data.additionalRequirements?.numberOfDisabilityPositions) : null
+        }
+      };
+
+      console.log("Submitting job posting with data:", jobPostingData);
 
       // Create the job posting - employerId is handled by the API route
-      const jobPosting = await createJobPosting({
-        ...data,
-        isConfirmed: true, // Automatically confirm on submission
-      });
+      const jobPosting = await createJobPosting(jobPostingData);
 
       toast.success("Lowongan berhasil dibuat", {
         description: "Lowongan pekerjaan Anda telah berhasil dibuat dan akan segera ditampilkan.",
@@ -165,4 +202,4 @@ export default function ConfirmationForm() {
       </div>
     </div>
   );
-} 
+}

@@ -77,6 +77,9 @@ export async function GET(request: NextRequest, props: { params: Promise<{ id: s
             fullName: application.applicant.fullName,
             email: application.applicant.email,
             phone: application.applicant.phone,
+            cvFileUrl: application.applicant.cvFileUrl || null,
+            education: application.applicant.education || null,
+            additionalNotes: application.applicant.additionalNotes || null,
             // Include other non-sensitive fields
           },
           status: application.status,
