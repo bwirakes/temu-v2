@@ -3,18 +3,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
-import { Session } from 'next-auth';
-
-// Extended session type to include userType
-interface CustomSession extends Session {
-  user?: {
-    id?: string;
-    name?: string | null;
-    email?: string | null;
-    image?: string | null;
-    userType?: 'job_seeker' | 'employer';
-  };
-}
+import { CustomSession } from '@/lib/types';
 
 export default function OnboardingPage() {
   const { data: session, status } = useSession() as { 

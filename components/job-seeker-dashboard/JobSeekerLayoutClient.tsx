@@ -149,13 +149,14 @@ export default function JobSeekerLayoutClient({
   // Use memoized content to prevent unnecessary re-renders
   return (
     <JobSeekerLayoutContent
-      children={children}
       userName={userName}
       isJobDetailOrApplication={isJobDetailOrApplication}
       isSidebarOpen={isSidebarOpen}
       toggleSidebar={toggleSidebar}
       closeSidebar={closeSidebar}
       isMobile={isMobile}
-    />
+    >
+      {children}
+    </JobSeekerLayoutContent>
   );
 } 

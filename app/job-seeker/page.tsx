@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { CustomSession } from '@/lib/types';
 
-export default function EmployerDashboard() {
+export default function JobSeekerPage() {
   const router = useRouter();
   const { data: session, status } = useSession() as { 
     data: CustomSession | null;
@@ -21,15 +21,15 @@ export default function EmployerDashboard() {
       }
       
       if (status === 'authenticated' && session?.user) {
-        if (session.user.userType !== 'employer') {
+        if (session.user.userType !== 'job_seeker') {
           router.push('/');
           return;
         }
         
         try {
           // Make a request to an API endpoint to check onboarding status
-          console.log("Checking onboarding status...");
-          const response = await fetch('/api/employer/check-onboarding');
+          console.log("Checking job seeker onboarding status...");
+          const response = await fetch('/api/job-seeker/check-onboarding');
           const data = await response.json();
           
           console.log("Onboarding status:", data);
@@ -43,10 +43,13 @@ export default function EmployerDashboard() {
             return;
           }
           
-          // If onboarding is complete, allow access to dashboard
-          setIsChecking(false);
+          // If onboarding is complete, redirect to dashboard
+          router.push('/job-seeker/dashboard');
         } catch (error) {
           console.error('Error checking onboarding status:', error);
+          // Default to redirecting to dashboard
+          router.push('/job-seeker/dashboard');
+        } finally {
           setIsChecking(false);
         }
       }
@@ -56,23 +59,11 @@ export default function EmployerDashboard() {
   }, [status, session, router]);
 
   // Show loading state while checking
-  if (status === 'loading' || isChecking) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500 mx-auto"></div>
-          <p className="mt-4 text-gray-600 dark:text-gray-400">Memuat...</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="container mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold mb-6">Employer Dashboard</h1>
-      <div className="bg-white p-6 rounded-lg shadow-md">
-        <p className="text-lg">Welcome to your employer dashboard!</p>
-        <p className="text-gray-600 mt-2">From here you can manage your job postings, view applications, and update your company profile.</p>
+    <div className="min-h-screen flex items-center justify-center">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mx-auto"></div>
+        <p className="mt-4 text-gray-600 dark:text-gray-400">Memuat...</p>
       </div>
     </div>
   );

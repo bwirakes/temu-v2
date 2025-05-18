@@ -42,5 +42,9 @@ export default {
         search: ''
       }
     ]
+  },
+  // Configure experimental features
+  experimental: {
+    optimizePackageImports: ["next-auth"]
   }
 };

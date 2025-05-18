@@ -25,8 +25,8 @@ export default function ExpectationsForm() {
       min: data.expectations?.ageRange?.min || 18,
       max: data.expectations?.ageRange?.max || 45
     },
-    expectedCharacter: data.expectations?.expectedCharacter || "",
-    foreignLanguage: data.expectations?.foreignLanguage || ""
+    expectedCharacter: "",
+    foreignLanguage: ""
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -95,9 +95,7 @@ export default function ExpectationsForm() {
     // First update the job posting data with expectations data
     updateFormValues({
       expectations: {
-        ageRange: formData.ageRange,
-        expectedCharacter: formData.expectedCharacter,
-        foreignLanguage: formData.foreignLanguage
+        ageRange: formData.ageRange
       }
     });
     
@@ -112,9 +110,7 @@ export default function ExpectationsForm() {
     // Update the job posting data with expectations data
     updateFormValues({
       expectations: {
-        ageRange: formData.ageRange,
-        expectedCharacter: formData.expectedCharacter,
-        foreignLanguage: formData.foreignLanguage
+        ageRange: formData.ageRange
       }
     });
     router.push("/employer/job-posting/requirements");

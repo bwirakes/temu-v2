@@ -238,7 +238,6 @@ export async function PUT(req: NextRequest) {
             deskripsiPekerjaan: pengalaman.deskripsiPekerjaan || null,
             lokasiKerja: pengalaman.lokasiKerja || 'WFO',
             lokasi: pengalaman.lokasi || null,
-            gajiTerakhir: pengalaman.gajiTerakhir || null,
             alasanKeluar: pengalaman.alasanKeluar || null,
             createdAt: new Date(),
             updatedAt: new Date()

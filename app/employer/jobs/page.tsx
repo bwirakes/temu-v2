@@ -38,27 +38,20 @@ import { JobsClientWrapper } from "./jobs-client";
 // Enable Incremental Static Regeneration
 export const revalidate = 3600; // Revalidate every hour
 
-// Job interface matching our database schema
+// Job interface matching our updated database schema
 interface Job {
   id: string;
   employerId: string;
   jobTitle: string;
-  contractType: string;
-  salaryRange: {
-    min?: number;
-    max?: number;
-    isNegotiable: boolean;
-  } | null;
   minWorkExperience: number;
-  applicationDeadline: string | null;
-  requirements: string[] | null;
-  responsibilities: string[] | null;
-  description: string | null;
   postedDate: string;
   numberOfPositions: number | null;
-  workingHours: string | null;
   isConfirmed: boolean;
   applicationCount: number;
+  // Add a field for contractType with default value since it's been removed
+  contractType: string;
+  // Add jobId which may be needed by client
+  jobId?: string;
 }
 
 const getContractTypeLabel = (type: string): string => {
@@ -116,12 +109,20 @@ export default async function JobsPage() {
       
       const applicationCount = applications.length;
       
-      // Transform dates to strings
+      // Transform dates to strings and ensure all required fields are present
       return {
-        ...job,
+        id: job.id,
+        employerId: job.employerId,
+        jobTitle: job.jobTitle,
+        minWorkExperience: job.minWorkExperience,
         postedDate: job.postedDate.toISOString(),
-        applicationDeadline: job.applicationDeadline ? job.applicationDeadline.toISOString() : null,
-        applicationCount
+        numberOfPositions: job.numberOfPositions || null,
+        isConfirmed: job.isConfirmed,
+        applicationCount,
+        // Add default contractType since it's been removed from schema
+        contractType: "FULL_TIME",
+        // Include jobId if available
+        jobId: job.jobId
       };
     })
   );

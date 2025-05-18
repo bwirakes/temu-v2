@@ -26,27 +26,18 @@ import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
 
-// Job interface matching our database schema
+// Job interface matching our updated database schema
 interface Job {
   id: string;
   employerId: string;
   jobTitle: string;
-  contractType: string;
-  salaryRange: {
-    min?: number;
-    max?: number;
-    isNegotiable: boolean;
-  } | null;
+  contractType: string; // This is now provided with a default value
   minWorkExperience: number;
-  applicationDeadline: string | null;
-  requirements: string[] | null;
-  responsibilities: string[] | null;
-  description: string | null;
   postedDate: string;
   numberOfPositions: number | null;
-  workingHours: string | null;
   isConfirmed: boolean;
   applicationCount: number;
+  jobId?: string;
 }
 
 interface JobsClientWrapperProps {

@@ -328,9 +328,14 @@ export type InsertUserProfile = {
 
 export async function createUserProfile(data: InsertUserProfile) {
   try {
-    // Validate required fields
-    if (!data.userId || !data.namaLengkap || !data.email || !data.nomorTelepon || !data.tanggalLahir) {
-      throw new Error("Missing required user profile fields");
+    // Validate required fields, but be more flexible with tanggalLahir during initial creation
+    if (!data.userId || !data.namaLengkap || !data.email || !data.nomorTelepon) {
+      throw new Error("Missing required user profile fields: userId, namaLengkap, email, or nomorTelepon");
+    }
+
+    // Ensure tanggalLahir has at least a placeholder value
+    if (!data.tanggalLahir) {
+      data.tanggalLahir = "1900-01-01"; // Default placeholder date
     }
 
     const [profile] = await db
@@ -810,5 +815,87 @@ export async function getAllConfirmedJobIds() {
   } catch (error) {
     console.error('Error fetching all confirmed job IDs:', error);
     return [];
+  }
+}
+
+/**
+ * Gets a job seeker profile by user ID
+ */
+export async function getJobSeekerByUserId(userId: string) {
+  try {
+    const [userProfile] = await db
+      .select()
+      .from(userProfiles)
+      .where(eq(userProfiles.userId, userId))
+      .limit(1);
+    
+    return userProfile || null;
+  } catch (error) {
+    console.error("Error getting job seeker by user ID:", error);
+    throw error;
+  }
+}
+
+/**
+ * Checks the onboarding status of a job seeker
+ */
+export async function getJobSeekerOnboardingStatus(userId: string) {
+  try {
+    // Get job seeker profile
+    const userProfile = await getJobSeekerByUserId(userId);
+    
+    if (!userProfile) {
+      // User hasn't started onboarding
+      return {
+        completed: false,
+        currentStep: 1,
+        redirectTo: '/job-seeker/onboarding/informasi-dasar'
+      };
+    }
+    
+    // Check if basic info is completed
+    const isBasicInfoComplete = Boolean(
+      userProfile.namaLengkap && 
+      userProfile.nomorTelepon
+    );
+    
+    // Get education records to check if education info is completed
+    const educationRecords = await getUserPendidikanByProfileId(userProfile.id);
+    const isEducationComplete = educationRecords && educationRecords.length > 0;
+    
+    // Get work experience records to check if experience info is completed
+    const experienceRecords = await getUserPengalamanKerjaByProfileId(userProfile.id);
+    const isExperienceComplete = experienceRecords && experienceRecords.length > 0;
+    
+    // Determine current status
+    if (!isBasicInfoComplete) {
+      return {
+        completed: false,
+        currentStep: 1,
+        redirectTo: '/job-seeker/onboarding/informasi-dasar'
+      };
+    } else if (!isEducationComplete) {
+      return {
+        completed: false,
+        currentStep: 2,
+        redirectTo: '/job-seeker/onboarding/pendidikan'
+      };
+    } else if (!isExperienceComplete) {
+      return {
+        completed: false,
+        currentStep: 3,
+        redirectTo: '/job-seeker/onboarding/pengalaman'
+      };
+    }
+    
+    // All steps completed
+    return {
+      completed: true,
+      currentStep: 4,
+      redirectTo: '/job-seeker/dashboard'
+    };
+  } catch (error) {
+    console.error("Error checking job seeker onboarding status:", error);
+    throw error;
   }
 }

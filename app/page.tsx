@@ -117,7 +117,7 @@ export default function HomePage() {
             <div className="notion-card animation-delay-100 animate-fade-in">
               <div className="p-6">
                 <p className="text-notion-text-light mb-6">
-                  "Temu membantu saya menemukan pekerjaan impian saya dalam waktu kurang dari sebulan. Antarmuka yang intuitif dan fitur pencarian yang canggih membuat proses pencarian kerja menjadi menyenangkan."
+                  &quot;Temu membantu saya menemukan pekerjaan impian saya dalam waktu kurang dari sebulan. Antarmuka yang intuitif dan fitur pencarian yang canggih membuat proses pencarian kerja menjadi menyenangkan.&quot;
                 </p>
                 <div className="flex items-center">
                   <div className="h-10 w-10 rounded-full bg-notion-highlight-pink flex items-center justify-center mr-3">
@@ -135,7 +135,7 @@ export default function HomePage() {
             <div className="notion-card animation-delay-200 animate-fade-in">
               <div className="p-6">
                 <p className="text-notion-text-light mb-6">
-                  "Sebagai HRD, Temu memudahkan saya untuk menemukan kandidat berkualitas dengan cepat. Fitur filter yang detail membantu kami menemukan talenta yang sesuai dengan kebutuhan perusahaan."
+                  &quot;Sebagai HRD, Temu memudahkan saya untuk menemukan kandidat berkualitas dengan cepat. Fitur filter yang detail membantu kami menemukan talenta yang sesuai dengan kebutuhan perusahaan.&quot;
                 </p>
                 <div className="flex items-center">
                   <div className="h-10 w-10 rounded-full bg-notion-highlight-blue flex items-center justify-center mr-3">

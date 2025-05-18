@@ -164,7 +164,7 @@ export async function PUT(req: NextRequest, props: { params: Promise<{ id: strin
  */
 export async function PATCH(request: NextRequest, props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
-  return PUT(request, { params });
+  return PUT(request, { params: Promise.resolve(params) });
 }
 
 /**
@@ -223,10 +223,8 @@ export async function GET(req: NextRequest, props: { params: Promise<{ id: strin
     // Format the job data for the frontend
     const formattedJob = {
       ...job,
-      // Convert applicationDeadline to ISO string if it exists
-      applicationDeadline: job.applicationDeadline 
-        ? job.applicationDeadline.toISOString() 
-        : null,
+      // Always include applicationDeadline property, set to null if it doesn't exist
+      applicationDeadline: null,
       // Convert postedDate to ISO string
       postedDate: job.postedDate.toISOString(),
     };

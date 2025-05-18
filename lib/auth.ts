@@ -8,16 +8,7 @@ import { eq } from 'drizzle-orm';
 import type { User } from 'next-auth';
 import type { JWT } from 'next-auth/jwt';
 import type { Session } from 'next-auth';
-
-interface CustomSession extends Session {
-  user?: {
-    id?: string;
-    name?: string | null;
-    email?: string | null;
-    image?: string | null;
-    userType?: 'job_seeker' | 'employer';
-  };
-}
+import { CustomSession } from './types';
 
 // Define credentials type
 interface Credentials {

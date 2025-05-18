@@ -8,14 +8,19 @@ export default function RequirementsForm() {
   const router = useRouter();
   const { data, updateFormValues, getStepValidationErrors } = useJobPosting();
   const [errors, setErrors] = useState<Record<string, string>>({});
+  
+  // Initialize form data with values from JobPostingData if they exist, or defaults
   const [formData, setFormData] = useState({
-    gender: data.gender,
+    gender: data.additionalRequirements?.gender || "ANY",
     minWorkExperience: data.minWorkExperience || 0,
-    requiredDocuments: data.requiredDocuments,
-    specialSkills: data.specialSkills || "",
-    technologicalSkills: data.technologicalSkills || "",
+    // These fields aren't in JobPostingData, so they're just for this form's UI
+    requiredDocuments: "",
+    specialSkills: "",
+    technologicalSkills: "",
     lastEducation: data.lastEducation || "",
-    requiredCompetencies: data.requiredCompetencies || ""
+    requiredCompetencies: Array.isArray(data.requiredCompetencies) 
+      ? data.requiredCompetencies.join(", ") 
+      : ""
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -53,13 +58,37 @@ export default function RequirementsForm() {
     setErrors(validationErrors);
     
     if (Object.keys(validationErrors).length === 0) {
-      updateFormValues(formData);
+      // Only update fields that exist in JobPostingData
+      updateFormValues({
+        minWorkExperience: formData.minWorkExperience,
+        lastEducation: formData.lastEducation,
+        // Parse comma-separated string to array for requiredCompetencies
+        requiredCompetencies: formData.requiredCompetencies
+          ? formData.requiredCompetencies.split(',').map(item => item.trim())
+          : [],
+        // Update the gender in additionalRequirements
+        additionalRequirements: {
+          ...data.additionalRequirements,
+          gender: formData.gender
+        }
+      });
       router.push("/employer/job-posting/expectations");
     }
   };
 
   const handleBack = () => {
-    updateFormValues(formData);
+    // Only update fields that exist in JobPostingData
+    updateFormValues({
+      minWorkExperience: formData.minWorkExperience,
+      lastEducation: formData.lastEducation,
+      requiredCompetencies: formData.requiredCompetencies
+        ? formData.requiredCompetencies.split(',').map(item => item.trim())
+        : [],
+      additionalRequirements: {
+        ...data.additionalRequirements,
+        gender: formData.gender
+      }
+    });
     router.push("/employer/job-posting/basic-info");
   };
 

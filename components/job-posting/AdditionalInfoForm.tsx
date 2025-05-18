@@ -23,14 +23,15 @@ const DISABILITY_TYPES = [
 export default function AdditionalInfoForm() {
   const router = useRouter();
   const { data, updateFormValues } = useJobPosting();
+  
+  // Local form state
   const [formData, setFormData] = useState({
-    suitableForDisability: data.suitableForDisability || false,
-    acceptedDisabilityTypes: data.acceptedDisabilityTypes || [],
-    numberOfDisabilityPositions: data.numberOfDisabilityPositions || 0,
-    contractType: data.contractType || undefined as ContractType | undefined,
-    applicationDeadline: data.applicationDeadline 
-      ? formatDateForInput(new Date(data.applicationDeadline))
-      : ""
+    // This is just for UI, not stored in the JobPostingData
+    suitableForDisability: false, 
+    acceptedDisabilityTypes: data.additionalRequirements?.acceptedDisabilityTypes || [],
+    numberOfDisabilityPositions: data.additionalRequirements?.numberOfDisabilityPositions || 0,
+    contractType: "FULL_TIME" as ContractType, // Default to FULL_TIME since it's no longer in the schema
+    applicationDeadline: "" // Default to empty string since it's no longer in the schema
   });
   
   const [customDisabilityType, setCustomDisabilityType] = useState("");
@@ -80,7 +81,7 @@ export default function AdditionalInfoForm() {
     } else if (name === "contractType") {
       setFormData({
         ...formData,
-        contractType: value ? value as ContractType : undefined
+        contractType: value ? value as ContractType : "FULL_TIME"
       });
     } else if (name === "numberOfDisabilityPositions") {
       setFormData({
@@ -142,28 +143,32 @@ export default function AdditionalInfoForm() {
       return;
     }
     
-    // Convert string date to Date object if provided
-    const updatedData = {
-      ...formData,
-      applicationDeadline: formData.applicationDeadline 
-        ? new Date(formData.applicationDeadline) 
-        : undefined
-    };
+    // Only update the properties that exist in the JobPostingData interface
+    updateFormValues({
+      additionalRequirements: {
+        ...data.additionalRequirements,
+        acceptedDisabilityTypes: formData.suitableForDisability ? formData.acceptedDisabilityTypes : [],
+        numberOfDisabilityPositions: formData.suitableForDisability ? formData.numberOfDisabilityPositions : 0,
+        // Maintain gender if it exists
+        gender: data.additionalRequirements?.gender
+      }
+    });
     
-    updateFormValues(updatedData);
     router.push("/employer/job-posting/confirmation");
   };
 
   const handleBack = () => {
-    // Convert string date to Date object if provided
-    const updatedData = {
-      ...formData,
-      applicationDeadline: formData.applicationDeadline 
-        ? new Date(formData.applicationDeadline) 
-        : undefined
-    };
+    // Only update the properties that exist in the JobPostingData interface
+    updateFormValues({
+      additionalRequirements: {
+        ...data.additionalRequirements,
+        acceptedDisabilityTypes: formData.suitableForDisability ? formData.acceptedDisabilityTypes : [],
+        numberOfDisabilityPositions: formData.suitableForDisability ? formData.numberOfDisabilityPositions : 0,
+        // Maintain gender if it exists
+        gender: data.additionalRequirements?.gender
+      }
+    });
     
-    updateFormValues(updatedData);
     router.push("/employer/job-posting/expectations");
   };
 
@@ -306,11 +311,10 @@ export default function AdditionalInfoForm() {
         <select
           id="contractType"
           name="contractType"
-          value={formData.contractType || ""}
+          value={formData.contractType}
           onChange={handleChange}
           className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2"
         >
-          <option value="">Pilih Jenis Kontrak</option>
           <option value="FULL_TIME">Full Time</option>
           <option value="PART_TIME">Part Time</option>
           <option value="CONTRACT">Kontrak</option>

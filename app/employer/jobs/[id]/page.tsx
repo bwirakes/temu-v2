@@ -173,15 +173,16 @@ export default async function JobDetailPage(props: { params: Promise<{ id: strin
   // Transform job data to match the expected format
   const jobData = {
     id: job.id,
+    jobId: job.jobId,
     employerId: job.employerId,
     jobTitle: job.jobTitle,
-    contractType: job.contractType,
+    contractType: 'FULL_TIME', // Provide a default value since contractType was removed from the schema
     minWorkExperience: job.minWorkExperience,
     postedDate: job.postedDate.toISOString(),
-    numberOfPositions: job.numberOfPositions,
+    numberOfPositions: job.numberOfPositions || undefined,
     isConfirmed: job.isConfirmed,
     applicationCount: applicants.length, // Set the accurate count from our server-side fetch
-    lastEducation: job.lastEducation,
+    lastEducation: job.lastEducation || undefined,
     requiredCompetencies: job.requiredCompetencies || [],
     expectations: job.expectations ? {
       ageRange: job.expectations.ageRange
@@ -222,7 +223,7 @@ export default async function JobDetailPage(props: { params: Promise<{ id: strin
             {getStatusBadge(job.isConfirmed)}
           </div>
           <p className="text-muted-foreground mt-1">
-            {getContractTypeLabel(job.contractType)} • {job.numberOfPositions || 1} posisi • 
+            {getContractTypeLabel('FULL_TIME')} • {job.numberOfPositions || 1} posisi • 
             Diposting pada {formatDate(job.postedDate)}
           </p>
         </div>

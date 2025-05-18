@@ -82,6 +82,14 @@ export async function POST(request: NextRequest) {
     
     const data = validationResult.data;
     
+    // Check if user ID exists
+    if (!session.user.id) {
+      return NextResponse.json(
+        { error: "User ID not found in session" },
+        { status: 400 }
+      );
+    }
+    
     // Get user profile
     const userProfile = await getUserProfileByUserId(session.user.id);
     

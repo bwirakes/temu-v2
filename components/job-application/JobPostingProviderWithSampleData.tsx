@@ -1,58 +1,50 @@
 "use client";
 
 import { ReactNode } from "react";
-import { JobPostingProvider, ContractType, JobPostingData } from "@/lib/context/JobPostingContext";
+import { JobPostingContext, JobPostingData } from "@/lib/context/JobPostingContext";
 
-// Sample data to display in the job application
-const sampleJobData: Partial<JobPostingData> = {
+// Sample data to display for the job application preview
+const sampleJobData: JobPostingData = {
+  jobId: 'JOB-SAMPLE123',
   jobTitle: "Senior Frontend Developer",
-  numberOfPositions: 2,
-  responsibilities: "- Develop and maintain responsive web applications using React and Next.js\n- Collaborate with UI/UX designers to implement visual elements\n- Optimize applications for maximum speed and scalability\n- Work with backend developers to integrate REST APIs\n- Write clean, maintainable, and well-documented code",
-  workLocations: [
-    {
-      address: "Jl. Sudirman No. 123",
-      city: "Jakarta",
-      province: "DKI Jakarta",
-      isRemote: false
-    },
-    {
-      address: "",
-      city: "Bandung",
-      province: "Jawa Barat",
-      isRemote: true
-    }
-  ],
-  workingHours: "Senin-Jumat, 09:00-17:00",
-  salaryRange: {
-    min: 15000000,
-    max: 25000000,
-    isNegotiable: true
-  },
-  gender: "ANY",
   minWorkExperience: 3,
-  requiredDocuments: "- KTP\n- Ijazah S1/S2\n- Portfolio\n- Sertifikat keahlian terkait",
-  specialSkills: "- Problem solving\n- Kemampuan analitis yang baik\n- Komunikasi efektif",
-  technologicalSkills: "- React.js/Next.js (Expert)\n- TypeScript (Advanced)\n- CSS/Tailwind CSS (Advanced)\n- Git (Intermediate)\n- Testing frameworks (Intermediate)",
-  ageRange: {
-    min: 25,
-    max: 40
+  lastEducation: "S1",
+  requiredCompetencies: ["React", "TypeScript", "CSS", "Git", "Testing"],
+  numberOfPositions: 2,
+  expectations: {
+    ageRange: {
+      min: 25,
+      max: 40
+    }
   },
-  expectedCharacter: "- Mampu bekerja dalam tim\n- Proaktif dan inisiatif\n- Teliti dan detail-oriented\n- Mampu bekerja di bawah tekanan\n- Memiliki keinginan belajar yang tinggi",
-  foreignLanguage: "Bahasa Inggris (minimal pasif)",
-  suitableForDisability: true,
-  contractType: "FULL_TIME",
-  applicationDeadline: new Date("2023-12-31")
+  additionalRequirements: {
+    gender: "ANY",
+    acceptedDisabilityTypes: ["Penglihatan terbatas", "Tuli/sulit mendengar"],
+    numberOfDisabilityPositions: 1
+  },
+  isConfirmed: true
 };
 
+/**
+ * Sample job posting provider component for demo purposes
+ * This wraps sample data with the JobPostingContext
+ */
 export default function JobPostingProviderWithSampleData({
   children,
 }: {
   children: ReactNode;
 }) {
-  // Use the JobPostingProvider but override the initial data with our sample data
   return (
-    <JobPostingProvider initialData={sampleJobData}>
+    <JobPostingContext.Provider 
+      value={{
+        data: sampleJobData,
+        updateFormValues: () => {}, // No-op function since this is a sample
+        getStepValidationErrors: () => ({}), // No-op function since this is a sample
+        currentStep: 1,
+        setCurrentStep: () => {} // No-op function since this is a sample
+      }}
+    >
       {children}
-    </JobPostingProvider>
+    </JobPostingContext.Provider>
   );
 } 

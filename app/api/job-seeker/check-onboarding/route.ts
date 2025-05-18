@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { getEmployerOnboardingStatus, getEmployerByUserId } from '@/lib/db';
+import { getJobSeekerByUserId, getJobSeekerOnboardingStatus } from '@/lib/db';
 import { CustomSession } from '@/lib/types';
 
 export async function GET() {
@@ -17,9 +17,9 @@ export async function GET() {
     }
     
     // Check if the user has the correct role
-    if (session.user.userType !== 'employer') {
+    if (session.user.userType !== 'job_seeker') {
       return NextResponse.json(
-        { error: "Forbidden: Only employers can access this endpoint" },
+        { error: "Forbidden: Only job seekers can access this endpoint" },
         { status: 403 }
       );
     }
@@ -33,25 +33,13 @@ export async function GET() {
       );
     }
     
-    console.log(`API: Checking onboarding status for user ${userId}`);
+    console.log(`API: Checking onboarding status for job seeker ${userId}`);
     
-    // First, check if the employer record exists
-    const employer = await getEmployerByUserId(userId);
-    if (employer) {
-      console.log(`API: Employer record found, onboarding is completed`);
-      return NextResponse.json({
-        completed: true,
-        currentStep: 4,
-        redirectTo: '/employer'
-      });
-    }
-    
-    // If we reach here, we need to determine which onboarding step the user should be on
+    // Check onboarding status
     try {
-      // Check the onboarding status
-      const onboardingStatus = await getEmployerOnboardingStatus(userId);
+      const onboardingStatus = await getJobSeekerOnboardingStatus(userId);
       
-      console.log(`API: Onboarding status:`, onboardingStatus);
+      console.log(`API: Job seeker onboarding status:`, onboardingStatus);
       
       // Return the status
       return NextResponse.json({
@@ -66,12 +54,12 @@ export async function GET() {
       return NextResponse.json({
         completed: false,
         currentStep: 1,
-        redirectTo: '/employer/onboarding/informasi-perusahaan'
+        redirectTo: '/job-seeker/onboarding/informasi-dasar'
       });
     }
     
   } catch (error: any) {
-    console.error("Error checking employer onboarding status:", error);
+    console.error("Error checking job seeker onboarding status:", error);
     
     return NextResponse.json(
       { 

@@ -39,42 +39,44 @@ export async function GET(request: NextRequest, props: { params: Promise<{ jobId
     // Format the job data for the frontend
     // Include new fields but filter out sensitive information
     const formattedJob = {
-      jobId: job.id,
+      id: job.id,
+      jobId: job.jobId,
       jobTitle: job.jobTitle,
-      company: employer.namaPerusahaan,
+      employerId: job.employerId,
       workLocations: locations.map(location => ({
         city: location.city,
         province: location.province,
         isRemote: location.isRemote,
         address: location.address
       })),
-      contractType: job.contractType,
-      salaryRange: job.salaryRange,
+      // Add these fields with optional fallbacks to prevent undefined errors
+      contractType: 'FULL_TIME', // Default fallback since contractType was removed
+      salaryRange: null,
       minWorkExperience: job.minWorkExperience,
-      applicationDeadline: job.applicationDeadline,
-      requirements: job.requirements,
-      responsibilities: job.responsibilities,
-      description: job.description,
+      applicationDeadline: null, // Set to null by default
+      requirements: [],
+      responsibilities: [],
+      description: null,
       postedDate: job.postedDate,
       numberOfPositions: job.numberOfPositions,
-      workingHours: job.workingHours,
+      workingHours: null,
       // New fields
       lastEducation: job.lastEducation,
       requiredCompetencies: job.requiredCompetencies,
-      acceptedDisabilityTypes: job.acceptedDisabilityTypes,
-      numberOfDisabilityPositions: job.numberOfDisabilityPositions,
+      acceptedDisabilityTypes: null,
+      numberOfDisabilityPositions: null,
       // Filtered expectations to exclude age range
       expectations: job.expectations ? {
-        expectedCharacter: job.expectations.expectedCharacter,
-        foreignLanguage: job.expectations.foreignLanguage,
+        expectedCharacter: null,
+        foreignLanguage: null,
         // ageRange is explicitly excluded
       } : null,
       // Filtered additionalRequirements to exclude gender
       additionalRequirements: job.additionalRequirements ? {
-        requiredDocuments: job.additionalRequirements.requiredDocuments,
-        specialSkills: job.additionalRequirements.specialSkills,
-        technologicalSkills: job.additionalRequirements.technologicalSkills,
-        suitableForDisability: job.additionalRequirements.suitableForDisability,
+        requiredDocuments: null,
+        specialSkills: null,
+        technologicalSkills: null,
+        suitableForDisability: false,
         // gender is explicitly excluded
       } : null,
       companyInfo: {

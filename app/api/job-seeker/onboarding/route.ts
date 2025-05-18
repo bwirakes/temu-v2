@@ -50,20 +50,34 @@ export async function POST(req: NextRequest) {
     
     if (!userProfile) {
       try {
-        // Create basic profile if it doesn't exist
-        userProfile = await createUserProfile({
-          userId: session.user.id as string,
-          namaLengkap: session.user.name || "",
-          email: session.user.email || "",
-          nomorTelepon: "",
-          tanggalLahir: ""
-        });
+        // If this is the first step (informasi dasar), use the provided data
+        if (step === 1 && data.namaLengkap && data.email && data.nomorTelepon) {
+          // Create profile with data from the current form submission
+          userProfile = await createUserProfile({
+            userId: session.user.id as string,
+            namaLengkap: data.namaLengkap as string,
+            email: data.email as string,
+            nomorTelepon: data.nomorTelepon as string,
+            tanggalLahir: "1900-01-01" // Placeholder value that will be updated later
+          });
+        } else {
+          // For any other step, create with placeholder data
+          userProfile = await createUserProfile({
+            userId: session.user.id as string,
+            namaLengkap: session.user.name || "User",
+            email: session.user.email || "user@example.com",
+            nomorTelepon: "081234567890", // Placeholder value
+            tanggalLahir: "1900-01-01" // Placeholder value
+          });
+        }
       } catch (profileError) {
         console.error("Error creating user profile:", profileError);
+        
+        // Handle the case where profile creation fails
         return NextResponse.json({ 
           error: "Failed to create user profile", 
-          message: profileError instanceof Error ? profileError.message : "Unknown error creating profile"
-        }, { status: 500 });
+          message: "Please complete step 1 (Informasi Dasar) first to create your profile."
+        }, { status: 400 });
       }
     }
 

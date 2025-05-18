@@ -13,6 +13,7 @@ export function useOnboardingApi() {
    * Save data for a specific step
    * @param step The step number to save data for
    * @param stepData Optional specific data to save for this step (defaults to current context data)
+   * @returns Promise with the API response
    */
   const saveStep = async (step: number, stepData?: any) => {
     setIsLoading(true);
@@ -25,6 +26,8 @@ export function useOnboardingApi() {
       // Extract only the relevant data for this step
       const relevantData = extractStepData(step, dataToSave);
 
+      console.log(`Saving step ${step} data:`, relevantData);
+
       const response = await fetch("/api/job-seeker/onboarding", {
         method: "POST",
         headers: {
@@ -36,26 +39,20 @@ export function useOnboardingApi() {
         }),
       });
 
+      const responseData = await response.json();
+
       if (!response.ok) {
-        // Handle different error response formats
-        let errorMessage = "Failed to save data";
-        try {
-          const errorData = await response.json();
-          // Check if error exists in different possible formats
-          errorMessage = 
-            errorData.error || 
-            errorData.message || 
-            errorData.errorMessage || 
-            `Server error: ${response.status}`;
-        } catch (parseError) {
-          // If JSON parsing fails, use status text or default message
-          errorMessage = response.statusText || errorMessage;
-        }
+        // Extract error message from response
+        const errorMessage = 
+          responseData.message || 
+          responseData.error || 
+          `Error ${response.status}: ${response.statusText || 'Unknown error'}`;
+        
         throw new Error(errorMessage);
       }
 
       setLastSavedStep(step);
-      return await response.json();
+      return responseData;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "An unknown error occurred";
       setError(errorMessage);
@@ -165,25 +162,19 @@ export function useOnboardingApi() {
         method: "GET",
       });
 
+      const responseData = await response.json();
+
       if (!response.ok) {
-        // Handle different error response formats
-        let errorMessage = "Failed to load data";
-        try {
-          const errorData = await response.json();
-          // Check if error exists in different possible formats
-          errorMessage = 
-            errorData.error || 
-            errorData.message || 
-            errorData.errorMessage || 
-            `Server error: ${response.status}`;
-        } catch (parseError) {
-          // If JSON parsing fails, use status text or default message
-          errorMessage = response.statusText || errorMessage;
-        }
+        // Extract error message from response
+        const errorMessage = 
+          responseData.message || 
+          responseData.error || 
+          `Error ${response.status}: ${response.statusText || 'Unknown error'}`;
+        
         throw new Error(errorMessage);
       }
 
-      const { data: onboardingData } = await response.json();
+      const { data: onboardingData } = responseData;
       
       if (onboardingData) {
         updateFormValues(onboardingData);

@@ -70,31 +70,39 @@ export default function InformasiDasarForm({ userName, userEmail }: InformasiDas
     try {
       setIsSubmitting(true);
       
-      // Update context with form values
-      updateFormValues({
-        namaLengkap: values.namaLengkap,
-        email: values.email,
-        nomorTelepon: values.nomorTelepon
-      });
-      
       // Normalize phone number format (remove spaces, ensure proper format)
-      const normalizedPhoneNumber = values.nomorTelepon
+      let normalizedPhoneNumber = values.nomorTelepon
         .replace(/\s+/g, '')
         .replace(/^(\+62|62)/, '0');
       
+      // Ensure it starts with '0'
+      if (!normalizedPhoneNumber.startsWith('0')) {
+        normalizedPhoneNumber = '0' + normalizedPhoneNumber;
+      }
+      
+      // Create a sanitized values object with normalized phone number
+      const sanitizedValues = {
+        namaLengkap: values.namaLengkap.trim(),
+        email: values.email.trim(),
+        nomorTelepon: normalizedPhoneNumber
+      };
+      
+      // Update context with form values
+      updateFormValues(sanitizedValues);
+      
       // Save data to API with proper error handling
       try {
-        await saveStep(1, {
-          namaLengkap: values.namaLengkap,
-          email: values.email,
-          nomorTelepon: normalizedPhoneNumber
-        });
+        const response = await saveStep(1, sanitizedValues);
         
-        toast.success("Informasi pribadi berhasil disimpan");
-        
-        // Navigate to next step
-        setCurrentStep(2);
-        router.push("/job-seeker/onboarding/informasi-lanjutan");
+        if (response.success) {
+          toast.success("Informasi pribadi berhasil disimpan");
+          
+          // Navigate to next step
+          setCurrentStep(2);
+          router.push("/job-seeker/onboarding/informasi-lanjutan");
+        } else {
+          throw new Error(response.message || "Gagal menyimpan data");
+        }
       } catch (apiError) {
         console.error("API Error:", apiError);
         const errorMessage = apiError instanceof Error 

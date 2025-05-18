@@ -81,7 +81,7 @@ export default function JobApplicationSuccessPage() {
                       3
                     </span>
                     <span className="text-gray-600">
-                      Anda dapat melihat status lamaran di halaman "Lamaran Saya".
+                      Anda dapat melihat status lamaran di halaman &quot;Lamaran Saya&quot;.
                     </span>
                   </li>
                 </ul>

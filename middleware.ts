@@ -1,15 +1,7 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { NextRequest } from 'next/server';
-
-// Extend the session type to include userType
-interface CustomUser {
-  id?: string;
-  name?: string | null;
-  email?: string | null;
-  image?: string | null;
-  userType?: 'job_seeker' | 'employer';
-}
+import { CustomUser } from './lib/types';
 
 // Define path mappings for redirects
 const API_REDIRECTS = {
@@ -119,7 +111,7 @@ export async function middleware(request: NextRequest) {
         return NextResponse.redirect(new URL('/employer', request.url));
       } else if (userType === 'job_seeker') {
         // Job seekers go to their dashboard
-        return NextResponse.redirect(new URL('/job-seeker', request.url));
+        return NextResponse.redirect(new URL('/job-seeker/dashboard', request.url));
       }
     }
 

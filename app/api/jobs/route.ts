@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createJob } from "@/lib/db";
 import { z } from "zod";
+import { nanoid } from "nanoid";
 
 /**
  * Schema for validating job posting data
@@ -58,8 +59,7 @@ const jobPostingSchema = z.object({
  * POST handler for creating a new job posting
  */
 export async function POST(
-  request: NextRequest,
-  { params }: { params: { employerId: string } }
+  request: NextRequest
 ) {
   try {
     // Extract employerId from URL parameters
@@ -96,10 +96,14 @@ export async function POST(
       );
     }
 
+    // Generate a unique job ID
+    const jobId = `JOB-${nanoid(10)}`;
+
     // Prepare data for insertion
     const jobData = {
       ...validationResult.data,
       employerId,
+      jobId,
       // Handle date conversion for applicationDeadline if provided
       applicationDeadline: validationResult.data.applicationDeadline
         ? new Date(validationResult.data.applicationDeadline)
