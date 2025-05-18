@@ -1,6 +1,6 @@
-import Image from 'next/image';
 import Link from 'next/link';
 import CharacterAnimation from '../components/character-animation';
+import AboutImage from './components/about-image';
 
 export const metadata = {
   title: 'Tentang Kami | Temu - Platform Karir dan Rekrutmen',
@@ -30,18 +30,9 @@ export default function AboutPage() {
         {/* Hero Image */}
         <div className="mt-16 animation-delay-300 animate-fade-in">
           <div className="relative h-[400px] rounded-notion border border-notion-border overflow-hidden shadow-notion-card">
-            <Image
+            <AboutImage
               src="/images/about-team.jpg"
               alt="Tim Temu"
-              fill
-              sizes="(max-width: 768px) 100vw, 1200px"
-              className="object-cover"
-              priority
-              onError={(e) => {
-                const target = e.target as HTMLImageElement;
-                target.onerror = null;
-                target.src = "https://placehold.co/1200x400/e2e8f0/64748b?text=Tim+Temu";
-              }}
             />
           </div>
         </div>
