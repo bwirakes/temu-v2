@@ -3,9 +3,9 @@
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
 import { db, jobApplications, applicationStatusEnum } from '@/lib/db';
-import { auth } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { sql } from 'drizzle-orm';
+import { getTypedSession } from '@/lib/auth-utils';
 
 // Schema for job application validation
 export const jobApplicationSchema = z.object({
@@ -30,7 +30,7 @@ export async function submitJobApplication(formData: JobApplicationFormData) {
   const validatedData = jobApplicationSchema.parse(formData);
   
   // Get the current user session
-  const session = await auth();
+  const session = await getTypedSession();
   if (!session?.user) {
     return { error: "Unauthorized", success: false };
   }
@@ -100,7 +100,7 @@ export async function submitJobApplication(formData: JobApplicationFormData) {
  */
 export async function withdrawJobApplication(applicationId: string) {
   // Get the current user session
-  const session = await auth();
+  const session = await getTypedSession();
   if (!session?.user) {
     return { error: "Unauthorized", success: false };
   }
@@ -127,7 +127,7 @@ export async function withdrawJobApplication(applicationId: string) {
  */
 export async function getUserJobApplications() {
   // Get the current user session
-  const session = await auth();
+  const session = await getTypedSession();
   if (!session?.user) {
     return { error: "Unauthorized", success: false };
   }

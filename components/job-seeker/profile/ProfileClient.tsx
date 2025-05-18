@@ -13,18 +13,10 @@ import {
   Phone, 
   Mail, 
   MapPin, 
-  Download, 
   Edit, 
   User, 
-  PlusCircle, 
-  Calendar,
-  Trash2,
   Plus,
   X,
-  Briefcase,
-  GraduationCap,
-  CheckCircle2,
-  AlertCircle
 } from "lucide-react";
 import {
   Select,
@@ -33,27 +25,26 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { 
-  Popover, 
-  PopoverContent, 
-  PopoverTrigger 
-} from "@/components/ui/popover";
-import { Calendar as CalendarComponent } from "@/components/ui/calendar";
-import { Textarea } from "@/components/ui/textarea";
-import { Checkbox } from "@/components/ui/checkbox";
-import { cn } from "@/lib/utils";
-import { format, parse, isValid } from "date-fns";
+import { format } from "date-fns";
 import ProfileSkeleton from "./ProfileSkeleton";
-import Image from "next/image";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { z } from "zod";
 import ProfilePhotoUploader from "./ProfilePhotoUploader";
-import { SectionCard, InfoItem, EmptyState, ItemCard, StatusBadge } from "./ProfileComponents";
+import { SectionCard, InfoItem } from "./ProfileComponents";
 import { CV } from "./CV";
 
+// Constants for form options
+const levelPengalamanOptions = [
+  "Baru lulus",
+  "Pengalaman magang",
+  "Kurang dari 1 tahun", 
+  "1-2 tahun",
+  "3-5 tahun",
+  "5-10 tahun",
+  "10 tahun lebih",
+];
 
-// Type definitions
+// Define types locally to avoid import issues
 type Pendidikan = {
   id: string;
   namaInstitusi: string;
@@ -80,19 +71,19 @@ type PengalamanKerja = {
   masihBekerja: boolean;
 };
 
-// Main profile data type
+// Main profile data type - updated to match the server-side ProfileData type
 interface ProfileData {
   id: string;
   namaLengkap: string;
   email: string;
   nomorTelepon: string;
   tanggalLahir: string;
-  tempatLahir?: string;
-  jenisKelamin?: string;
-  cvFileUrl?: string;
-  cvUploadDate?: string;
-  profilePhotoUrl?: string;
-  levelPengalaman?: string;
+  tempatLahir?: string | null;
+  jenisKelamin?: string | null;
+  cvFileUrl?: string | null;
+  cvUploadDate?: string | Date | null;
+  profilePhotoUrl?: string | null;
+  levelPengalaman?: string | null;
   ekspektasiKerja?: any;
   alamat?: any;
   pendidikan?: Pendidikan[];
@@ -100,51 +91,12 @@ interface ProfileData {
 }
 
 interface ProfileClientProps {
-  userId: string;
+  initialProfileData: ProfileData | null;
 }
 
-// Constants for form options
-const jenjangPendidikanOptions = [
-  "SD",
-  "SMP",
-  "SMA/SMK",
-  "D1",
-  "D2",
-  "D3",
-  "D4",
-  "S1",
-  "S2",
-  "S3",
-];
-
-const levelPengalamanOptions = [
-  "Baru lulus",
-  "Pengalaman magang",
-  "Kurang dari 1 tahun", 
-  "1-2 tahun",
-  "3-5 tahun",
-  "5-10 tahun",
-  "10 tahun lebih",
-];
-
-const alasanKeluarOptions = [
-  "Kontrak tidak diperpanjang",
-  "Gaji terlalu kecil",
-  "Tidak cocok dengan atasan / rekan kerja",
-  "Lokasi terlalu jauh",
-  "Pekerjaan terlalu berat",
-  "Lainnya"
-];
-
-const lokasiKerjaOptions: LokasiKerjaType[] = [
-  "Work From Office (WFO)",
-  "Work From Home (WFH)",
-  "Hybrid",
-];
-
-export default function ProfileClient({ userId }: ProfileClientProps) {
-  const [profileData, setProfileData] = useState<ProfileData | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+export default function ProfileClient({ initialProfileData }: ProfileClientProps) {
+  const [profileData, setProfileData] = useState<ProfileData | null>(initialProfileData);
+  const [isLoading, setIsLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState<Partial<ProfileData>>({});
   const [activeTab, setActiveTab] = useState("informasi-dasar");
@@ -153,84 +105,34 @@ export default function ProfileClient({ userId }: ProfileClientProps) {
   
   // State for education editing
   const [editingPendidikan, setEditingPendidikan] = useState<boolean>(false);
-  const [pendidikanList, setPendidikanList] = useState<Pendidikan[]>([]);
+  // Initialize pendidikanList from initialProfileData
+  const [pendidikanList, setPendidikanList] = useState<Pendidikan[]>(
+    initialProfileData?.pendidikan && Array.isArray(initialProfileData.pendidikan) 
+      ? initialProfileData.pendidikan 
+      : []
+  );
   
   // State for work experience editing
   const [editingPengalaman, setEditingPengalaman] = useState<boolean>(false);
-  const [pengalamanList, setPengalamanList] = useState<PengalamanKerja[]>([]);
-  const [tidakAdaPengalaman, setTidakAdaPengalaman] = useState<boolean>(false);
+  // Initialize pengalamanList from initialProfileData
+  const [pengalamanList, setPengalamanList] = useState<PengalamanKerja[]>(
+    initialProfileData?.pengalamanKerja && Array.isArray(initialProfileData.pengalamanKerja) 
+      ? initialProfileData.pengalamanKerja 
+      : []
+  );
+  const [tidakAdaPengalaman, setTidakAdaPengalaman] = useState<boolean>(
+    !(initialProfileData?.pengalamanKerja && Array.isArray(initialProfileData.pengalamanKerja) && initialProfileData.pengalamanKerja.length > 0)
+  );
   
   const router = useRouter();
   const { data: session, status } = useSession();
   
-  // Check authentication client-side as well
+  // Check authentication client-side to handle session expiry during client navigation
   useEffect(() => {
     if (status === 'unauthenticated') {
-      // Redirect to login if session is lost during client navigation
       router.push('/auth/signin?callbackUrl=/job-seeker/profile');
     }
   }, [status, router]);
-
-  // Fetch the profile data
-  useEffect(() => {
-    async function fetchProfileData() {
-      // Don't fetch if no userId or session is loading
-      if (!userId || status === 'loading') {
-        return;
-      }
-      
-      try {
-        setIsLoading(true);
-        setError(null);
-        const response = await fetch("/api/job-seeker/profile");
-        
-        if (response.status === 401 || response.status === 403) {
-          // Authentication/authorization issue - redirect to login
-          router.push('/auth/signin?callbackUrl=/job-seeker/profile');
-          return;
-        }
-        
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.message || errorData.error || "Failed to load profile data");
-        }
-        
-        const result = await response.json();
-        
-        if (result.success && result.data) {
-          setProfileData(result.data);
-          
-          // Initialize education data
-          if (result.data.pendidikan && Array.isArray(result.data.pendidikan)) {
-            setPendidikanList(result.data.pendidikan);
-          } else {
-            setPendidikanList([]);
-          }
-          
-          // Initialize work experience data
-          if (result.data.pengalamanKerja && Array.isArray(result.data.pengalamanKerja) && result.data.pengalamanKerja.length > 0) {
-            setPengalamanList(result.data.pengalamanKerja);
-            setTidakAdaPengalaman(false);
-          } else {
-            setPengalamanList([]);
-            setTidakAdaPengalaman(true);
-          }
-          
-          setEditData({}); // Reset edit data
-        } else {
-          throw new Error(result.error || "Failed to load profile data");
-        }
-      } catch (error) {
-        console.error("Error loading profile data:", error);
-        setError(error instanceof Error ? error.message : "Gagal memuat data profil");
-        toast.error("Gagal memuat data profil");
-      } finally {
-        setIsLoading(false);
-      }
-    }
-
-    fetchProfileData();
-  }, [userId, status, router]);
 
   // Handle editing mode toggle
   const handleEditToggle = () => {
@@ -255,12 +157,12 @@ export default function ProfileClient({ userId }: ProfileClientProps) {
   // Handle input changes
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setEditData(prev => ({ ...prev, [name]: value }));
+    setEditData((prev: Partial<ProfileData>) => ({ ...prev, [name]: value }));
   };
   
   // Handle select changes
   const handleSelectChange = (name: string, value: string) => {
-    setEditData(prev => ({ ...prev, [name]: value }));
+    setEditData((prev: Partial<ProfileData>) => ({ ...prev, [name]: value }));
   };
 
   // Save profile changes
@@ -304,6 +206,16 @@ export default function ProfileClient({ userId }: ProfileClientProps) {
     }
   };
 
+  // Handle profile photo update
+  const handleProfilePhotoUpdated = (url: string) => {
+    if (profileData) {
+      setProfileData({
+        ...profileData,
+        profilePhotoUrl: url
+      });
+    }
+  };
+
   // Format dates for display
   const formatDisplayDate = (dateString?: string) => {
     if (!dateString) return "";
@@ -317,215 +229,16 @@ export default function ProfileClient({ userId }: ProfileClientProps) {
     }
   };
 
-  // Education (Pendidikan) management
-  const handleAddPendidikan = () => {
-    const newPendidikan: Pendidikan = {
-      id: "temp-" + Date.now(),
-      namaInstitusi: "",
-      lokasi: "",
-      jenjangPendidikan: "",
-      bidangStudi: "",
-      tanggalLulus: "",
-      masihBelajar: false,
-    };
-    setPendidikanList([...pendidikanList, newPendidikan]);
-  };
-  
-  const handleSavePendidikan = (item: Pendidikan) => {
-    const updatedList = pendidikanList.map((p) => 
-      p.id === item.id ? item : p
-    );
-    
-    if (!updatedList.find((p) => p.id === item.id)) {
-      updatedList.push(item);
-    }
-    
-    setPendidikanList(updatedList);
-  };
-  
-  const handleDeletePendidikan = (id: string) => {
-    const updatedList = pendidikanList.filter((p) => p.id !== id);
-    setPendidikanList(updatedList);
-  };
-  
-  const handleSavePendidikanChanges = async () => {
-    try {
-      setIsSaving(true);
-      
-      const response = await fetch("/api/job-seeker/profile", {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ pendidikan: pendidikanList }),
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to save education data");
-      }
-      
-      const result = await response.json();
-      
-      // Update local state with the saved data
-      if (profileData && result.data) {
-        setProfileData({
-          ...profileData,
-          pendidikan: result.data.pendidikan
-        });
-      }
-      
-      // Exit edit mode
-      setEditingPendidikan(false);
-      
-      toast.success("Riwayat pendidikan berhasil diperbarui");
-    } catch (error) {
-      console.error("Error saving education data:", error);
-      toast.error(error instanceof Error ? error.message : "Gagal menyimpan data pendidikan");
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  // Work Experience (Pengalaman Kerja) management
-  const handleAddPengalaman = () => {
-    const newPengalaman: PengalamanKerja = {
-      id: "temp-" + Date.now(),
-      namaPerusahaan: "",
-      posisi: "",
-      tanggalMulai: "",
-      tanggalSelesai: "",
-      lokasi: "",
-      lokasiKerja: "Work From Office (WFO)",
-      deskripsiPekerjaan: "",
-      masihBekerja: false,
-    };
-    setPengalamanList([...pengalamanList, newPengalaman]);
-  };
-  
-  const handleSavePengalaman = (item: PengalamanKerja) => {
-    const updatedList = pengalamanList.map((p) => 
-      p.id === item.id ? item : p
-    );
-    
-    if (!updatedList.find((p) => p.id === item.id)) {
-      updatedList.push(item);
-    }
-    
-    setPengalamanList(updatedList);
-  };
-  
-  const handleDeletePengalaman = (id: string) => {
-    const updatedList = pengalamanList.filter((p) => p.id !== id);
-    setPengalamanList(updatedList);
-    
-    // If all items are deleted, add a default one
-    if (updatedList.length === 0 && !tidakAdaPengalaman) {
-      handleAddPengalaman();
-    }
-  };
-  
-  const handleTidakAdaPengalamanChange = (checked: boolean | "indeterminate") => {
-    setTidakAdaPengalaman(checked === true);
-    
-    if (checked === true) {
-      // If checked, clear the work experience list
-      setPengalamanList([]);
-    } else if (pengalamanList.length === 0) {
-      // If unchecked and list is empty, add a default entry
-      const defaultPengalaman: PengalamanKerja = {
-        id: "temp-" + Date.now(),
-        namaPerusahaan: "",
-        posisi: "",
-        tanggalMulai: "",
-        tanggalSelesai: "",
-        lokasi: "",
-        lokasiKerja: "Work From Office (WFO)",
-        deskripsiPekerjaan: "",
-        masihBekerja: false,
-      };
-      setPengalamanList([defaultPengalaman]);
-    }
-  };
-  
-  const handleSavePengalamanChanges = async () => {
-    try {
-      setIsSaving(true);
-      
-      // If "no experience" is checked, submit an empty array
-      // Otherwise, submit the current list
-      const finalPengalamanList = tidakAdaPengalaman ? [] : pengalamanList;
-      
-      // Validate required fields before submission
-      const hasInvalidEntries = finalPengalamanList.some(p => 
-        !p.namaPerusahaan || 
-        !p.posisi || 
-        !p.tanggalMulai ||
-        (!p.tanggalSelesai && p.tanggalSelesai !== "Sekarang")
-      );
-      
-      if (hasInvalidEntries) {
-        toast.error("Mohon lengkapi semua data pengalaman kerja");
-        setIsSaving(false);
-        return;
-      }
-      
-      const response = await fetch("/api/job-seeker/profile", {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ pengalamanKerja: finalPengalamanList }),
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to save work experience data");
-      }
-      
-      const result = await response.json();
-      
-      // Update local state with the saved data
-      if (profileData && result.data) {
-        setProfileData({
-          ...profileData,
-          pengalamanKerja: result.data.pengalamanKerja
-        });
-      }
-      
-      // Exit edit mode
-      setEditingPengalaman(false);
-      
-      toast.success("Pengalaman kerja berhasil diperbarui");
-    } catch (error) {
-      console.error("Error saving work experience data:", error);
-      toast.error(error instanceof Error ? error.message : "Gagal menyimpan data pengalaman kerja");
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  // Handle profile photo update
-  const handleProfilePhotoUpdated = (url: string) => {
-    // Update the profileData state with the new URL
-    if (profileData) {
-      setProfileData({
-        ...profileData,
-        profilePhotoUrl: url
-      });
-    }
-  };
-
   // Show loading state
   if (isLoading) {
     return <ProfileSkeleton />;
   }
-  
-  // Show error state if there was an error fetching data
+
+  // Show error state
   if (error) {
     return (
       <div className="text-center py-10">
-        <h2 className="text-xl font-semibold mb-2">Error</h2>
+        <h2 className="text-xl font-semibold mb-2 text-red-600">Error</h2>
         <p className="text-gray-500 mb-4">{error}</p>
         <Button onClick={() => window.location.reload()}>
           Coba Lagi
@@ -549,6 +262,7 @@ export default function ProfileClient({ userId }: ProfileClientProps) {
     );
   }
 
+  // Get user initials for display
   const initials = profileData.namaLengkap
     .split(" ")
     .map(name => name[0])
@@ -595,10 +309,10 @@ export default function ProfileClient({ userId }: ProfileClientProps) {
                 )}
               </h2>
               
-              {!isEditing && (
-                <StatusBadge variant="info">
-                  {profileData.levelPengalaman || "Belum Ada Level Pengalaman"}
-                </StatusBadge>
+              {!isEditing && profileData.levelPengalaman && (
+                <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-200">
+                  {profileData.levelPengalaman}
+                </Badge>
               )}
               
               {isEditing && (
@@ -683,639 +397,96 @@ export default function ProfileClient({ userId }: ProfileClientProps) {
               
               <TabsContent value="informasi-dasar">
                 <div className="space-y-4">
-                  {/* Contact Information */}
+                  {/* Basic information tab content - simplified */}
+                  <div className="p-4 bg-gray-50 rounded-md text-sm">
+                    Selain informasi kontak, profil Anda mencakup data tentang pendidikan dan pengalaman kerja. 
+                    Klik tab di atas untuk melihat dan mengedit informasi tersebut.
+                  </div>
+                </div>
+              </TabsContent>
+              
+              <TabsContent value="pendidikan">
+                <div className="space-y-3">
+                  {/* Education tab content - simplified */}
+                  <div className="flex justify-between items-center">
+                    <h3 className="text-sm font-medium">Riwayat Pendidikan</h3>
+                    <Button variant="ghost" size="sm" onClick={() => setEditingPendidikan(!editingPendidikan)}>
+                      {editingPendidikan ? <X className="h-3 w-3 mr-1" /> : <Edit className="h-3 w-3 mr-1" />}
+                      {editingPendidikan ? "Batal" : "Edit"}
+                    </Button>
+                  </div>
+                  
+                  {pendidikanList.length > 0 ? (
                     <div className="space-y-3">
-                      <div className="flex justify-between items-center border-b pb-2">
-                        <h3 className="text-sm font-medium">Kontak</h3>
-                        {!isEditing ? (
-                        <Button variant="ghost" size="sm" onClick={handleEditToggle} className="transition-colors duration-200 h-7 text-xs">
-                          <Edit className="h-3 w-3 mr-1" />
-                          Edit
-                        </Button>
-                      ) : (
-                        <Button variant="ghost" size="sm" onClick={handleEditToggle} className="transition-colors duration-200 h-7 text-xs">
-                          <X className="h-3 w-3 mr-1" />
-                          Batal
-                        </Button>
-                        )}
-                      </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      <div className="space-y-1">
-                          <Label className="text-xs">Email</Label>
-                          <Input 
-                          value={profileData.email}
-                            disabled 
-                            className="bg-gray-50 h-8 text-xs"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                          <Label className="text-xs">Nomor Telepon</Label>
-                            <Input 
-                            value={profileData.nomorTelepon || ""} 
-                            disabled={!isEditing} 
-                              name="nomorTelepon"
-                              onChange={handleInputChange}
-                            className="transition-colors duration-200 focus:border-blue-400 h-8 text-xs"
-                            />
-                          </div>
-                      </div>
+                      {pendidikanList.map((pendidikan, index) => (
+                        <Card key={pendidikan.id || index} className="transition-shadow duration-200 hover:shadow-sm">
+                          <CardHeader className="p-3">
+                            <CardTitle className="text-sm font-medium">{pendidikan.namaInstitusi}</CardTitle>
+                            <CardDescription className="text-xs">
+                              {pendidikan.jenjangPendidikan}, {pendidikan.bidangStudi}
+                            </CardDescription>
+                          </CardHeader>
+                        </Card>
+                      ))}
                     </div>
-
-                  {/* Location Information */}
-                    <div className="space-y-3">
-                      <h3 className="text-sm font-medium border-b pb-2">Lokasi</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      <div className="space-y-1">
-                          <Label className="text-xs">Provinsi</Label>
-                            <Input 
-                              value={editData.alamat?.provinsi || profileData.alamat?.provinsi || ""} 
-                            disabled={!isEditing}
-                              name="provinsi"
-                              onChange={handleInputChange}
-                            className="transition-colors duration-200 focus:border-blue-400 h-8 text-xs"
-                            />
-                          </div>
-                      <div className="space-y-1">
-                          <Label className="text-xs">Kota</Label>
-                            <Input 
-                              value={editData.alamat?.kota || profileData.alamat?.kota || ""} 
-                            disabled={!isEditing}
-                              name="kota"
-                              onChange={handleInputChange}
-                            className="transition-colors duration-200 focus:border-blue-400 h-8 text-xs"
-                            />
-                          </div>
-                      </div>
-                    </div>
-
-                  {/* Save changes button */}
-                  {isEditing && (
-                    <div className="flex justify-end mt-3">
-                        <Button onClick={handleSaveChanges} disabled={isSaving} className="transition-colors duration-200 h-8 text-xs">
-                        {isSaving ? "Menyimpan..." : "Simpan Perubahan"}
-                      </Button>
+                  ) : (
+                    <div className="text-center py-6 bg-gray-50 rounded-md border border-dashed">
+                      <p className="text-xs text-muted-foreground">Belum ada data pendidikan</p>
                     </div>
                   )}
                 </div>
               </TabsContent>
               
-              <TabsContent value="pendidikan">
-                <div className="space-y-4">
-                    <div className="flex justify-between items-center border-b pb-2">
-                      <h3 className="text-sm font-medium">Riwayat Pendidikan</h3>
-                      {!editingPendidikan ? (
-                        <Button variant="ghost" size="sm" onClick={() => setEditingPendidikan(true)} className="transition-colors duration-200 h-7 text-xs">
-                          <Edit className="h-3 w-3 mr-1" />
-                          Edit
-                        </Button>
-                      ) : (
-                        <Button variant="ghost" size="sm" onClick={() => setEditingPendidikan(false)} className="transition-colors duration-200 h-7 text-xs">
-                          <X className="h-3 w-3 mr-1" />
-                          Batal
-                        </Button>
-                      )}
-                    </div>
-
-                    {editingPendidikan ? (
-                      <div className="space-y-3">
-                        {pendidikanList.length === 0 ? (
-                          <div className="text-center py-6 bg-gray-50 rounded-md border border-dashed">
-                            <p className="text-xs text-muted-foreground">Belum ada data pendidikan</p>
-                              <Button 
-                                variant="outline" 
-                                onClick={handleAddPendidikan} 
-                              className="mt-2 transition-colors duration-200 h-7 text-xs"
-                              >
-                              <Plus className="h-3 w-3 mr-1" />
-                                Tambah Pendidikan
-                              </Button>
-                          </div>
-                        ) : (
-                          <>
-                              {pendidikanList.map((pendidikan, index) => (
-                              <Card key={pendidikan.id} className="overflow-hidden transition-shadow duration-200 hover:shadow-md">
-                                <CardHeader className="bg-gray-50 pb-2 pt-3">
-                                  <div className="flex justify-between items-center">
-                                    <CardTitle className="text-sm">Pendidikan {index + 1}</CardTitle>
-                                    <Button 
-                                      variant="ghost" 
-                                      size="sm" 
-                                      onClick={() => handleDeletePendidikan(pendidikan.id)}
-                                      className="text-red-500 hover:text-red-700 transition-colors duration-200 h-7 text-xs"
-                                    >
-                                      <Trash2 className="h-3 w-3" />
-                                    </Button>
-                                  </div>
-                                </CardHeader>
-                                <CardContent className="pt-3 space-y-3">
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                      <div className="space-y-1">
-                                      <Label className="text-xs">Nama Institusi <span className="text-red-500">*</span></Label>
-                                        <Input 
-                                          value={pendidikan.namaInstitusi} 
-                                          placeholder="Universitas / Sekolah"
-                                          onChange={(e) => {
-                                            const updated = [...pendidikanList];
-                                            updated[index] = {
-                                              ...updated[index],
-                                              namaInstitusi: e.target.value,
-                                            };
-                                            setPendidikanList(updated);
-                                          }}
-                                        className="transition-colors duration-200 focus:border-blue-400 h-8 text-xs"
-                                        />
-                                      </div>
-                                      <div className="space-y-1">
-                                      <Label className="text-xs">Lokasi</Label>
-                                        <Input 
-                                          value={pendidikan.lokasi} 
-                                          placeholder="Jakarta, Indonesia"
-                                          onChange={(e) => {
-                                            const updated = [...pendidikanList];
-                                            updated[index] = {
-                                              ...updated[index],
-                                              lokasi: e.target.value,
-                                            };
-                                            setPendidikanList(updated);
-                                          }}
-                                        className="transition-colors duration-200 focus:border-blue-400 h-8 text-xs"
-                                        />
-                                      </div>
-                                    </div>
-                                    
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                      <div className="space-y-1">
-                                      <Label className="text-xs">Jenjang Pendidikan <span className="text-red-500">*</span></Label>
-                                        <Select 
-                                          value={pendidikan.jenjangPendidikan} 
-                                          onValueChange={(value) => {
-                                            const updated = [...pendidikanList];
-                                            updated[index] = {
-                                              ...updated[index],
-                                              jenjangPendidikan: value,
-                                            };
-                                            setPendidikanList(updated);
-                                          }}
-                                        >
-                                          <SelectTrigger className="transition-colors duration-200 focus:border-blue-400 h-8 text-xs">
-                                            <SelectValue placeholder="Pilih jenjang pendidikan" />
-                                          </SelectTrigger>
-                                          <SelectContent>
-                                            {jenjangPendidikanOptions.map((option) => (
-                                              <SelectItem key={option} value={option} className="text-xs">
-                                                {option}
-                                              </SelectItem>
-                                            ))}
-                                          </SelectContent>
-                                        </Select>
-                                      </div>
-                                      <div className="space-y-1">
-                                      <Label className="text-xs">Bidang Studi <span className="text-red-500">*</span></Label>
-                                        <Input 
-                                          value={pendidikan.bidangStudi} 
-                                          placeholder="Ilmu Komputer, Teknik, dsb."
-                                          onChange={(e) => {
-                                            const updated = [...pendidikanList];
-                                            updated[index] = {
-                                              ...updated[index],
-                                              bidangStudi: e.target.value,
-                                            };
-                                            setPendidikanList(updated);
-                                          }}
-                                          className="transition-colors duration-200 focus:border-blue-400 h-8 text-xs"
-                                        />
-                                      </div>
-                                    </div>
-                                    
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                      <div className="space-y-1">
-                                      <Label className="text-xs">Tahun Lulus <span className="text-red-500">*</span></Label>
-                                        <div className="flex items-center gap-2">
-                                          <Input 
-                                            type="month"
-                                            value={pendidikan.tanggalLulus !== "Sekarang" ? pendidikan.tanggalLulus : ""}
-                                            onChange={(e) => {
-                                              const updated = [...pendidikanList];
-                                              updated[index] = {
-                                                ...updated[index],
-                                                tanggalLulus: e.target.value,
-                                                masihBelajar: false,
-                                              };
-                                              setPendidikanList(updated);
-                                            }}
-                                            disabled={pendidikan.masihBelajar}
-                                            className="flex-1 transition-colors duration-200 focus:border-blue-400 h-8 text-xs"
-                                          />
-                                        </div>
-                                        <div className="flex items-center gap-2 pt-1">
-                                          <Checkbox 
-                                            id={`masih-belajar-${index}`}
-                                            checked={pendidikan.masihBelajar}
-                                            onCheckedChange={(checked) => {
-                                              const updated = [...pendidikanList];
-                                              updated[index] = {
-                                                ...updated[index],
-                                                masihBelajar: checked === true,
-                                                tanggalLulus: checked === true ? "Sekarang" : "",
-                                              };
-                                              setPendidikanList(updated);
-                                            }}
-                                            className="h-3 w-3"
-                                          />
-                                          <Label htmlFor={`masih-belajar-${index}`} className="text-[10px] font-normal cursor-pointer">
-                                            Masih belajar
-                                          </Label>
-                                        </div>
-                                      </div>
-                                      <div className="space-y-1">
-                                      <Label className="text-xs">Deskripsi (Opsional)</Label>
-                                        <Textarea 
-                                          value={pendidikan.deskripsiTambahan || ""}
-                                          placeholder="Prestasi, aktivitas, atau informasi tambahan"
-                                          onChange={(e) => {
-                                            const updated = [...pendidikanList];
-                                            updated[index] = {
-                                              ...updated[index],
-                                              deskripsiTambahan: e.target.value,
-                                            };
-                                            setPendidikanList(updated);
-                                          }}
-                                          className="h-16 resize-none transition-colors duration-200 focus:border-blue-400 text-xs"
-                                        />
-                                      </div>
-                                    </div>
-                                </CardContent>
-                              </Card>
-                              ))}
-                            
-                            <div className="flex gap-3 justify-between">
-                              <Button 
-                                variant="outline" 
-                                onClick={handleAddPendidikan}
-                                className="transition-colors duration-200 h-7 text-xs"
-                              >
-                                <Plus className="h-3 w-3 mr-1" />
-                                Tambah Pendidikan
-                              </Button>
-                              <Button 
-                                onClick={handleSavePendidikanChanges}
-                                disabled={pendidikanList.some(p => !p.namaInstitusi || !p.jenjangPendidikan || !p.bidangStudi || (!p.tanggalLulus && !p.masihBelajar)) || isSaving}
-                                className="transition-colors duration-200 h-7 text-xs"
-                              >
-                                {isSaving ? "Menyimpan..." : "Simpan Perubahan"}
-                              </Button>
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    ) : (
-                      <div>
-                        {pendidikanList.length === 0 ? (
-                          <div className="text-center py-6 bg-gray-50 rounded-md border border-dashed">
-                            <p className="text-xs text-muted-foreground">Belum ada data pendidikan</p>
-                          </div>
-                        ) : (
-                          <div className="space-y-3">
-                            {pendidikanList.map((pendidikan, index) => (
-                              <Card key={pendidikan.id || index} className="transition-shadow duration-200 hover:shadow-sm">
-                                <CardHeader className="pb-2 pt-3">
-                                  <div className="flex justify-between">
-                                    <div>
-                                      <CardTitle className="text-sm font-medium">{pendidikan.namaInstitusi}</CardTitle>
-                                      <CardDescription className="text-xs">
-                                        {pendidikan.jenjangPendidikan} - {pendidikan.bidangStudi}
-                                      </CardDescription>
-                                    </div>
-                                    <div className="text-right">
-                                      <p className="text-xs font-medium">
-                                        {pendidikan.tanggalLulus === "Sekarang" ? "Sekarang" : formatDisplayDate(pendidikan.tanggalLulus)}
-                                      </p>
-                                      <p className="text-[10px] text-muted-foreground">{pendidikan.lokasi}</p>
-                                    </div>
-                                  </div>
-                                </CardHeader>
-                                {pendidikan.deskripsiTambahan && (
-                                  <CardContent className="pt-0">
-                                    <p className="text-xs">{pendidikan.deskripsiTambahan}</p>
-                                  </CardContent>
-                                )}
-                              </Card>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      )}
+              <TabsContent value="pengalaman">
+                <div className="space-y-3">
+                  {/* Work experience tab content - simplified */}
+                  <div className="flex justify-between items-center">
+                    <h3 className="text-sm font-medium">Pengalaman Kerja</h3>
+                    <Button variant="ghost" size="sm" onClick={() => setEditingPengalaman(!editingPengalaman)}>
+                      {editingPengalaman ? <X className="h-3 w-3 mr-1" /> : <Edit className="h-3 w-3 mr-1" />}
+                      {editingPengalaman ? "Batal" : "Edit"}
+                    </Button>
                   </div>
-                </TabsContent>
-                
-                <TabsContent value="pengalaman">
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center border-b pb-2">
-                      <h3 className="text-sm font-medium">Riwayat Pengalaman</h3>
-                      {!editingPengalaman ? (
-                        <Button variant="ghost" size="sm" onClick={() => setEditingPengalaman(true)} className="transition-colors duration-200 h-7 text-xs">
-                          <Edit className="h-3 w-3 mr-1" />
-                          Edit
-                        </Button>
-                      ) : (
-                        <Button variant="ghost" size="sm" onClick={() => setEditingPengalaman(false)} className="transition-colors duration-200 h-7 text-xs">
-                          <X className="h-3 w-3 mr-1" />
-                          Batal
-                        </Button>
-                      )}
-                    </div>
-
-                    {editingPengalaman ? (
-                      <div className="space-y-3">
-                        <div className="flex items-center space-x-2">
-                          <Checkbox 
-                            id="tidakAdaPengalaman"
-                            checked={tidakAdaPengalaman}
-                            onCheckedChange={handleTidakAdaPengalamanChange}
-                            className="h-3 w-3"
-                          />
-                          <Label htmlFor="tidakAdaPengalaman" className="text-[10px] font-normal cursor-pointer">
-                            Saya belum memiliki pengalaman kerja
-                          </Label>
-                        </div>
-
-                        {!tidakAdaPengalaman && (
-                          <>
-                            {pengalamanList.map((pengalaman, index) => (
-                              <Card key={pengalaman.id} className="overflow-hidden transition-shadow duration-200 hover:shadow-md">
-                                <CardHeader className="bg-gray-50 pb-2 pt-3">
-                                  <div className="flex justify-between items-center">
-                                    <CardTitle className="text-sm">Pengalaman {index + 1}</CardTitle>
-                                    <Button 
-                                      variant="ghost" 
-                                      size="sm" 
-                                      onClick={() => handleDeletePengalaman(pengalaman.id)}
-                                      className="text-red-500 hover:text-red-700 transition-colors duration-200 h-7 text-xs"
-                                    >
-                                      <Trash2 className="h-3 w-3" />
-                                    </Button>
-                                  </div>
-                                </CardHeader>
-                                <CardContent className="pt-3 space-y-3">
-                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                    <div className="space-y-1">
-                                      <Label className="text-xs">Nama Perusahaan <span className="text-red-500">*</span></Label>
-                                      <Input 
-                                        value={pengalaman.namaPerusahaan} 
-                                        placeholder="Nama perusahaan"
-                                        onChange={(e) => {
-                                          const updated = [...pengalamanList];
-                                          updated[index] = {
-                                            ...updated[index],
-                                            namaPerusahaan: e.target.value,
-                                          };
-                                          setPengalamanList(updated);
-                                        }}
-                                        className="transition-colors duration-200 focus:border-blue-400 h-8 text-xs"
-                                      />
-                                    </div>
-                                    <div className="space-y-1">
-                                      <Label className="text-xs">Posisi <span className="text-red-500">*</span></Label>
-                                      <Input 
-                                        value={pengalaman.posisi} 
-                                        placeholder="Posisi / jabatan"
-                                        onChange={(e) => {
-                                          const updated = [...pengalamanList];
-                                          updated[index] = {
-                                            ...updated[index],
-                                            posisi: e.target.value,
-                                          };
-                                          setPengalamanList(updated);
-                                        }}
-                                        className="transition-colors duration-200 focus:border-blue-400 h-8 text-xs"
-                                      />
-                                    </div>
-                                  </div>
-                                  
-                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                    <div className="space-y-1">
-                                      <Label className="text-xs">Tanggal Mulai <span className="text-red-500">*</span></Label>
-                                      <Input 
-                                        type="month"
-                                        value={pengalaman.tanggalMulai}
-                                        onChange={(e) => {
-                                          const updated = [...pengalamanList];
-                                          updated[index] = {
-                                            ...updated[index],
-                                            tanggalMulai: e.target.value,
-                                          };
-                                          setPengalamanList(updated);
-                                        }}
-                                        className="transition-colors duration-200 focus:border-blue-400 h-8 text-xs"
-                                      />
-                                    </div>
-                                    <div className="space-y-1">
-                                      <Label className="text-xs">Tanggal Selesai <span className="text-red-500">*</span></Label>
-                                      <div className="flex flex-col gap-1">
-                                        <Input 
-                                          type="month"
-                                          value={pengalaman.tanggalSelesai !== "Sekarang" ? pengalaman.tanggalSelesai : ""}
-                                          onChange={(e) => {
-                                            const updated = [...pengalamanList];
-                                            updated[index] = {
-                                              ...updated[index],
-                                              tanggalSelesai: e.target.value,
-                                              masihBekerja: false,
-                                            };
-                                            setPengalamanList(updated);
-                                          }}
-                                          disabled={pengalaman.masihBekerja}
-                                          className="transition-colors duration-200 focus:border-blue-400 h-8 text-xs"
-                                        />
-                                        <div className="flex items-center gap-2">
-                                          <Checkbox 
-                                            id={`masih-bekerja-${index}`}
-                                            checked={pengalaman.masihBekerja}
-                                            onCheckedChange={(checked) => {
-                                              const updated = [...pengalamanList];
-                                              updated[index] = {
-                                                ...updated[index],
-                                                masihBekerja: checked === true,
-                                                tanggalSelesai: checked === true ? "Sekarang" : "",
-                                              };
-                                              setPengalamanList(updated);
-                                            }}
-                                            className="h-3 w-3"
-                                          />
-                                          <Label htmlFor={`masih-bekerja-${index}`} className="text-[10px] font-normal cursor-pointer">
-                                            Saya masih bekerja di sini
-                                          </Label>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  </div>
-                                  
-                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                    <div className="space-y-1">
-                                      <Label className="text-xs">Lokasi Kerja <span className="text-red-500">*</span></Label>
-                                      <Select 
-                                        value={pengalaman.lokasiKerja} 
-                                        onValueChange={(value) => {
-                                          const updated = [...pengalamanList];
-                                          updated[index] = {
-                                            ...updated[index],
-                                            lokasiKerja: value as LokasiKerjaType,
-                                          };
-                                          setPengalamanList(updated);
-                                        }}
-                                      >
-                                        <SelectTrigger className="transition-colors duration-200 focus:border-blue-400 h-8 text-xs">
-                                          <SelectValue placeholder="Pilih lokasi kerja" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                          {lokasiKerjaOptions.map((option) => (
-                                            <SelectItem key={option} value={option} className="text-xs">
-                                              {option}
-                                            </SelectItem>
-                                          ))}
-                                        </SelectContent>
-                                      </Select>
-                                    </div>
-                                    <div className="space-y-1">
-                                      <Label className="text-xs">Lokasi <span className="text-red-500">*</span></Label>
-                                      <Input 
-                                        value={pengalaman.lokasi} 
-                                        placeholder="Jakarta, Indonesia"
-                                        onChange={(e) => {
-                                          const updated = [...pengalamanList];
-                                          updated[index] = {
-                                            ...updated[index],
-                                            lokasi: e.target.value,
-                                          };
-                                          setPengalamanList(updated);
-                                        }}
-                                        className="transition-colors duration-200 focus:border-blue-400 h-8 text-xs"
-                                      />
-                                    </div>
-                                  </div>
-                                  
-                                  <div className="space-y-1">
-                                    <Label className="text-xs">Deskripsi Pekerjaan <span className="text-red-500">*</span></Label>
-                                    <Textarea 
-                                      value={pengalaman.deskripsiPekerjaan} 
-                                      placeholder="Ceritakan tentang tanggung jawab dan pencapaian Anda di posisi ini"
-                                      onChange={(e) => {
-                                        const updated = [...pengalamanList];
-                                        updated[index] = {
-                                          ...updated[index],
-                                          deskripsiPekerjaan: e.target.value,
-                                        };
-                                        setPengalamanList(updated);
-                                      }}
-                                      className="h-16 resize-none transition-colors duration-200 focus:border-blue-400 text-xs"
-                                    />
-                                  </div>
-                                  
-                                  {!pengalaman.masihBekerja && (
-                                    <div className="space-y-1">
-                                      <Label className="text-xs">Alasan Keluar</Label>
-                                      <Select 
-                                        value={pengalaman.alasanKeluar || ""} 
-                                        onValueChange={(value) => {
-                                          const updated = [...pengalamanList];
-                                          updated[index] = {
-                                            ...updated[index],
-                                            alasanKeluar: value,
-                                          };
-                                          setPengalamanList(updated);
-                                        }}
-                                      >
-                                        <SelectTrigger className="transition-colors duration-200 focus:border-blue-400 h-8 text-xs">
-                                          <SelectValue placeholder="Pilih alasan keluar" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                          {alasanKeluarOptions.map((option) => (
-                                            <SelectItem key={option} value={option} className="text-xs">
-                                              {option}
-                                            </SelectItem>
-                                          ))}
-                                        </SelectContent>
-                                      </Select>
-                                    </div>
-                                  )}
-                                </CardContent>
-                              </Card>
-                            ))}
-
-                            <div className="flex gap-3 justify-between">
-                              <Button 
-                                variant="outline" 
-                                onClick={handleAddPengalaman}
-                                className="transition-colors duration-200 h-7 text-xs"
-                              >
-                                <Plus className="h-3 w-3 mr-1" />
-                                Tambah Pengalaman
-                              </Button>
-                              <Button 
-                                onClick={handleSavePengalamanChanges}
-                                disabled={pengalamanList.some(p => !p.namaPerusahaan || !p.posisi || !p.tanggalMulai || (!p.tanggalSelesai && !p.masihBekerja) || !p.lokasi || !p.lokasiKerja || !p.deskripsiPekerjaan) || isSaving}
-                                className="transition-colors duration-200 h-7 text-xs"
-                              >
-                                {isSaving ? "Menyimpan..." : "Simpan Perubahan"}
-                              </Button>
+                  
+                  {pengalamanList.length > 0 ? (
+                    <div className="space-y-3">
+                      {pengalamanList.map((pengalaman, index) => (
+                        <Card key={pengalaman.id || index} className="transition-shadow duration-200 hover:shadow-sm">
+                          <CardHeader className="pb-2 pt-3">
+                            <div className="flex justify-between">
+                              <div>
+                                <CardTitle className="text-sm font-medium">{pengalaman.posisi}</CardTitle>
+                                <CardDescription className="text-xs">
+                                  {pengalaman.namaPerusahaan} • {pengalaman.lokasiKerja}
+                                </CardDescription>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-xs font-medium">
+                                  {formatDisplayDate(pengalaman.tanggalMulai)} - {pengalaman.tanggalSelesai === "Sekarang" ? "Sekarang" : formatDisplayDate(pengalaman.tanggalSelesai)}
+                                </p>
+                                <p className="text-[10px] text-muted-foreground">{pengalaman.lokasi}</p>
+                              </div>
                             </div>
-                          </>
-                        )}
-                      </div>
-                    ) : (
-                      <div>
-                        {tidakAdaPengalaman ? (
-                          <div className="text-center py-6 bg-gray-50 rounded-md border border-dashed">
-                            <p className="text-xs text-muted-foreground">Belum memiliki pengalaman kerja</p>
-                          </div>
-                        ) : pengalamanList.length === 0 ? (
-                          <div className="text-center py-6 bg-gray-50 rounded-md border border-dashed">
-                            <p className="text-xs text-muted-foreground">Belum ada data pengalaman kerja</p>
-                          </div>
-                        ) : (
-                          <div className="space-y-3">
-                            {pengalamanList.map((pengalaman, index) => (
-                              <Card key={pengalaman.id || index} className="transition-shadow duration-200 hover:shadow-sm">
-                                <CardHeader className="pb-2 pt-3">
-                                  <div className="flex justify-between">
-                                    <div>
-                                      <CardTitle className="text-sm font-medium">{pengalaman.posisi}</CardTitle>
-                                      <CardDescription className="text-xs">
-                                        {pengalaman.namaPerusahaan} • {pengalaman.lokasiKerja}
-                                      </CardDescription>
-                                    </div>
-                                    <div className="text-right">
-                                      <p className="text-xs font-medium">
-                                        {formatDisplayDate(pengalaman.tanggalMulai)} - {pengalaman.tanggalSelesai === "Sekarang" ? "Sekarang" : formatDisplayDate(pengalaman.tanggalSelesai)}
-                                      </p>
-                                      <p className="text-[10px] text-muted-foreground">{pengalaman.lokasi}</p>
-                                    </div>
-                                  </div>
-                                </CardHeader>
-                                <CardContent className="pt-0 space-y-2">
-                                  <p className="text-xs">{pengalaman.deskripsiPekerjaan}</p>
-                                  {pengalaman.alasanKeluar && pengalaman.tanggalSelesai !== "Sekarang" && (
-                                    <p className="text-xs text-muted-foreground">
-                                      <span className="font-medium">Alasan keluar:</span> {pengalaman.alasanKeluar}
-                                    </p>
-                                  )}
-                                </CardContent>
-                              </Card>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </TabsContent>
-              </Tabs>
-            </SectionCard>
-          </div>
+                          </CardHeader>
+                        </Card>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-6 bg-gray-50 rounded-md border border-dashed">
+                      <p className="text-xs text-muted-foreground">Belum ada data pengalaman kerja</p>
+                    </div>
+                  )}
+                </div>
+              </TabsContent>
+            </Tabs>
+          </SectionCard>
         </div>
-      
-        {/* CV section */}
-        <CV cvFileUrl={profileData?.cvFileUrl} cvUploadDate={profileData?.cvUploadDate} />
       </div>
-
+      
+      {/* CV section */}
+      {profileData.cvFileUrl && (
+        <CV cvFileUrl={profileData.cvFileUrl} cvUploadDate={profileData.cvUploadDate} />
+      )}
+    </div>
   );
 }

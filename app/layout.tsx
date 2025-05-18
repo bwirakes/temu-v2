@@ -5,6 +5,7 @@ import { SessionProvider } from '@/components/session-provider';
 import { ToastProvider } from '@/components/providers/ToastProvider';
 import NotionHeader from './components/notion-header';
 import NotionFooter from './components/notion-footer';
+import { SpeedInsights } from "@vercel/speed-insights/next"
 
 const inter = Inter({
   subsets: ['latin'],
@@ -31,6 +32,7 @@ export default function RootLayout({
           <NotionFooter />
           <ToastProvider />
         </SessionProvider>
+        <SpeedInsights />
       </body>
     </html>
   );

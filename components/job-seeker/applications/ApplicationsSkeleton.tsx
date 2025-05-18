@@ -1,11 +1,7 @@
-import { Suspense } from "react";
-import { getJobApplications } from "./actions";
-import ApplicationsClient from "@/components/job-seeker/applications/ApplicationsClient";
 import { Loader2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
-// Define the ApplicationsSkeleton component in-place
-function ApplicationsSkeleton() {
+export default function ApplicationsSkeleton() {
   return (
     <div className="flex flex-col">
       <div className="-m-1.5 overflow-x-auto">
@@ -35,23 +31,4 @@ function ApplicationsSkeleton() {
       </div>
     </div>
   );
-}
-
-export default async function JobApplicationsPage() {
-  // Fetch applications using the server action
-  // This handles auth, authorization, and data fetching
-  const initialApplications = await getJobApplications();
-  
-  return (
-    <div className="max-w-[85rem] mx-auto space-y-6 px-4 sm:px-6 py-6 md:py-8">
-      <div>
-        <h1 className="text-2xl md:text-3xl font-bold mb-2">Lamaran Saya</h1>
-        <p className="text-gray-500">Pantau dan kelola lamaran kerja Anda</p>
-      </div>
-      
-      <Suspense fallback={<ApplicationsSkeleton />}>
-        <ApplicationsClient initialApplications={initialApplications} />
-      </Suspense>
-    </div>
-  );
-}
+} 

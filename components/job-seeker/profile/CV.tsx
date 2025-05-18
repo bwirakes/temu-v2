@@ -4,8 +4,8 @@ import { FileText, Download, Edit } from "lucide-react";
 import { SectionCard, EmptyState } from "./ProfileComponents";
 
 interface CVProps {
-  cvFileUrl?: string;
-  cvUploadDate?: string;
+  cvFileUrl?: string | null;
+  cvUploadDate?: string | Date | null;
 }
 
 export function CV({ cvFileUrl, cvUploadDate }: CVProps) {
