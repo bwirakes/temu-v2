@@ -1,21 +1,17 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { Upload, X, Check, RefreshCw, Camera } from "lucide-react";
 import Image from "next/image";
 import { useOnboarding } from "@/lib/context/OnboardingContext";
-import { useOnboardingApi } from "@/lib/hooks/useOnboardingApi";
 import { Button } from "@/components/ui/button";
 import FormNav from "@/components/FormNav";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
 export default function ProfilePhotoForm() {
-  const { data, updateFormValues, setCurrentStep } = useOnboarding();
-  const router = useRouter();
+  const { data, updateFormValues, navigateToNextStep, saveCurrentStepData, isSaving: contextIsSaving } = useOnboarding();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { saveStep, isLoading: isSaving } = useOnboardingApi();
   const [imagePreview, setImagePreview] = useState<string | null>(data.profilePhotoUrl || null);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [uploadStatus, setUploadStatus] = useState<"idle" | "uploading" | "success" | "error">("idle");
@@ -59,8 +55,7 @@ export default function ProfilePhotoForm() {
   const handleSubmit = async () => {
     if (!photoFile && !data.profilePhotoUrl) {
       // Skip if no file uploaded - this step is optional
-      setCurrentStep(10);
-      router.push("/job-seeker/onboarding/ringkasan");
+      navigateToNextStep();
       return;
     }
     
@@ -78,20 +73,24 @@ export default function ProfilePhotoForm() {
       }
       
       // Update context with photo URL
-      const updatedValues = {
+      updateFormValues({
         profilePhotoUrl: photoUrl,
-      };
+      });
       
-      updateFormValues(updatedValues);
+      // Save using context's saveCurrentStepData
+      const saveSuccess = await saveCurrentStepData();
       
-      // Save to API
-      await saveStep(9, updatedValues);
-      
-      setUploadStatus("success");
-      toast.success("Foto profil berhasil diunggah!");
-      
-      // Don't automatically navigate to the next step after upload
-      // Let the user manually continue or skip
+      if (saveSuccess) {
+        setUploadStatus("success");
+        toast.success("Foto profil berhasil diunggah!");
+        
+        // Don't automatically navigate to the next step after upload
+        // Let the user manually continue or skip
+      } else {
+        setUploadStatus("error");
+        setErrorMessage("Gagal menyimpan foto profil. Silakan coba lagi.");
+        toast.error("Gagal menyimpan foto profil");
+      }
     } catch (error) {
       console.error("Error uploading file:", error);
       setUploadStatus("error");
@@ -108,7 +107,7 @@ export default function ProfilePhotoForm() {
       // Automatically trigger the upload process when a file is selected
       handleSubmit();
     }
-  }, [photoFile, handleSubmit]);
+  }, [photoFile]);
   
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -187,18 +186,13 @@ export default function ProfilePhotoForm() {
   };
   
   const handleNext = () => {
-    // Navigate to next step
-    setCurrentStep(10);
-    router.push("/job-seeker/onboarding/ringkasan");
+    // Navigate to next step using navigateToNextStep
+    navigateToNextStep();
   };
   
   const handleSkip = () => {
-    // Make sure to set the correct step number before redirecting
-    setCurrentStep(10);
-    // Use a timeout to ensure state updates have time to complete
-    setTimeout(() => {
-      router.push("/job-seeker/onboarding/ringkasan");
-    }, 100);
+    // Skip to next step using navigateToNextStep
+    navigateToNextStep();
   };
   
   return (
@@ -304,10 +298,10 @@ export default function ProfilePhotoForm() {
         <Button
           type="button"
           onClick={handleNext}
-          disabled={isSubmitting || isSaving}
+          disabled={isSubmitting || contextIsSaving}
           className="w-full sm:w-auto"
         >
-          {isSubmitting || isSaving ? "Memproses..." : "Lanjutkan"}
+          {isSubmitting || contextIsSaving ? "Memproses..." : "Lanjutkan"}
         </Button>
       </div>
     </div>

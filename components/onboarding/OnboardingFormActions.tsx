@@ -1,7 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useOnboardingApi } from "@/lib/hooks/useOnboardingApi";
+import { useOnboarding } from "@/lib/context/OnboardingContext";
 import { useState } from "react";
 
 interface OnboardingFormActionsProps {
@@ -21,8 +20,13 @@ export default function OnboardingFormActions({
   onBeforeSubmit,
   isLastStep = false,
 }: OnboardingFormActionsProps) {
-  const router = useRouter();
-  const { saveStep, isLoading } = useOnboardingApi();
+  const { 
+    saveCurrentStepData, 
+    isSaving, 
+    saveError: contextSaveError,
+    navigateToNextStep,
+    navigateToPreviousStep
+  } = useOnboarding();
   const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async () => {
@@ -35,14 +39,22 @@ export default function OnboardingFormActions({
         if (!isValid) return;
       }
 
-      // Save current step data
-      await saveStep(currentStep);
+      // Save current step data using the context's saveCurrentStepData function
+      const saveSuccess = await saveCurrentStepData();
+      
+      if (!saveSuccess) {
+        // If there was an error saving, it will be available in contextSaveError
+        setError(contextSaveError || "Failed to save data");
+        return;
+      }
 
-      // Navigate to next step or success page
+      // Navigate to next step or success page using the context's navigation functions
       if (nextStep) {
-        router.push(nextStep);
+        navigateToNextStep();
       } else if (isLastStep) {
-        router.push("/job-seeker/onboarding/success");
+        // For the last step, we still use direct navigation to success page
+        // as it might not be part of the standard onboarding flow
+        window.location.href = "/job-seeker/onboarding/success";
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save data");
@@ -51,9 +63,9 @@ export default function OnboardingFormActions({
 
   return (
     <div className="mt-8 space-y-4">
-      {error && (
+      {(error || contextSaveError) && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md">
-          {error}
+          {error || contextSaveError}
         </div>
       )}
 
@@ -61,9 +73,9 @@ export default function OnboardingFormActions({
         {previousStep ? (
           <button
             type="button"
-            onClick={() => router.push(previousStep)}
+            onClick={() => navigateToPreviousStep()}
             className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-            disabled={isLoading}
+            disabled={isSaving}
           >
             Kembali
           </button>
@@ -75,9 +87,9 @@ export default function OnboardingFormActions({
           type="button"
           onClick={handleSubmit}
           className="inline-flex justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-blue-300 disabled:cursor-not-allowed"
-          disabled={isSubmitDisabled || isLoading}
+          disabled={isSubmitDisabled || isSaving}
         >
-          {isLoading ? (
+          {isSaving ? (
             <>
               <svg
                 className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"

@@ -15,7 +15,6 @@ import FormNav from "@/components/FormNav";
 import { cn } from "@/lib/utils";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { FormLabel } from "@/components/ui/form-label";
-import { useOnboardingApi } from "@/lib/hooks/useOnboardingApi";
 import { toast } from "sonner";
 
 const ekspektasiKerjaSchema = z.object({
@@ -32,8 +31,7 @@ const ekspektasiKerjaSchema = z.object({
 type EkspektasiKerjaValues = z.infer<typeof ekspektasiKerjaSchema>;
 
 export default function EkspektasiKerjaForm() {
-  const { data, updateFormValues, navigateToNextStep, currentStep } = useOnboarding();
-  const { saveStep, isLoading: isSaving } = useOnboardingApi();
+  const { data, updateFormValues, navigateToNextStep, saveCurrentStepData, isSaving: contextIsSaving } = useOnboarding();
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   // Parse existing ekspektasiKerja if it's a string
@@ -95,13 +93,17 @@ export default function EkspektasiKerjaForm() {
         ekspektasiKerja: ekspektasiData,
       });
       
-      // Save data to API with proper error handling
+      // Save data using context's saveCurrentStepData
       try {
-        await saveStep(currentStep, { ekspektasiKerja: ekspektasiData });
-        toast.success("Ekspektasi kerja berhasil disimpan");
+        const saveSuccess = await saveCurrentStepData();
         
-        // Use the centralized navigation function
-        navigateToNextStep();
+        if (saveSuccess) {
+          toast.success("Ekspektasi kerja berhasil disimpan");
+          // Use the centralized navigation function
+          navigateToNextStep();
+        } else {
+          toast.error("Gagal menyimpan ekspektasi kerja");
+        }
       } catch (apiError) {
         console.error("API Error:", apiError);
         const errorMessage = apiError instanceof Error 
@@ -256,7 +258,7 @@ export default function EkspektasiKerjaForm() {
         </div>
       </div>
       
-      <FormNav isSubmitting={isSubmitting || isSaving} saveOnNext={true} />
+      <FormNav isSubmitting={isSubmitting || contextIsSaving} saveOnNext={false} />
     </form>
   );
 } 

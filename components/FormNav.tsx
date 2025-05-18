@@ -2,7 +2,6 @@
 
 import { Button } from "@/components/ui/button";
 import { useOnboarding, onboardingSteps, optionalSteps } from "@/lib/context/OnboardingContext";
-import { useOnboardingApi } from "@/lib/hooks/useOnboardingApi";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -19,41 +18,83 @@ export default function FormNav({
   isSubmitting: formSubmitting, 
   disableNext, 
   onSkip,
-  saveOnNext = true
+  saveOnNext = false
 }: FormNavProps) {
   const { 
     currentStep, 
     navigateToNextStep,
     navigateToPreviousStep,
-    isOptionalStep
+    isOptionalStep,
+    saveCurrentStepData,
+    isSaving: contextIsSaving,
+    saveError
   } = useOnboarding();
-  const { saveStep, isLoading: apiLoading } = useOnboardingApi();
   const [isSaving, setIsSaving] = useState(false);
   
-  const isSubmitting = formSubmitting || apiLoading || isSaving;
+  const isSubmitting = formSubmitting || contextIsSaving || isSaving;
 
   const handleNext = async () => {
     if (onSubmit) {
       // If there's a custom submit handler, use it
+      console.log("[FormNav] Using custom onSubmit handler");
       onSubmit();
     } else {
       // Otherwise, handle navigation and data saving
       if (saveOnNext && !isOptionalStep(currentStep)) {
         try {
+          console.log(`[FormNav] Saving data for required step ${currentStep}`);
           setIsSaving(true);
-          await saveStep(currentStep);
-          toast.success("Data berhasil disimpan");
+          const saveSuccess = await saveCurrentStepData();
+          
+          if (saveSuccess) {
+            toast.success("Data berhasil disimpan");
+            // Use the centralized navigation function
+            console.log(`[FormNav] Data saved successfully, navigating to next step from step ${currentStep}`);
+            navigateToNextStep();
+          } else {
+            // Check if there's a specific error message from the context
+            if (saveError) {
+              console.error(`[FormNav] Failed to save data for step ${currentStep}: ${saveError}`);
+              toast.error(saveError);
+            } else {
+              toast.error("Gagal menyimpan data");
+              console.error(`[FormNav] Failed to save data for step ${currentStep} - no specific error provided`);
+            }
+          }
         } catch (error) {
-          console.error("Error saving data:", error);
-          toast.error("Gagal menyimpan data");
-          // Continue with navigation even if save fails
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          console.error(`[FormNav] Error saving data for step ${currentStep}:`, error);
+          toast.error(`Gagal menyimpan data: ${errorMessage}`);
+          // Don't continue with navigation if save fails
         } finally {
           setIsSaving(false);
         }
+      } else {
+        // For optional steps or when saveOnNext is false, just navigate
+        console.log(`[FormNav] Skipping save for optional step ${currentStep} or saveOnNext=${saveOnNext}`);
+        
+        // For optional steps, try to save anyway if saveOnNext is true
+        if (saveOnNext && isOptionalStep(currentStep)) {
+          try {
+            console.log(`[FormNav] Attempting to save optional step ${currentStep} data`);
+            setIsSaving(true);
+            const saveSuccess = await saveCurrentStepData();
+            
+            if (saveSuccess) {
+              console.log(`[FormNav] Optional step ${currentStep} data saved successfully`);
+            } else {
+              console.log(`[FormNav] Optional step ${currentStep} data save skipped or failed (this is OK for optional steps)`);
+            }
+          } catch (error) {
+            console.error(`[FormNav] Error saving optional step ${currentStep} data:`, error);
+            // Don't show error toast for optional steps
+          } finally {
+            setIsSaving(false);
+          }
+        }
+        
+        navigateToNextStep();
       }
-      
-      // Use the centralized navigation function
-      navigateToNextStep();
     }
   };
 

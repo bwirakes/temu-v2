@@ -20,6 +20,20 @@ import { createInsertSchema } from 'drizzle-zod';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 
+// Define onboarding steps directly here for server-side use
+const onboardingSteps = [
+  { id: 1, path: "/job-seeker/onboarding/informasi-dasar", title: "Informasi Dasar" },
+  { id: 2, path: "/job-seeker/onboarding/informasi-lanjutan", title: "Informasi Lanjutan" },
+  { id: 3, path: "/job-seeker/onboarding/alamat", title: "Alamat" },
+  { id: 4, path: "/job-seeker/onboarding/pendidikan", title: "Pendidikan" },
+  { id: 5, path: "/job-seeker/onboarding/level-pengalaman", title: "Level Pengalaman" },
+  { id: 6, path: "/job-seeker/onboarding/pengalaman-kerja", title: "Pengalaman Kerja" },
+  { id: 7, path: "/job-seeker/onboarding/ekspektasi-kerja", title: "Ekspektasi Kerja" },
+  { id: 8, path: "/job-seeker/onboarding/cv-upload", title: "CV Upload" },
+  { id: 9, path: "/job-seeker/onboarding/foto-profile", title: "Foto Profil" },
+  { id: 10, path: "/job-seeker/onboarding/ringkasan", title: "Ringkasan" },
+];
+
 // For improved performance in serverless environments
 const globalForPg = globalThis as unknown as {
   sql: ReturnType<typeof postgres> | undefined;
@@ -912,56 +926,157 @@ export async function getJobSeekerOnboardingStatus(userId: string) {
     
     if (!userProfile) {
       // User hasn't started onboarding
+      // Use step 1 path from onboardingSteps
+      const firstStep = onboardingSteps.find(step => step.id === 1);
       return {
         completed: false,
         currentStep: 1,
-        redirectTo: '/job-seeker/onboarding/informasi-dasar'
+        redirectTo: firstStep?.path || '/job-seeker/onboarding/informasi-dasar',
+        completedSteps: []
       };
     }
     
-    // Check if basic info is completed
-    const isBasicInfoComplete = Boolean(
-      userProfile.namaLengkap && 
-      userProfile.nomorTelepon
-    );
+    // Calculate completed steps using a consistent approach
+    const completedSteps: number[] = [];
     
-    // Get education records to check if education info is completed
+    // Step 1: Informasi Dasar
+    if (userProfile.namaLengkap && userProfile.email && userProfile.nomorTelepon) {
+      completedSteps.push(1);
+    }
+    
+    // Step 2: Informasi Lanjutan
+    if (userProfile.tanggalLahir && userProfile.tempatLahir) {
+      completedSteps.push(2);
+    }
+    
+    // Step 3: Alamat
+    const userAddressesResult = await db
+      .select()
+      .from(userAddresses)
+      .where(eq(userAddresses.userProfileId, userProfile.id));
+    
+    if (userAddressesResult && userAddressesResult.length > 0) {
+      // At least one address is stored in the database
+      completedSteps.push(3);
+    }
+    
+    // Step 4: Pendidikan
     const educationRecords = await getUserPendidikanByProfileId(userProfile.id);
-    const isEducationComplete = educationRecords && educationRecords.length > 0;
-    
-    // Get work experience records to check if experience info is completed
-    const experienceRecords = await getUserPengalamanKerjaByProfileId(userProfile.id);
-    const isExperienceComplete = experienceRecords && experienceRecords.length > 0;
-    
-    // Determine current status
-    if (!isBasicInfoComplete) {
-      return {
-        completed: false,
-        currentStep: 1,
-        redirectTo: '/job-seeker/onboarding/informasi-dasar'
-      };
-    } else if (!isEducationComplete) {
-      return {
-        completed: false,
-        currentStep: 2,
-        redirectTo: '/job-seeker/onboarding/pendidikan'
-      };
-    } else if (!isExperienceComplete) {
-      return {
-        completed: false,
-        currentStep: 3,
-        redirectTo: '/job-seeker/onboarding/pengalaman'
-      };
+    if (educationRecords && educationRecords.length > 0) {
+      completedSteps.push(4);
     }
     
-    // All steps completed
+    // Step 5: Level Pengalaman
+    if (userProfile.levelPengalaman) {
+      completedSteps.push(5);
+    }
+    
+    // Optional steps (6-9) follow the same pattern as in calculateCompletedSteps
+    // Step 6: Pengalaman Kerja (optional)
+    const experienceRecords = await getUserPengalamanKerjaByProfileId(userProfile.id);
+    if (experienceRecords && experienceRecords.length > 0) {
+      // Actual data provided
+      completedSteps.push(6);
+    } else if (completedSteps.includes(5)) {
+      // No data but the user has completed all required steps
+      completedSteps.push(6);
+    }
+    
+    // Step 7: Ekspektasi Kerja (optional)
+    if (userProfile.ekspektasiKerja && Object.keys(userProfile.ekspektasiKerja).length > 0) {
+      completedSteps.push(7);
+    } else if (completedSteps.includes(6)) {
+      completedSteps.push(7);
+    }
+    
+    // Step 8: CV Upload (optional)
+    if (userProfile.cvFileUrl) {
+      completedSteps.push(8);
+    } else if (completedSteps.includes(7)) {
+      completedSteps.push(8);
+    }
+    
+    // Step 9: Profile Photo (optional)
+    if (userProfile.profilePhotoUrl) {
+      completedSteps.push(9);
+    } else if (completedSteps.includes(8)) {
+      completedSteps.push(9);
+    }
+    
+    // Determine the current step based on completed steps
+    let currentStep = 1;
+    let redirectTo = '/job-seeker/onboarding/informasi-dasar';
+    let completed = false;
+    
+    // Find the first incomplete required step
+    for (let i = 1; i <= 5; i++) {
+      if (!completedSteps.includes(i)) {
+        currentStep = i;
+        const stepInfo = onboardingSteps.find(step => step.id === i);
+        redirectTo = stepInfo?.path || `/job-seeker/onboarding/${getPathForStepNumber(i)}`;
+        break;
+      }
+    }
+    
+    // If all required steps are complete
+    if (completedSteps.includes(1) && 
+        completedSteps.includes(2) && 
+        completedSteps.includes(3) && 
+        completedSteps.includes(4) && 
+        completedSteps.includes(5)) {
+      
+      // If we've reached here, all required steps (1-5) are complete
+      // Check for the first incomplete optional step
+      for (let i = 6; i <= 9; i++) {
+        if (!completedSteps.includes(i)) {
+          currentStep = i;
+          const stepInfo = onboardingSteps.find(step => step.id === i);
+          redirectTo = stepInfo?.path || `/job-seeker/onboarding/${getPathForStepNumber(i)}`;
+          break;
+        }
+      }
+      
+      // If all steps (1-9) are complete, redirect to summary
+      if (completedSteps.length === 9) {
+        currentStep = 10; // Summary step
+        redirectTo = '/job-seeker/onboarding/ringkasan';
+        completed = true;
+      }
+    }
+    
+    console.log(`Calculated onboarding status for user ${userId}:`, {
+      completed,
+      currentStep,
+      redirectTo,
+      completedSteps
+    });
+    
     return {
-      completed: true,
-      currentStep: 4,
-      redirectTo: '/job-seeker/dashboard'
+      completed,
+      currentStep,
+      redirectTo,
+      completedSteps
     };
   } catch (error) {
     console.error("Error checking job seeker onboarding status:", error);
     throw error;
   }
+}
+
+// Helper function to get path fragment for a step number
+function getPathForStepNumber(stepNumber: number): string {
+  const pathMap: Record<number, string> = {
+    1: 'informasi-dasar',
+    2: 'informasi-lanjutan',
+    3: 'alamat',
+    4: 'pendidikan',
+    5: 'level-pengalaman',
+    6: 'pengalaman-kerja',
+    7: 'ekspektasi-kerja',
+    8: 'cv-upload',
+    9: 'foto-profile',
+    10: 'ringkasan'
+  };
+  
+  return pathMap[stepNumber] || 'informasi-dasar';
 }

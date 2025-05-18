@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useOnboarding } from "@/lib/context/OnboardingContext";
-import { useOnboardingApi } from "@/lib/hooks/useOnboardingApi";
 import { CheckCircle2, AlertCircle, FileText, Camera } from "lucide-react";
 import Image from "next/image";
 import { toast } from "sonner";
@@ -16,8 +15,15 @@ interface LevelPengalamanData {
 }
 
 export default function RingkasanProfil() {
-  const { data } = useOnboarding();
-  const { loadOnboardingData, saveStep, isLoading } = useOnboardingApi();
+  const { 
+    data, 
+    isStepComplete, 
+    saveCurrentStepData, 
+    isSaving, 
+    saveError,
+    navigateToStep,
+    getStepPath
+  } = useOnboarding();
   const [isDataLoaded, setIsDataLoaded] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState<boolean | null>(null);
@@ -29,39 +35,12 @@ export default function RingkasanProfil() {
     setIsDataLoaded(true);
   }, []);
 
-  // Utility function to check if a step is complete based on the data
-  const isStepComplete = (step: number): boolean => {
-    
-    switch (step) {
-      case 1: // Informasi Dasar
-        return !!data.namaLengkap && !!data.email && !!data.nomorTelepon;
-      case 2: // Informasi Lanjutan
-        return !!data.tanggalLahir && !!data.tempatLahir;
-      case 3: // Alamat
-        return !!data.alamat?.kota;
-      case 4: // Pendidikan
-        return data.pendidikan.length > 0;
-      case 5: // Level Pengalaman
-        return !!data.levelPengalaman;
-      case 6: // Pengalaman Kerja (optional)
-        return true;
-      case 7: // Ekspektasi Kerja (optional)
-        return true;
-      case 8: // CV Upload (optional)
-        return true;
-      case 9: // Profile Photo (optional)
-        return true;
-      default:
-        return false;
-    }
-  };
-
   const handleSubmit = async () => {
     setIsSubmitting(true);
     setSubmitSuccess(null);
     setSubmitError(null);
 
-    // Client-side validation before submission
+    // Client-side validation before submission using the context's isStepComplete
     const incompleteRequiredSteps = [];
     
     // Check required steps (1-5)
@@ -85,16 +64,20 @@ export default function RingkasanProfil() {
       setSubmitError(errorMessage);
       setIsSubmitting(false);
       
+      // Use the navigateToStep function from context instead of direct URL manipulation
       setTimeout(() => {
-        const redirectPath = `/job-seeker/onboarding/${getRedirectPathForStep(redirectStep)}`;
-        window.location.href = redirectPath;
+        navigateToStep(redirectStep);
       }, 2000);
       return;
     }
 
     try {
-      // Save the final step first
-      await saveStep(10); // Updated to the correct step number
+      // Save the final step first using the context
+      const saveSuccess = await saveCurrentStepData();
+      
+      if (!saveSuccess) {
+        throw new Error(saveError || "Failed to save current step");
+      }
       
       // Submit the completed profile
       const response = await fetch("/api/job-seeker/onboarding/submit", {
@@ -136,23 +119,7 @@ export default function RingkasanProfil() {
     }
   };
 
-  // Helper function to get the redirect path for a step
-  const getRedirectPathForStep = (step: number): string => {
-    switch (step) {
-      case 1: return "informasi-dasar";
-      case 2: return "informasi-lanjutan";
-      case 3: return "alamat";
-      case 4: return "pendidikan";
-      case 5: return "level-pengalaman";
-      case 6: return "pengalaman-kerja";
-      case 7: return "ekspektasi-kerja";
-      case 8: return "cv-upload";
-      case 9: return "foto-profile";
-      default: return "ringkasan";
-    }
-  };
-
-  if (isLoading && !isDataLoaded) {
+  if (isSaving && !isDataLoaded) {
     return (
       <div className="flex justify-center items-center py-12">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
@@ -168,8 +135,21 @@ export default function RingkasanProfil() {
   
   if (typeof ekspektasiKerjaData === 'string' && ekspektasiKerjaData) {
     try {
-      ekspektasiKerjaData = JSON.parse(ekspektasiKerjaData);
-      console.log("Parsed ekspektasiKerja from string:", ekspektasiKerjaData);
+      // Only try to parse as JSON if it looks like a JSON string
+      const strValue = ekspektasiKerjaData as string;
+      if (strValue.trim().startsWith('{') && strValue.trim().endsWith('}')) {
+        ekspektasiKerjaData = JSON.parse(strValue);
+        console.log("Parsed ekspektasiKerja from string:", ekspektasiKerjaData);
+      } else {
+        // If it's not a JSON format string, initialize with default values and use the string as jobTypes
+        console.warn("ekspektasiKerja is a string but not in JSON format:", ekspektasiKerjaData);
+        ekspektasiKerjaData = {
+          idealSalary: 0,
+          willingToTravel: "local_only",
+          jobTypes: strValue, // Use the string value as jobTypes
+          preferensiLokasiKerja: "WFO"
+        };
+      }
     } catch (e) {
       console.error("Failed to parse ekspektasiKerja JSON:", e);
       ekspektasiKerjaData = {
@@ -205,7 +185,15 @@ export default function RingkasanProfil() {
   if (data.levelPengalaman) {
     if (typeof data.levelPengalaman === 'string') {
       try {
-        levelPengalamanData = JSON.parse(data.levelPengalaman) as LevelPengalamanData;
+        // Try to parse as JSON first
+        if (data.levelPengalaman.startsWith('{') && data.levelPengalaman.endsWith('}')) {
+          levelPengalamanData = JSON.parse(data.levelPengalaman) as LevelPengalamanData;
+        } else {
+          // If it's not a JSON string, use it directly as the levelPengalaman value
+          levelPengalamanData = {
+            levelPengalaman: data.levelPengalaman
+          };
+        }
       } catch (e) {
         console.error("Failed to parse levelPengalaman JSON:", e);
         // If parsing fails, use the string as the enum value

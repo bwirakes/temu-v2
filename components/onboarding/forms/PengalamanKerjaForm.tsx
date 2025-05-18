@@ -9,7 +9,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import FormNav from "@/components/FormNav";
 import PengalamanKerjaItem from "./PengalamanKerjaItem";
 import { FormLabel } from "@/components/ui/form-label";
-import { useOnboardingApi } from "@/lib/hooks/useOnboardingApi";
 import { toast } from "sonner";
 
 // Updated to match exact database enum values
@@ -24,49 +23,90 @@ const levelPengalamanOptions = [
 ] as const;
 
 export default function PengalamanKerjaForm() {
-  const { data, updateFormValues, setCurrentStep } = useOnboarding();
-  const { saveStep, isLoading: isSaving } = useOnboardingApi();
-  const router = useRouter();
+  const { 
+    data, 
+    updateFormValues, 
+    saveCurrentStepData, 
+    navigateToNextStep,
+    isSaving: contextIsSaving
+  } = useOnboarding();
+  
+  const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Initialize state values with defaults - WITHOUT calling context updates during initialization
+  // We'll determine this based on the existing data but not update context immediately
+  const [tidakAdaPengalaman, setTidakAdaPengalaman] = useState(false);
   const [pengalamanList, setPengalamanList] = useState<PengalamanKerja[]>([]);
-  const [levelPengalaman, setLevelPengalaman] = useState<string>(
-    levelPengalamanOptions[0]
-  );
-  const [tidakAdaPengalaman, setTidakAdaPengalaman] = useState<boolean>(false);
-  const [isInitialized, setIsInitialized] = useState(false);
-
-  // Initialize with existing data or create default item
+  
+  // First useEffect - Initialize local state based on context data
   useEffect(() => {
-    if (isInitialized) return;
+    console.log("[PengalamanKerjaForm] Initializing with data:", data.pengalamanKerja);
+    const hasNoExperience = !data.pengalamanKerja || data.pengalamanKerja.length === 0;
     
-    if (data.pengalamanKerja && data.pengalamanKerja.length > 0) {
-      // If there's existing data, use it
-      setPengalamanList(data.pengalamanKerja);
-      setTidakAdaPengalaman(false);
+    // Set tidakAdaPengalaman based on data
+    setTidakAdaPengalaman(hasNoExperience);
+    
+    if (hasNoExperience) {
+      console.log("[PengalamanKerjaForm] No existing data, initializing empty");
+      setPengalamanList([]);
     } else {
-      // Create a default item if there's no data
-      const newId = Date.now().toString();
-      const defaultItem: PengalamanKerja = {
-        id: newId,
-        levelPengalaman: levelPengalaman as PengalamanKerja["levelPengalaman"],
-        namaPerusahaan: "",
-        posisi: "",
-        tanggalMulai: "",
-        tanggalSelesai: "",
-        lokasiKerja: "WFO",
-      };
+      console.log("[PengalamanKerjaForm] Found existing data:", data.pengalamanKerja.length, "entries");
       
-      setPengalamanList([defaultItem]);
+      // Only take valid entries that have required fields
+      const validEntries = data.pengalamanKerja.filter(p => 
+        p.namaPerusahaan && 
+        p.posisi && 
+        p.tanggalMulai && 
+        (p.tanggalSelesai || p.tanggalSelesai === "Sekarang")
+      );
+      
+      setPengalamanList(validEntries);
+      
+      // If the filtered list is empty but we had original entries, add a new empty one
+      if (validEntries.length === 0 && data.pengalamanKerja.length > 0) {
+        const newItem: PengalamanKerja = {
+          id: Date.now().toString(),
+          levelPengalaman: "Baru lulus",
+          namaPerusahaan: "",
+          posisi: "",
+          tanggalMulai: "",
+          tanggalSelesai: "",
+          lokasiKerja: "WFO",
+        };
+        setPengalamanList([newItem]);
+      }
     }
     
-    setIsInitialized(true);
-  }, [data.pengalamanKerja, levelPengalaman, isInitialized]);
-
+    setIsLoading(false);
+  }, []); // Only run on mount
+  
+  // Second useEffect - Update context when tidakAdaPengalaman changes AFTER component has mounted
+  useEffect(() => {
+    // Skip initial render to avoid updating during mount
+    if (isLoading) return;
+    
+    if (tidakAdaPengalaman) {
+      console.log("[PengalamanKerjaForm] Updating context with empty pengalamanKerja due to tidakAdaPengalaman");
+      
+      // Update context with empty array
+      updateFormValues({
+        pengalamanKerja: []
+      });
+      
+      // Clear pengalaman list when tidakAdaPengalaman is true
+      if (pengalamanList.length > 0) {
+        setPengalamanList([]);
+      }
+    }
+  }, [tidakAdaPengalaman, updateFormValues, isLoading, pengalamanList.length]);
+  
+  // Add a new empty pengalaman kerja entry
   const handleAddPengalaman = () => {
-    const newId = Date.now().toString();
+    console.log("[PengalamanKerjaForm] Adding new pengalaman entry");
     const newItem: PengalamanKerja = {
-      id: newId,
-      levelPengalaman: levelPengalaman as PengalamanKerja["levelPengalaman"],
+      id: Date.now().toString(),
+      levelPengalaman: "Baru lulus",
       namaPerusahaan: "",
       posisi: "",
       tanggalMulai: "",
@@ -74,46 +114,55 @@ export default function PengalamanKerjaForm() {
       lokasiKerja: "WFO",
     };
     
-    setPengalamanList([...pengalamanList, newItem]);
+    setPengalamanList(prev => [newItem, ...prev]);
   };
   
+  // Update an existing pengalaman kerja entry
   const handleSavePengalaman = (item: PengalamanKerja) => {
-    const updatedList = pengalamanList.map((p) => 
-      p.id === item.id ? item : p
-    );
-    
-    if (!updatedList.find((p) => p.id === item.id)) {
-      updatedList.push(item);
-    }
-    
-    setPengalamanList(updatedList);
+    console.log("[PengalamanKerjaForm] Saving pengalaman item:", item.id);
+    setPengalamanList(prev => {
+      const updated = prev.map(p => p.id === item.id ? item : p);
+      
+      // Update context with the new list - but only if we're not in "no experience" mode
+      if (!tidakAdaPengalaman) {
+        updateFormValues({
+          pengalamanKerja: updated
+        });
+      }
+      
+      return updated;
+    });
   };
   
+  // Delete a pengalaman kerja entry
   const handleDeletePengalaman = (id: string) => {
-    const updatedList = pengalamanList.filter((p) => p.id !== id);
-    setPengalamanList(updatedList);
+    console.log("[PengalamanKerjaForm] Deleting pengalaman item:", id);
+    setPengalamanList(prev => {
+      const filtered = prev.filter(p => p.id !== id);
+      
+      // Update context with the new list - but only if we're not in "no experience" mode
+      if (!tidakAdaPengalaman) {
+        updateFormValues({
+          pengalamanKerja: filtered
+        });
+      }
+      
+      return filtered;
+    });
+  };
+  
+  // Toggle tidakAdaPengalaman checkbox
+  const handleTidakAdaPengalamanChange = (checked: boolean) => {
+    console.log("[PengalamanKerjaForm] Toggling tidakAdaPengalaman:", checked);
+    setTidakAdaPengalaman(checked);
     
-    // If all items are deleted, add a default one
-    if (updatedList.length === 0 && !tidakAdaPengalaman) {
+    if (!checked && pengalamanList.length === 0) {
+      // If experience is required but no entries exist, add an empty one
       handleAddPengalaman();
     }
   };
   
-  const handleTidakAdaPengalamanChange = (checked: boolean) => {
-    setTidakAdaPengalaman(checked);
-    
-    if (checked) {
-      // Save the current items in case user changes their mind
-      // But clear the visible list
-      setPengalamanList([]);
-    } else {
-      // If unchecking and there are no items, add a default one
-      if (pengalamanList.length === 0) {
-        handleAddPengalaman();
-      }
-    }
-  };
-  
+  // Submit the form - simplified to match PendidikanForm approach
   const handleSubmit = async () => {
     try {
       setIsSubmitting(true);
@@ -131,27 +180,30 @@ export default function PengalamanKerjaForm() {
       );
       
       if (hasInvalidEntries) {
+        console.log("[PengalamanKerjaForm] Form validation failed - incomplete entries");
         toast.error("Mohon lengkapi semua data pengalaman kerja");
         setIsSubmitting(false);
         return;
       }
       
-      // Update context with form values
+      // Update context with form values (simplifying like in PendidikanForm)
       updateFormValues({
         pengalamanKerja: finalPengalamanList,
       });
       
-      // Save data to API with proper error handling
+      // Save data using the context's saveCurrentStepData function
       try {
-        // Using correct step number 6 for Pengalaman Kerja
-        await saveStep(6, { pengalamanKerja: finalPengalamanList });
-        toast.success("Pengalaman kerja berhasil disimpan");
+        const saveSuccess = await saveCurrentStepData();
         
-        // Navigate to next step
-        setCurrentStep(7);
-        router.push("/job-seeker/onboarding/ekspektasi-kerja");
+        if (saveSuccess) {
+          toast.success("Pengalaman kerja berhasil disimpan");
+          // Navigate to next step on success
+          navigateToNextStep();
+        } else {
+          toast.error("Gagal menyimpan data pengalaman kerja");
+        }
       } catch (apiError) {
-        console.error("API Error:", apiError);
+        console.error("[PengalamanKerjaForm] API Error:", apiError);
         const errorMessage = apiError instanceof Error 
           ? apiError.message 
           : "Gagal menyimpan data ke server. Silakan coba lagi.";
@@ -159,7 +211,7 @@ export default function PengalamanKerjaForm() {
         toast.error(errorMessage);
       }
     } catch (error) {
-      console.error("Form submission error:", error);
+      console.error("[PengalamanKerjaForm] Form submission error:", error);
       const errorMessage = error instanceof Error 
         ? error.message 
         : "Gagal mengirim formulir. Silakan coba lagi.";
@@ -168,6 +220,10 @@ export default function PengalamanKerjaForm() {
       setIsSubmitting(false);
     }
   };
+  
+  if (isLoading) {
+    return <div className="p-4 text-center">Memuat data pengalaman kerja...</div>;
+  }
   
   return (
     <div className="space-y-6">
@@ -229,7 +285,7 @@ export default function PengalamanKerjaForm() {
       
       <FormNav 
         onSubmit={handleSubmit}
-        isSubmitting={isSubmitting || isSaving}
+        isSubmitting={isSubmitting || contextIsSaving}
         disableNext={!tidakAdaPengalaman && (
           pengalamanList.length === 0 || 
           pengalamanList.some(p => 
@@ -239,7 +295,7 @@ export default function PengalamanKerjaForm() {
             (!p.tanggalSelesai && p.tanggalSelesai !== "Sekarang")
           )
         )}
-        saveOnNext={true}
+        saveOnNext={false}
       />
     </div>
   );

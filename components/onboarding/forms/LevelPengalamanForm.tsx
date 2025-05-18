@@ -12,7 +12,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import FormNav from "@/components/FormNav";
-import { useOnboardingApi } from "@/lib/hooks/useOnboardingApi";
 import { toast } from "sonner";
 
 // Define possible experience levels
@@ -33,26 +32,16 @@ interface LevelPengalamanFormData {
 }
 
 export default function LevelPengalamanForm() {
-  const { data, updateFormValues, navigateToNextStep, currentStep } = useOnboarding();
-  const { saveStep, isLoading: isSaving } = useOnboardingApi();
+  const { data, updateFormValues, navigateToNextStep, saveCurrentStepData, isSaving: contextIsSaving } = useOnboarding();
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   // Initialize form state from existing data
   const initialLevelData: LevelPengalamanFormData = (() => {
-    // Handle case when levelPengalaman is a string
-    if (typeof data.levelPengalaman === 'string' && data.levelPengalaman) {
-      try {
-        // Try to parse it as JSON
-        return JSON.parse(data.levelPengalaman);
-      } catch (e) {
-        console.error("Failed to parse levelPengalaman as JSON:", e);
-        // If parsing fails, treat the string value as the enum value itself
-        return { levelPengalaman: data.levelPengalaman };
-      }
-    } 
-    // Handle case when levelPengalaman is already an object
-    else if (typeof data.levelPengalaman === 'object' && data.levelPengalaman !== null) {
-      return data.levelPengalaman as any;
+    // If we have a stored value, use it
+    if (data.levelPengalaman) {
+      return { 
+        levelPengalaman: data.levelPengalaman 
+      };
     } 
     // Default value
     else {
@@ -73,21 +62,24 @@ export default function LevelPengalamanForm() {
     try {
       setIsSubmitting(true);
       
-      // Ensure formData is properly serialized as valid JSON
-      const serializedFormData = JSON.stringify(formData);
-      
       // Update context with form values
       updateFormValues({
-        levelPengalaman: serializedFormData
+        levelPengalaman: formData.levelPengalaman
       });
       
-      // Save level pengalaman data to API
+      console.log("Saving level pengalaman:", formData.levelPengalaman);
+      
+      // Save using context's saveCurrentStepData
       try {
-        await saveStep(currentStep, { levelPengalaman: serializedFormData });
-        toast.success("Level pengalaman berhasil disimpan");
+        const saveSuccess = await saveCurrentStepData();
         
-        // Use the centralized navigation function
-        navigateToNextStep();
+        if (saveSuccess) {
+          toast.success("Level pengalaman berhasil disimpan");
+          // Use the centralized navigation function
+          navigateToNextStep();
+        } else {
+          toast.error("Gagal menyimpan level pengalaman");
+        }
       } catch (error) {
         console.error("Error saving level pengalaman:", error);
         toast.error("Gagal menyimpan level pengalaman. Silakan coba lagi.");
@@ -135,7 +127,7 @@ export default function LevelPengalamanForm() {
 
       <FormNav 
         onSubmit={handleSubmit}
-        isSubmitting={isSubmitting || isSaving}
+        isSubmitting={isSubmitting || contextIsSaving}
         saveOnNext={false}
       />
     </div>

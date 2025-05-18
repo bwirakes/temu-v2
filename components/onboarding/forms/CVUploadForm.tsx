@@ -3,16 +3,14 @@
 import { useState, useRef } from "react";
 import { Upload, X, Check, RefreshCw, FileText } from "lucide-react";
 import { useOnboarding } from "@/lib/context/OnboardingContext";
-import { useOnboardingApi } from "@/lib/hooks/useOnboardingApi";
 import { Button } from "@/components/ui/button";
 import FormNav from "@/components/FormNav";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
 export default function CVUploadForm() {
-  const { data, updateFormValues, navigateToNextStep, currentStep } = useOnboarding();
+  const { data, updateFormValues, navigateToNextStep, saveCurrentStepData, isSaving: contextIsSaving } = useOnboarding();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { saveStep, isLoading: isSaving } = useOnboardingApi();
   const [filePreview, setFilePreview] = useState<string | null>(data.cvFileUrl || null);
   const [cvFile, setCvFile] = useState<File | null>(null);
   const [uploadStatus, setUploadStatus] = useState<"idle" | "uploading" | "success" | "error">("idle");
@@ -137,26 +135,36 @@ export default function CVUploadForm() {
       
       // Only upload if there's a new file selected
       if (cvFile) {
+        console.log("Uploading new CV file...");
         fileUrl = await uploadToBlob(cvFile);
+        console.log("CV file uploaded successfully, URL:", fileUrl);
+      } else {
+        console.log("Using existing CV URL:", fileUrl);
       }
       
       // Update context with file URL
-      const updatedValues = {
+      updateFormValues({
         cvFileUrl: fileUrl, // Store permanent URL
-      };
+      });
       
-      updateFormValues(updatedValues);
+      // Save using context's saveCurrentStepData
+      console.log("Saving CV data...");
+      const saveSuccess = await saveCurrentStepData();
+      console.log("CV save result:", saveSuccess);
       
-      // Save to API
-      await saveStep(currentStep, updatedValues);
-      
-      setUploadStatus("success");
-      toast.success("CV berhasil diunggah!");
-      
-      // Use the centralized navigation function
-      setTimeout(() => {
-        navigateToNextStep();
-      }, 500);
+      if (saveSuccess) {
+        setUploadStatus("success");
+        toast.success("CV berhasil diunggah!");
+        
+        // Use the centralized navigation function
+        setTimeout(() => {
+          navigateToNextStep();
+        }, 500);
+      } else {
+        setUploadStatus("error");
+        setErrorMessage("Gagal menyimpan data CV. Silakan coba lagi.");
+        toast.error("Gagal menyimpan CV");
+      }
     } catch (error) {
       console.error("Error uploading file:", error);
       setUploadStatus("error");
@@ -250,9 +258,9 @@ export default function CVUploadForm() {
       
       <FormNav 
         onSubmit={handleSubmit}
-        isSubmitting={isSubmitting || isSaving}
+        isSubmitting={isSubmitting || contextIsSaving}
         onSkip={navigateToNextStep}
-        saveOnNext={true}
+        saveOnNext={false}
       />
     </div>
   );

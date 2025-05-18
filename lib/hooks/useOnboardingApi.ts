@@ -1,21 +1,53 @@
 "use client";
 
-import { useState } from "react";
+/**
+ * @deprecated Most functionality has been moved to OnboardingContext.
+ * This hook is kept for backward compatibility. New code should use useOnboarding() 
+ * from '@/lib/context/OnboardingContext' instead.
+ * 
+ * For saving data, use saveCurrentStepData() from useOnboarding()
+ * For navigation, use navigateToNextStep(), navigateToPreviousStep() or navigateToStep()
+ */
+
+import { useState, useEffect } from "react";
 import { useOnboarding } from "@/lib/context/OnboardingContext";
 
 export function useOnboardingApi() {
-  const { data, updateFormValues, currentStep } = useOnboarding();
+  const { 
+    data, 
+    updateFormValues, 
+    currentStep, 
+    saveCurrentStepData, 
+    isSaving: contextIsSaving,
+    navigateToNextStep
+  } = useOnboarding();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastSavedStep, setLastSavedStep] = useState<number | null>(null);
 
+  // Log deprecation warning when hook is used
+  useEffect(() => {
+    console.warn(
+      "useOnboardingApi is deprecated and will be removed in a future version. " +
+      "Please use useOnboarding() from '@/lib/context/OnboardingContext' instead.\n" +
+      "For saving data: use saveCurrentStepData()\n" +
+      "For navigation: use navigateToNextStep(), navigateToPreviousStep() or navigateToStep()"
+    );
+  }, []);
+
   /**
    * Save data for a specific step
+   * @deprecated Use saveCurrentStepData from useOnboarding() instead
    * @param step The step number to save data for
    * @param stepData Optional specific data to save for this step (defaults to current context data)
    * @returns Promise with the API response
    */
   const saveStep = async (step: number, stepData?: any) => {
+    console.warn(
+      "useOnboardingApi.saveStep is deprecated. Use useOnboarding().saveCurrentStepData instead. " +
+      "This method will redirect to the context method if saving the current step."
+    );
+    
     setIsLoading(true);
     setError(null);
 
@@ -25,6 +57,17 @@ export function useOnboardingApi() {
       
       // Extract only the relevant data for this step
       const relevantData = extractStepData(step, dataToSave);
+
+      // Update the context data first
+      updateFormValues(relevantData);
+      
+      // Use the context's saveCurrentStepData if the step matches current step
+      if (step === currentStep) {
+        const success = await saveCurrentStepData();
+        setLastSavedStep(step);
+        setIsLoading(false);
+        return { success, data: relevantData };
+      }
 
       console.log(`Saving step ${step} data:`, relevantData);
 
@@ -64,6 +107,7 @@ export function useOnboardingApi() {
 
   /**
    * Extract only the relevant data for a specific step
+   * @private Internal utility function
    */
   const extractStepData = (step: number, fullData: any) => {
     switch (step) {
@@ -129,7 +173,6 @@ export function useOnboardingApi() {
       
       case 8: // CV Upload
         return {
-          cvFile: fullData.cvFile,
           cvFileUrl: fullData.cvFileUrl
         };
 
@@ -145,9 +188,14 @@ export function useOnboardingApi() {
 
   /**
    * Auto-save the current step data
+   * @deprecated Use saveCurrentStepData from useOnboarding() instead
    */
   const autoSaveCurrentStep = async () => {
-    return saveStep(currentStep);
+    console.warn(
+      "useOnboardingApi.autoSaveCurrentStep is deprecated. " +
+      "Using useOnboarding().saveCurrentStepData instead."
+    );
+    return saveCurrentStepData();
   };
 
   /**
@@ -194,8 +242,12 @@ export function useOnboardingApi() {
     saveStep,
     autoSaveCurrentStep,
     loadOnboardingData,
-    isLoading,
+    isLoading: isLoading || contextIsSaving,
     error,
     lastSavedStep,
+    
+    // Forward key methods from the context as well
+    saveCurrentStepData,
+    navigateToNextStep
   };
 } 

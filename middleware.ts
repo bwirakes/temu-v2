@@ -112,14 +112,87 @@ export async function middleware(request: NextRequest) {
     
     console.log(`Middleware: User authenticated, type: ${userType}, email: ${user.email}`);
 
+    // Check if the user is a job seeker
+    if (userType === 'job_seeker') {
+      // Allow access to onboarding routes for job seekers
+      if (pathname.startsWith('/job-seeker/onboarding/')) {
+        console.log(`Middleware: Job seeker accessing onboarding route, allowing access`);
+        return NextResponse.next();
+      }
+      
+      // Skip onboarding check for onboarding-related API endpoints
+      if (
+        pathname.startsWith('/api/job-seeker/onboarding') || 
+        pathname.startsWith('/api/job-seeker/check-onboarding')
+      ) {
+        console.log(`Middleware: Allowing access to job seeker onboarding API: ${pathname}`);
+        return NextResponse.next();
+      }
+      
+      // Check onboarding status for job seekers when accessing non-onboarding routes
+      if (!pathname.startsWith('/job-seeker/onboarding/')) {
+        try {
+          // Fetch the job seeker's onboarding status
+          const onboardingResponse = await fetch(`${request.nextUrl.origin}/api/job-seeker/check-onboarding`, {
+            headers: {
+              'Cookie': request.headers.get('cookie') || ''
+            }
+          });
+          
+          if (onboardingResponse.ok) {
+            const onboardingStatus = await onboardingResponse.json();
+            
+            // If onboarding is not complete, redirect to the appropriate step
+            if (!onboardingStatus.completed) {
+              console.log(`Middleware: Job seeker onboarding incomplete, redirecting to step ${onboardingStatus.currentStep}`);
+              
+              // Use the redirectTo path from the API response
+              return NextResponse.redirect(new URL(onboardingStatus.redirectTo, request.url));
+            }
+            
+            console.log(`Middleware: Job seeker onboarding complete, allowing access to ${pathname}`);
+          } else {
+            console.error('Middleware: Failed to fetch onboarding status, defaulting to allow access');
+          }
+        } catch (error) {
+          console.error('Middleware: Error checking job seeker onboarding status:', error);
+        }
+      }
+    }
+
     // Special handling for the root route when user is already logged in
     if (pathname === '/' && userType) {
       if (userType === 'employer') {
         // For employers, redirect to employer page which will check onboarding status
         return NextResponse.redirect(new URL('/employer', request.url));
       } else if (userType === 'job_seeker') {
-        // Job seekers go to their dashboard
-        return NextResponse.redirect(new URL('/job-seeker/dashboard', request.url));
+        // Check if job seeker has completed onboarding before redirecting to dashboard
+        try {
+          const onboardingResponse = await fetch(`${request.nextUrl.origin}/api/job-seeker/check-onboarding`, {
+            headers: {
+              'Cookie': request.headers.get('cookie') || ''
+            }
+          });
+          
+          if (onboardingResponse.ok) {
+            const onboardingStatus = await onboardingResponse.json();
+            
+            if (!onboardingStatus.completed) {
+              // If onboarding is not complete, redirect to the appropriate step
+              return NextResponse.redirect(new URL(onboardingStatus.redirectTo, request.url));
+            }
+            
+            // If onboarding is complete, redirect to dashboard
+            return NextResponse.redirect(new URL('/job-seeker/dashboard', request.url));
+          } else {
+            // If we can't check onboarding status, default to dashboard
+            return NextResponse.redirect(new URL('/job-seeker/dashboard', request.url));
+          }
+        } catch (error) {
+          console.error('Middleware: Error checking onboarding status at root path:', error);
+          // Default to dashboard on error
+          return NextResponse.redirect(new URL('/job-seeker/dashboard', request.url));
+        }
       }
     }
 

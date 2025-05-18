@@ -3,18 +3,26 @@
 import { useOnboarding, onboardingSteps } from "@/lib/context/OnboardingContext";
 
 export default function ProgressBar() {
-  const { currentStep, completedSteps } = useOnboarding();
+  // Get the current step from context
+  const { currentStep } = useOnboarding();
   
-  // Calculate progress percentage
+  // Total number of steps in the onboarding process
   const totalSteps = onboardingSteps.length;
-  const completedStepsNumber = typeof completedSteps === 'number' ? completedSteps : 0;
-  const progress = Math.floor((completedStepsNumber / totalSteps) * 100);
+  
+  // Calculate progress based on current step
+  // Adjust the formula to show visible progress even at step 1
+  const progress = Math.max(5, Math.floor((currentStep / totalSteps) * 100));
 
   return (
     <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
       <div
         className="h-full bg-blue-600 transition-all duration-300 ease-in-out"
         style={{ width: `${progress}%` }}
+        aria-valuenow={progress}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        role="progressbar"
+        aria-label={`Step ${currentStep} of ${totalSteps}`}
       />
     </div>
   );

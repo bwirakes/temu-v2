@@ -1,65 +1,40 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect } from "react";
 import { usePathname } from "next/navigation";
-import { useOnboarding } from "@/lib/context/OnboardingContext";
-
-const steps = [
-  { id: 1, path: "informasi-dasar" },      // Step 1: Informasi Dasar
-  { id: 2, path: "informasi-lanjutan" },   // Step 2: Informasi Lanjutan
-  { id: 3, path: "alamat" },               // Step 3: Alamat
-  { id: 4, path: "pendidikan" },           // Step 4: Pendidikan
-  { id: 5, path: "level-pengalaman" },     // Step 5: Level Pengalaman
-  { id: 6, path: "pengalaman-kerja" },     // Step 6: Pengalaman Kerja
-  { id: 7, path: "ekspektasi-kerja" },     // Step 7: Ekspektasi Kerja
-  { id: 8, path: "cv-upload" },            // Step 8: CV Upload
-  { id: 9, path: "foto-profile" },         // Step 9: Foto Profile
-  { id: 10, path: "ringkasan" },           // Step 10: Ringkasan
-];
+import { useOnboarding, onboardingSteps } from "@/lib/context/OnboardingContext";
 
 interface ProgressBarProps {
   forceCurrentStep?: number;
 }
 
 export default function ProgressBar({ forceCurrentStep }: ProgressBarProps) {
-  const { currentStep: contextCurrentStep, setCurrentStep, completedSteps, isStepComplete } = useOnboarding();
+  const { 
+    currentStep: contextCurrentStep, 
+    setCurrentStep, 
+    completedSteps
+  } = useOnboarding();
   const pathname = usePathname();
   
   // Use forceCurrentStep if provided, otherwise use the context value
   const currentStep = forceCurrentStep !== undefined ? forceCurrentStep : contextCurrentStep;
-
-  // Calculate the number of completed steps based on the isStepComplete function
-  const calculatedCompletedSteps = useMemo(() => {
-    const completed = [];
-    for (let i = 1; i <= steps.length; i++) {
-      if (i < currentStep || isStepComplete(i)) {
-        completed.push(i);
-      }
-    }
-    return [...new Set(completed)]; // Ensure uniqueness
-  }, [currentStep, isStepComplete]);
 
   // Synchronize the current step with the URL path, only if forceCurrentStep is not provided
   useEffect(() => {
     if (forceCurrentStep !== undefined) return;
     
     const currentPath = pathname.split("/").pop();
-    const matchedStep = steps.find(step => step.path === currentPath);
+    const matchedStep = onboardingSteps.find(step => step.path.endsWith(currentPath || ""));
     
     if (matchedStep && matchedStep.id !== contextCurrentStep) {
       setCurrentStep(matchedStep.id);
     }
   }, [pathname, contextCurrentStep, setCurrentStep, forceCurrentStep]);
 
-  // Calculate progress percentage based on completed steps
-  // Use both the stored completedSteps and calculated ones for most accurate representation
-  const allCompletedSteps = useMemo(() => {
-    return [...new Set([...completedSteps, ...calculatedCompletedSteps])];
-  }, [completedSteps, calculatedCompletedSteps]);
-
+  // Calculate progress percentage based on the current step position
   const progressPercentage = Math.min(
     100, // Cap at 100%
-    (allCompletedSteps.length / steps.length) * 100
+    Math.max(5, Math.floor((currentStep / onboardingSteps.length) * 100))
   );
 
   return (
@@ -67,10 +42,10 @@ export default function ProgressBar({ forceCurrentStep }: ProgressBarProps) {
       <div>
         <div className="flex justify-between items-center">
           <p className="text-sm font-medium text-blue-600">
-            Langkah {currentStep} dari {steps.length}
+            Langkah {currentStep} dari {onboardingSteps.length}
           </p>
           <p className="text-xs text-gray-500">
-            {allCompletedSteps.length} langkah selesai
+            {completedSteps.length} langkah selesai
           </p>
         </div>
         <div className="mt-2 w-full bg-gray-200 rounded-full h-2.5">

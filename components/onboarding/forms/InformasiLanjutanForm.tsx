@@ -1,9 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { format, parse, isValid } from "date-fns";
 import { id } from "date-fns/locale";
@@ -22,7 +21,6 @@ import {
 import FormNav from "@/components/FormNav";
 import { cn } from "@/lib/utils";
 import { FormLabel } from "@/components/ui/form-label";
-import { useOnboardingApi } from "@/lib/hooks/useOnboardingApi";
 import { toast } from "sonner";
 
 const informasiLanjutanSchema = z.object({
@@ -39,10 +37,8 @@ const informasiLanjutanSchema = z.object({
 type InformasiLanjutanValues = z.infer<typeof informasiLanjutanSchema>;
 
 export default function InformasiLanjutanForm() {
-  const { data, updateFormValues, setCurrentStep } = useOnboarding();
-  const router = useRouter();
+  const { data, updateFormValues, navigateToNextStep, saveCurrentStepData, isSaving: contextIsSaving } = useOnboarding();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { saveStep, isLoading: isSaving } = useOnboardingApi();
   const [date, setDate] = useState<Date | undefined>(
     data.tanggalLahir ? new Date(data.tanggalLahir) : undefined
   );
@@ -163,11 +159,14 @@ export default function InformasiLanjutanForm() {
     updateFormValues(updatedValues);
 
     try {
-      await saveStep(2, updatedValues);
+      const saveSuccess = await saveCurrentStepData();
       
-      toast.success("Data berhasil disimpan");
-      setCurrentStep(3);
-      router.push("/job-seeker/onboarding/alamat");
+      if (saveSuccess) {
+        toast.success("Data berhasil disimpan");
+        navigateToNextStep();
+      } else {
+        toast.error("Gagal menyimpan data. Silakan coba lagi.");
+      }
     } catch (error) {
       console.error("Error saving information:", error);
       toast.error("Gagal menyimpan data. Silakan coba lagi.");
@@ -278,7 +277,7 @@ export default function InformasiLanjutanForm() {
         </div>
       </div>
 
-      <FormNav isSubmitting={isSubmitting || isSaving} saveOnNext={false} />
+      <FormNav isSubmitting={isSubmitting || contextIsSaving} saveOnNext={false} />
     </form>
   );
 } 

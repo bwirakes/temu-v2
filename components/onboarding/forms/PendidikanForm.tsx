@@ -1,20 +1,22 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { PlusCircle } from "lucide-react";
 
 import { useOnboarding, Pendidikan } from "@/lib/context/OnboardingContext";
 import { Button } from "@/components/ui/button";
 import FormNav from "@/components/FormNav";
 import PendidikanItem from "./PendidikanItem";
-import { useOnboardingApi } from "@/lib/hooks/useOnboardingApi";
 import { toast } from "sonner";
 
 export default function PendidikanForm() {
-  const { data, updateFormValues, setCurrentStep } = useOnboarding();
-  const { saveStep, isLoading: isSaving } = useOnboardingApi();
-  const router = useRouter();
+  const { 
+    data, 
+    updateFormValues, 
+    saveCurrentStepData, 
+    navigateToNextStep, 
+    isSaving: contextIsSaving 
+  } = useOnboarding();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [pendidikanList, setPendidikanList] = useState<Pendidikan[]>(
     data.pendidikan || []
@@ -71,14 +73,17 @@ export default function PendidikanForm() {
         pendidikan: pendidikanList,
       });
       
-      // Save data to API with proper error handling
+      // Save data using the context's saveCurrentStepData function
       try {
-        await saveStep(4, { pendidikan: pendidikanList });
-        toast.success("Riwayat pendidikan berhasil disimpan");
+        const saveSuccess = await saveCurrentStepData();
         
-        // Navigate to next step
-        setCurrentStep(5);
-        router.push("/job-seeker/onboarding/pengalaman-kerja");
+        if (saveSuccess) {
+          toast.success("Riwayat pendidikan berhasil disimpan");
+          // Use centralized navigation
+          navigateToNextStep();
+        } else {
+          toast.error("Gagal menyimpan data pendidikan");
+        }
       } catch (apiError) {
         console.error("API Error:", apiError);
         const errorMessage = apiError instanceof Error 
@@ -139,9 +144,9 @@ export default function PendidikanForm() {
       
       <FormNav 
         onSubmit={handleSubmit}
-        isSubmitting={isSubmitting || isSaving}
+        isSubmitting={isSubmitting || contextIsSaving}
         disableNext={pendidikanList.length === 0 || pendidikanList.some(p => !p.namaInstitusi || !p.lokasi || !p.jenjangPendidikan || (!p.tanggalLulus && p.tanggalLulus !== "Masih Kuliah"))}
-        saveOnNext={true}
+        saveOnNext={false}
       />
     </div>
   );

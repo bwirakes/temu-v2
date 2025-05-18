@@ -1,13 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 
 import { useOnboarding } from "@/lib/context/OnboardingContext";
-import { useOnboardingApi } from "@/lib/hooks/useOnboardingApi";
 import { Input } from "@/components/ui/input";
 import FormNav from "@/components/FormNav";
 import { FormLabel } from "@/components/ui/form-label";
@@ -68,10 +66,8 @@ const alamatSchema = z.object({
 type AlamatValues = z.infer<typeof alamatSchema>;
 
 export default function AlamatForm() {
-  const { data, updateFormValues, setCurrentStep } = useOnboarding();
-  const router = useRouter();
+  const { data, updateFormValues, navigateToNextStep, saveCurrentStepData, isSaving: contextIsSaving } = useOnboarding();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { saveStep, isLoading: isSaving } = useOnboardingApi();
 
   const defaultValues: Partial<AlamatValues> = {
     kota: data.alamat?.kota || "",
@@ -104,22 +100,17 @@ export default function AlamatForm() {
         },
       });
 
-      // Save data to API
+      // Save data using the context's saveCurrentStepData function
       try {
-        await saveStep(3, {
-          alamat: {
-            kota: values.kota,
-            provinsi: values.provinsi,
-            kodePos: values.kodePos,
-            jalan: values.jalan,
-          }
-        });
+        const saveSuccess = await saveCurrentStepData();
         
-        toast.success("Alamat berhasil disimpan");
-        
-        // Navigate to next step
-        setCurrentStep(4);
-        router.push("/job-seeker/onboarding/pendidikan");
+        if (saveSuccess) {
+          toast.success("Alamat berhasil disimpan");
+          // Use the centralized navigation function
+          navigateToNextStep();
+        } else {
+          toast.error("Gagal menyimpan data alamat");
+        }
       } catch (error) {
         console.error("Error saving address data:", error);
         const errorMessage = error instanceof Error 
@@ -198,7 +189,7 @@ export default function AlamatForm() {
         </div>
       </div>
 
-      <FormNav isSubmitting={isSubmitting || isSaving} saveOnNext={false} />
+      <FormNav isSubmitting={isSubmitting || contextIsSaving} saveOnNext={false} />
     </form>
   );
 }

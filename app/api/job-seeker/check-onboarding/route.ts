@@ -41,11 +41,12 @@ export async function GET() {
       
       console.log(`API: Job seeker onboarding status:`, onboardingStatus);
       
-      // Return the status
+      // Return the status with completedSteps
       return NextResponse.json({
         completed: onboardingStatus.completed,
         currentStep: onboardingStatus.currentStep,
-        redirectTo: onboardingStatus.redirectTo
+        redirectTo: onboardingStatus.redirectTo,
+        completedSteps: onboardingStatus.completedSteps || []
       });
     } catch (dbError) {
       console.error("Database error checking onboarding status:", dbError);
@@ -54,7 +55,8 @@ export async function GET() {
       return NextResponse.json({
         completed: false,
         currentStep: 1,
-        redirectTo: '/job-seeker/onboarding/informasi-dasar'
+        redirectTo: '/job-seeker/onboarding/informasi-dasar',
+        completedSteps: []
       });
     }
     
