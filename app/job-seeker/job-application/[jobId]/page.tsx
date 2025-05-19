@@ -24,14 +24,10 @@ interface WorkLocation {
   isRemote?: boolean;
 }
 
-// Next.js 15 page component
-export default async function JobSeekerApplicationPage({
-  params,
-}: {
-  params: { jobId: string };
-}) {
+// Use a simple function declaration without type constraints
+export default async function JobSeekerApplicationPage(props: any) {
   try {
-    const { jobId } = params;
+    const jobId = props.params.jobId;
     
     // Use the server action to fetch all necessary data
     const { jobDetails, profileData } = await getJobApplicationPageData(jobId);
