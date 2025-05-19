@@ -12,6 +12,7 @@ import { eq } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { CustomSession } from "@/lib/types";
 import * as z from "zod";
+import { invalidateOnboardingCache } from '@/lib/db-edge';
 
 // Define validation schema for the complete onboarding data
 const requiredProfileSchema = z.object({
@@ -325,6 +326,9 @@ export async function POST(req: NextRequest) {
 
       // 5. Mark user's onboarding as complete
       await updateUserOnboardingStatus(userId, true);
+      
+      // 6. Immediately invalidate the onboarding status cache to prevent stale data
+      invalidateOnboardingCache(userId, 'job_seeker');
 
       return NextResponse.json({ 
         success: true,

@@ -33,7 +33,13 @@ const AUTH_ROUTES = [
   '/auth/signout',
   '/auth/signup',
   '/auth/error',
-  '/auth/verify-request'
+  '/auth/verify-request',
+  '/api/auth/session',
+  '/api/auth/signin',
+  '/api/auth/signout',
+  '/api/auth/signup',
+  '/api/auth/callback',
+  '/api/auth/apply'
 ];
 
 // Public routes - accessible to everyone
@@ -51,6 +57,7 @@ const SKIP_ONBOARDING_CHECK_ROUTES = [
   '/api/employer/check-onboarding',
   '/api/job-seeker/onboarding',
   '/api/job-seeker/check-onboarding',
+  '/api/job-seeker/onboarding/submit',
   '/api/upload',
   '/api/upload/',
   '/_next',
@@ -122,8 +129,6 @@ export async function middleware(request: NextRequest) {
       console.log(`Middleware: User authenticated, type: ${userType}, email: ${user.email}, onboarding completed: ${onboardingCompleted}`);
     }
 
-    // Handle specific route cases based on auth and onboarding status
-    
     // CASE 1: Root path for authenticated users
     if (pathname === '/') {
       const dashboardPath = userType === 'job_seeker' ? '/job-seeker/dashboard' : '/employer/dashboard';
@@ -160,12 +165,19 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL('/', request.url));
     }
     
-    // Allow access to onboarding routes regardless of completion status
+    // Handle onboarding routes
     if (isAccessingOnboarding) {
-      // If onboarding is already completed, redirect to dashboard
-      if (onboardingCompleted && !pathname.includes('/konfirmasi')) {
+      // Special case: Once onboarding is completed, the user should still be able
+      // to view the confirmation page (last step), but not edit previous steps
+      const isKonfirmasiPage = pathname.includes('/konfirmasi') || pathname.includes('/ringkasan');
+      
+      // If onboarding is already completed and trying to access a non-confirmation step,
+      // redirect to dashboard
+      if (onboardingCompleted && !isKonfirmasiPage) {
         return NextResponse.redirect(new URL(`${userPrefix}/dashboard`, request.url));
       }
+      
+      // Otherwise, allow continuation to onboarding pages
       return NextResponse.next();
     }
     

@@ -146,6 +146,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         if (session?.user) {
           // Only update fields that were explicitly provided
           if (typeof session.user.onboardingCompleted !== 'undefined') {
+            // Explicitly log the change for debugging purposes
+            console.log(`JWT callback: Updating onboardingCompleted from ${token.onboardingCompleted} to ${session.user.onboardingCompleted}`);
+            
             token.onboardingCompleted = session.user.onboardingCompleted;
             
             // If onboarding is now completed, update the redirectTo to point to dashboard
@@ -155,11 +158,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                 : '/employer/dashboard';
               token.onboardingRedirectTo = dashboardPath;
               
-              if (process.env.NODE_ENV !== 'production') {
-                console.log('Updated onboardingCompleted in token from session update, set dashboard redirect');
-              }
+              console.log(`JWT callback: Onboarding completed, set redirectTo to ${dashboardPath}`);
               
-              // Skip the DB call since we just set the values explicitly
+              // Skip the DB call since we just set the values explicitly and 
+              // onboardingCompleted=true is definitive
               return token;
             }
             
@@ -172,15 +174,28 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           // This avoids unnecessary DB calls for users who have completed onboarding
           if (token.userId && token.userType && token.onboardingCompleted !== true) {
             try {
+              // Use caching: true to leverage fast responses, but revalidation will happen
+              // in the background for subsequent requests
               const status = await getOnboardingStatusEdge(token.userId as string, token.userType as string);
-              // Only update if completed status has changed or we don't have a redirectTo path
-              if (status.completed !== token.onboardingCompleted || !token.onboardingRedirectTo) {
-                token.onboardingCompleted = status.completed;
+              
+              // Log the status for debugging
+              console.log(`JWT callback: Fetched onboarding status from DB: completed=${status.completed}, redirectTo=${status.redirectTo}`);
+              
+              // If DB says onboarding is completed, this is the source of truth
+              if (status.completed === true) {
+                token.onboardingCompleted = true;
+                // Update redirectTo to dashboard when onboarding is completed
+                const dashboardPath = token.userType === 'job_seeker' 
+                  ? '/job-seeker/dashboard' 
+                  : '/employer/dashboard';
+                token.onboardingRedirectTo = dashboardPath;
+              } else if (!token.onboardingRedirectTo || token.onboardingRedirectTo !== status.redirectTo) {
+                // Only update redirectTo if it's different from what we already have
                 token.onboardingRedirectTo = status.redirectTo;
-                
-                if (process.env.NODE_ENV !== 'production') {
-                  console.log(`JWT: Session update, refreshed onboardingRedirectTo=${token.onboardingRedirectTo}`);
-                }
+              }
+              
+              if (process.env.NODE_ENV !== 'production') {
+                console.log(`JWT: Session update, refreshed onboardingRedirectTo=${token.onboardingRedirectTo}`);
               }
             } catch (error) {
               console.error("Error refreshing onboarding status in JWT callback:", error);

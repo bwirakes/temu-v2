@@ -4,6 +4,7 @@ import { createEmployer, db, users, updateUserOnboardingStatus } from '@/lib/db'
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { CustomSession } from '@/lib/types';
+import { invalidateOnboardingCache } from '@/lib/db-edge';
 
 // Validation schema for required fields
 const employerRequiredSchema = z.object({
@@ -123,6 +124,9 @@ export async function POST(request: Request) {
       // 2. Update the user's onboardingCompleted status to true
       // Use the dedicated function for better error handling and logging
       await updateUserOnboardingStatus(userId, true);
+      
+      // 3. Immediately invalidate the onboarding status cache to prevent stale data
+      invalidateOnboardingCache(userId, 'employer');
       
       console.log(`Employer onboarding completed successfully for user ${userId}`);
     } catch (dbError) {

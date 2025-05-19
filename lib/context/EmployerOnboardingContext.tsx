@@ -11,6 +11,7 @@ import {
 import { z } from "zod";
 import { usePathname, useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { useSession } from "next-auth/react";
 
 // Define types for our form data
 export type SocialMedia = {
@@ -100,6 +101,11 @@ const stepSchemas = [
 // LocalStorage key for saving form data
 const STORAGE_KEY = "employer_onboarding_data";
 
+// Helper function to create a user-specific storage key
+const getUserStorageKey = (userId: string | undefined | null) => {
+  return userId ? `${STORAGE_KEY}_${userId}` : STORAGE_KEY;
+};
+
 interface EmployerOnboardingContextType {
   data: Partial<EmployerOnboardingData>;
   setFormValues: (values: Partial<EmployerOnboardingData>) => void;
@@ -119,11 +125,17 @@ const EmployerOnboardingContext = createContext<EmployerOnboardingContextType | 
 export const EmployerOnboardingProvider = ({ children }: { children: ReactNode }) => {
   const router = useRouter();
   const pathname = usePathname();
+  const { data: session, status } = useSession();
+  const userId = session?.user?.id;
 
-  // Initialize with localStorage data if available
+  // Initialize with localStorage data if available, using userId in the key
   const [data, setData] = useState<Partial<EmployerOnboardingData>>(() => {
     if (typeof window !== 'undefined') {
-      const savedData = localStorage.getItem(STORAGE_KEY);
+      // Don't load data until we have a session
+      if (!userId) return {};
+      
+      const userStorageKey = getUserStorageKey(userId);
+      const savedData = localStorage.getItem(userStorageKey);
       return savedData ? JSON.parse(savedData) : {};
     }
     return {};
@@ -134,18 +146,51 @@ export const EmployerOnboardingProvider = ({ children }: { children: ReactNode }
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [isLoadingInitialData, setIsLoadingInitialData] = useState(true);
-
-  // Save data to localStorage whenever it changes
+  
+  // Save data to localStorage whenever it changes, using userId in the storage key
   useEffect(() => {
-    if (typeof window !== 'undefined' && Object.keys(data).length > 0) {
+    if (typeof window !== 'undefined' && Object.keys(data).length > 0 && userId) {
       const dataToSave = { ...data };
       // Remove File objects which can't be serialized
       if (dataToSave.logo instanceof File) {
         delete dataToSave.logo;
       }
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
+      
+      const userStorageKey = getUserStorageKey(userId);
+      localStorage.setItem(userStorageKey, JSON.stringify(dataToSave));
     }
-  }, [data]);
+  }, [data, userId]);
+  
+  // Reset state when user changes (sign out/new sign in)
+  useEffect(() => {
+    if (status === 'loading') return;
+    
+    // When session status changes to authenticated, initialize with the correct storage
+    if (status === 'authenticated' && userId) {
+      const userStorageKey = getUserStorageKey(userId);
+      const savedData = localStorage.getItem(userStorageKey);
+      
+      if (savedData) {
+        try {
+          const parsedData = JSON.parse(savedData);
+          setData(parsedData);
+        } catch (e) {
+          console.error('Error parsing saved onboarding data:', e);
+          setData({});
+        }
+      } else {
+        // No saved data for this user, reset to empty state
+        setData({});
+      }
+    }
+    
+    // When user signs out, reset the state
+    if (status === 'unauthenticated') {
+      setData({});
+      setCurrentStepState(1);
+      setAllowedSteps([1]);
+    }
+  }, [status, userId]);
 
   // Get the current step from the pathname
   const getCurrentStepFromPath = useCallback((path: string): number => {

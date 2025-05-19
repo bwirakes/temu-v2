@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -437,7 +438,7 @@ export default function JobApplicationForm({ jobId }: JobApplicationFormProps) {
                 name="additionalNotes"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Informasi Tambahan <span className="text-red-500">*</span></FormLabel>
+                    <FormLabel>Informasi Tambahan <span className="text-gray-500">(Opsional)</span></FormLabel>
                     <FormControl>
                       <Textarea 
                         placeholder="Bagikan informasi, wawasan, dan pengalaman lain yang relevan untuk perusahaan" 
@@ -466,7 +467,7 @@ export default function JobApplicationForm({ jobId }: JobApplicationFormProps) {
                     </FormControl>
                     <div className="space-y-1 leading-none">
                       <FormLabel>
-                        Saya menyetujui syarat dan ketentuan
+                        Saya menyetujui <Link href="/syarat-dan-ketentuan" className="text-blue-600 hover:underline" target="_blank">Syarat & Ketentuan</Link>
                       </FormLabel>
                       <FormDescription>
                         Dengan mencentang, Anda menyatakan bahwa informasi yang Anda berikan adalah benar dan akurat.

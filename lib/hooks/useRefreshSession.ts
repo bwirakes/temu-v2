@@ -1,9 +1,53 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { refreshAuthSession } from '../auth-utils';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
+
+/**
+ * A client-safe implementation of refreshAuthSession
+ * This avoids importing server-only modules in client components
+ */
+export async function refreshSessionClient(): Promise<boolean> {
+  try {
+    console.log('Starting auth session refresh...');
+    
+    // Use AbortController to set a timeout on the fetch request
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
+    
+    // Using a no-cache fetch with signal for timeout control
+    const response = await fetch('/api/auth/session?update', { 
+      method: 'GET',
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+      },
+      signal: controller.signal
+    });
+    
+    // Clear timeout once request completes
+    clearTimeout(timeoutId);
+    
+    if (!response.ok) {
+      console.warn('Auth session refresh response not OK:', response.status);
+      return false;
+    }
+    
+    // We don't need to parse the response, just confirm it happened
+    console.log('Auth session refreshed successfully');
+    return true;
+  } catch (error) {
+    // Don't treat AbortError as a failure since we're just timing out the request
+    if (error instanceof Error && error.name === 'AbortError') {
+      console.log('Auth session refresh timed out, continuing...');
+      return true; // Assume it worked to prevent blocking the user
+    }
+    
+    console.error('Failed to refresh auth session:', error);
+    return false;
+  }
+}
 
 /**
  * Hook for refreshing the auth session after a meaningful change
@@ -37,7 +81,7 @@ export function useRefreshSession() {
       }
       
       // Then call our fetch-based refresh as a backup
-      const success = await refreshAuthSession();
+      const success = await refreshSessionClient();
       
       // Refresh the router to ensure all components get updated data
       router.refresh();

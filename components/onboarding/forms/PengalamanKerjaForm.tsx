@@ -103,15 +103,19 @@ export default function PengalamanKerjaForm() {
     if (tidakAdaPengalaman) {
       console.log("[PengalamanKerjaForm] Updating context with empty pengalamanKerja");
       
-      // Update context with empty array
-      updateFormValues({
-        pengalamanKerja: []
-      });
+      // Only update context if the current value doesn't match the target state
+      // This prevents unnecessary context updates that cause re-renders
+      if (data.pengalamanKerja?.length > 0) {
+        // Update context with empty array
+        updateFormValues({
+          pengalamanKerja: []
+        });
+      }
       
       // Clear pengalaman list when tidakAdaPengalaman is true
       setPengalamanList([]);
     }
-  }, [tidakAdaPengalaman, updateFormValues, isLoading]);
+  }, [tidakAdaPengalaman, updateFormValues, isLoading, data.pengalamanKerja]);
   
   // Add a new empty pengalaman kerja entry
   const handleAddPengalaman = () => {

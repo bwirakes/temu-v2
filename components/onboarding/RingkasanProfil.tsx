@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import FormNav from "@/components/FormNav";
+import { refreshSessionClient } from "@/lib/hooks/useRefreshSession";
 
 // Define proper interfaces for the data types
 interface LevelPengalamanData {
@@ -57,36 +58,23 @@ export default function RingkasanProfil() {
       setIsSessionRefreshing(true);
       console.log('Starting auth session refresh...');
       
-      // Generate a cache-busting timestamp
-      const timestamp = new Date().getTime();
+      // Use the latest optimized approach with the refreshAuthSession utility
+      // First, add a small delay to ensure the database update has propagated
+      await new Promise(resolve => setTimeout(resolve, 500));
       
-      // Step 1: Directly call NextAuth's session endpoint to force a fresh token
-      // This will trigger the jwt and session callbacks in lib/auth.ts which will
-      // fetch the latest onboardingCompleted status from the database
-      const nextAuthResponse = await fetch(`/api/auth/session?t=${timestamp}`, {
-        method: 'GET',
-        headers: {
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
-          'Pragma': 'no-cache',
-          'Expires': '0'
-        }
-      });
+      // Use the client-safe refreshSessionClient function instead of dynamic import
+      const success = await refreshSessionClient();
       
-      if (!nextAuthResponse.ok) {
-        console.error('Next-Auth session refresh failed:', nextAuthResponse.statusText);
+      if (success) {
+        console.log('Auth session refreshed successfully');
+        
+        // Call router.refresh() to update React components with new session data
+        router.refresh();
+        return true;
+      } else {
+        console.warn('Auth session refresh may have failed');
         return false;
       }
-      
-      console.log('NextAuth session endpoint called successfully');
-      
-      // Verify the session data returned
-      const nextAuthSession = await nextAuthResponse.json();
-      console.log('Next-Auth session data:', nextAuthSession);
-      
-      // Call router.refresh() to update React components with new session data
-      router.refresh();
-      
-      return true;
     } catch (error) {
       console.error('Error refreshing session:', error);
       return false;
@@ -108,25 +96,29 @@ export default function RingkasanProfil() {
         setSubmitSuccess(true);
         toast.success("Pendaftaran berhasil diselesaikan!");
         
+        // Additional waiting time to ensure database updates are complete
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
         // Refresh session to update the JWT token with onboardingCompleted=true
         console.log('Refreshing auth session...');
         const sessionRefreshed = await refreshAuthSession();
         
         if (sessionRefreshed) {
           console.log('Session refreshed successfully');
+          // Add additional delay to ensure the refreshed session propagates
+          await new Promise(resolve => setTimeout(resolve, 1000));
         } else {
           console.warn('Session refresh had issues but continuing');
-          // We'll continue anyway since the database was updated
+          // Add more waiting time if the refresh had issues
+          await new Promise(resolve => setTimeout(resolve, 1500));
         }
         
-        // Use a small delay before redirect to allow toast to be seen and session to be refreshed
-        setTimeout(() => {
-          // Navigate to dashboard after success
-          console.log('Redirecting to dashboard...');
-          
-          // Use window.location for a full page reload to ensure fresh session
-          window.location.href = '/job-seeker/dashboard';
-        }, 2000);
+        // Use a cleaner approach with the router
+        console.log('Redirecting to dashboard...');
+        
+        // Use router.replace for a cleaner navigation experience that doesn't add to history
+        // This will cause NextAuth middleware to see the updated session
+        router.replace('/job-seeker/dashboard');
       } else {
         setSubmitError(contextSubmissionError || "Gagal menyelesaikan pendaftaran. Silakan coba lagi.");
         setSubmitSuccess(false);

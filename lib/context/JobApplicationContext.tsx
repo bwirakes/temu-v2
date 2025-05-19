@@ -58,8 +58,9 @@ export const jobApplicationSchema = z.object({
   education: z.enum(["SD", "SMP", "SMA/SMK", "D1", "D2", "D3", "D4", "S1", "S2", "S3"], {
     required_error: "Pendidikan terakhir harus dipilih",
   }).optional(),
-  additionalNotes: z.string().min(50, { message: "Informasi tambahan minimal 50 karakter" })
-    .max(2000, { message: "Informasi tambahan maksimal 2000 karakter" }),
+  additionalNotes: z.string()
+    .max(2000, { message: "Informasi tambahan maksimal 2000 karakter" })
+    .optional(),
   agreeToTerms: z.boolean().refine(val => val === true, {
     message: "Anda harus menyetujui syarat dan ketentuan",
   }),

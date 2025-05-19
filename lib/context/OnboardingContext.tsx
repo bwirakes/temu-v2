@@ -5,9 +5,11 @@ import {
   useState, 
   useContext, 
   ReactNode,
-  useEffect
+  useEffect,
+  useCallback
 } from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import {
   PengalamanKerja,
   Pendidikan,
@@ -66,66 +68,88 @@ export const OnboardingProvider = ({ children }: { children: ReactNode }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submissionError, setSubmissionError] = useState<string | null>(null);
   const router = useRouter();
-
-  // Load saved data from API when the context initializes
+  const { data: session, status } = useSession();
+  const userId = session?.user?.id;
+  
+  // Reset state when user changes or signs out
   useEffect(() => {
-    const loadSavedData = async () => {
-      try {
-        setIsLoading(true);
-        
-        // First, check the onboarding status to get the correct step
-        const statusResponse = await fetch("/api/job-seeker/check-onboarding");
-        if (!statusResponse.ok) {
-          throw new Error("Failed to check onboarding status");
-        }
-        
-        const statusResult = await statusResponse.json();
-        
-        // Then load the actual onboarding data
-        const response = await fetch("/api/job-seeker/onboarding");
-        if (!response.ok) {
-          throw new Error("Failed to load onboarding data");
-        }
-        
-        const result = await response.json();
-        
-        if (result.data) {
-          setData(prevData => ({
-            ...prevData,
-            ...result.data
-          }));
-        }
-        
-        // Set the current step based on the check-onboarding response
-        if (statusResult.currentStep) {
-          setCurrentStep(statusResult.currentStep);
-        } else {
-          // If no currentStep provided, default to first step
-          setCurrentStep(1);
-        }
-      } catch (error) {
-        console.error("Error loading onboarding data:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+    if (status === 'loading') return;
     
-    loadSavedData();
-  }, []);
+    if (status === 'unauthenticated') {
+      // Reset state when user signs out
+      console.log('User signed out, resetting onboarding state');
+      setData(initialData);
+      setCurrentStep(1);
+    }
+    
+    // Load onboarding data when the user is authenticated or changes
+    if (status === 'authenticated' && userId) {
+      // If authenticated, ensure onboarding data is loaded from the API
+      loadSavedData();
+    }
+  }, [status, userId]);
 
-  const setFormValues = (stepName: keyof OnboardingData, values: any) => {
+  // Load saved data from API when the context initializes or user changes
+  const loadSavedData = async () => {
+    try {
+      setIsLoading(true);
+      
+      // First, check the onboarding status to get the correct step
+      const statusResponse = await fetch("/api/job-seeker/check-onboarding");
+      if (!statusResponse.ok) {
+        throw new Error("Failed to check onboarding status");
+      }
+      
+      const statusResult = await statusResponse.json();
+      
+      // Then load the actual onboarding data
+      const response = await fetch("/api/job-seeker/onboarding");
+      if (!response.ok) {
+        throw new Error("Failed to load onboarding data");
+      }
+      
+      const result = await response.json();
+      
+      if (result.data) {
+        setData(prevData => ({
+          ...initialData, // Reset to initial data first
+          ...result.data  // Then apply saved data
+        }));
+      } else {
+        // No data found, reset to initial state
+        setData(initialData);
+      }
+      
+      // Set the current step based on the check-onboarding response
+      if (statusResult.currentStep) {
+        setCurrentStep(statusResult.currentStep);
+      } else {
+        // If no currentStep provided, default to first step
+        setCurrentStep(1);
+      }
+    } catch (error) {
+      console.error("Error loading onboarding data:", error);
+      // On error, reset to initial state to avoid using stale data
+      setData(initialData);
+      setCurrentStep(1);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const setFormValues = useCallback((stepName: keyof OnboardingData, values: any) => {
     setData((prev) => ({
       ...prev,
       [stepName]: values,
     }));
-  };
+  }, []);
 
-  const updateFormValues = (values: Partial<OnboardingData>) => {
+  const updateFormValues = useCallback((values: Partial<OnboardingData>) => {
     setData((prev) => ({
       ...prev,
       ...values,
     }));
-  };
+  }, []);
 
   const getStepValidationErrors = (step: number): Record<string, string> => {
     const errors: Record<string, string> = {};
@@ -191,7 +215,7 @@ export const OnboardingProvider = ({ children }: { children: ReactNode }) => {
   };
 
   // Submit all onboarding data to backend for final processing
-  const submitOnboardingData = async (): Promise<boolean> => {
+  const submitOnboardingData = useCallback(async (): Promise<boolean> => {
     try {
       setSubmissionError(null);
       setIsSubmitting(true);
@@ -292,23 +316,23 @@ export const OnboardingProvider = ({ children }: { children: ReactNode }) => {
       setIsSubmitting(false);
       return false;
     }
-  };
+  }, [data]);
 
-  const getStepById = (id: number) => {
+  const getStepById = useCallback((id: number) => {
     return onboardingSteps.find(step => step.id === id);
-  };
+  }, []);
   
-  const getStepPath = (id: number) => {
+  const getStepPath = useCallback((id: number) => {
     const step = getStepById(id);
     return step?.path;
-  };
+  }, [getStepById]);
   
-  const isOptionalStep = (step: number) => {
+  const isOptionalStep = useCallback((step: number) => {
     return optionalSteps.includes(step);
-  };
+  }, []);
   
   // Simplified navigation functions - only handle client-side state
-  const navigateToNextStep = () => {
+  const navigateToNextStep = useCallback(() => {
     const nextStep = currentStep + 1;
     if (nextStep <= onboardingSteps.length) {
       setCurrentStep(nextStep);
@@ -317,9 +341,9 @@ export const OnboardingProvider = ({ children }: { children: ReactNode }) => {
         router.push(path);
       }
     }
-  };
+  }, [currentStep, getStepPath, router]);
   
-  const navigateToPreviousStep = () => {
+  const navigateToPreviousStep = useCallback(() => {
     const prevStep = currentStep - 1;
     if (prevStep >= 1) {
       setCurrentStep(prevStep);
@@ -328,9 +352,9 @@ export const OnboardingProvider = ({ children }: { children: ReactNode }) => {
         router.push(path);
       }
     }
-  };
+  }, [currentStep, getStepPath, router]);
   
-  const navigateToStep = (step: number) => {
+  const navigateToStep = useCallback((step: number) => {
     if (step >= 1 && step <= onboardingSteps.length) {
       setCurrentStep(step);
       const path = getStepPath(step);
@@ -338,7 +362,7 @@ export const OnboardingProvider = ({ children }: { children: ReactNode }) => {
         router.push(path);
       }
     }
-  };
+  }, [getStepPath, router]);
 
   return (
     <OnboardingContext.Provider

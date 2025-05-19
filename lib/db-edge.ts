@@ -37,15 +37,18 @@ export async function getOnboardingStatusEdge(userId: string, userType: string):
   // Create a cache key based on userId and userType
   const cacheKey = `${userId}_${userType}`;
   
-  // Check cache first
+  // Check cache first but with a shorter TTL for onboarding status
+  // This ensures we refresh more frequently for users in the onboarding flow
   const cached = onboardingStatusCache.get(cacheKey);
-  if (cached && (Date.now() - cached.timestamp < CACHE_TTL)) {
+  const ONBOARDING_CACHE_TTL = 10 * 1000; // 10 seconds for onboarding to reduce stale data issues
+  
+  if (cached && (Date.now() - cached.timestamp < ONBOARDING_CACHE_TTL)) {
     // Return cached value if it's fresh
     return cached.status;
   }
   
   try {
-    // First check if the user's onboardingCompleted is true in the database
+    // Always fetch from DB to ensure we have the latest value
     const [user] = await edgeDb
       .select({
         onboardingCompleted: users.onboardingCompleted
@@ -62,6 +65,12 @@ export async function getOnboardingStatusEdge(userId: string, userType: string):
         completed: true, 
         redirectTo: dashboardPath
       };
+      
+      // For completed onboarding, we can cache longer as it's unlikely to change
+      onboardingStatusCache.set(cacheKey, {
+        status,
+        timestamp: Date.now()
+      });
     } 
     // Otherwise, determine the correct redirect path based on user type
     else {
@@ -79,13 +88,13 @@ export async function getOnboardingStatusEdge(userId: string, userType: string):
         // Default fallback
         status = { completed: false, redirectTo: '/' };
       }
+      
+      // For incomplete onboarding, use a shorter cache time
+      onboardingStatusCache.set(cacheKey, {
+        status,
+        timestamp: Date.now()
+      });
     }
-    
-    // Cache the result
-    onboardingStatusCache.set(cacheKey, {
-      status,
-      timestamp: Date.now()
-    });
     
     return status;
   } catch (error) {
@@ -102,9 +111,19 @@ export async function getOnboardingStatusEdge(userId: string, userType: string):
     // Cache the fallback status but with shorter TTL
     onboardingStatusCache.set(cacheKey, {
       status: fallbackStatus,
-      timestamp: Date.now() - (CACHE_TTL / 2) // Shorter cache time for error results
+      timestamp: Date.now() - (ONBOARDING_CACHE_TTL / 2) // Even shorter cache time for error results
     });
     
     return fallbackStatus;
   }
+}
+
+/**
+ * Explicitly invalidate the onboarding status cache for a user
+ * Call this whenever the onboardingCompleted flag is updated in the database
+ */
+export function invalidateOnboardingCache(userId: string, userType: string): void {
+  const cacheKey = `${userId}_${userType}`;
+  onboardingStatusCache.delete(cacheKey);
+  console.log(`Invalidated onboarding cache for ${userType} ${userId}`);
 } 
