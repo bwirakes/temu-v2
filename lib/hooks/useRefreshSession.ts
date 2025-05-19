@@ -6,45 +6,70 @@ import { useSession } from 'next-auth/react';
 
 /**
  * A client-safe implementation of refreshAuthSession
- * This avoids importing server-only modules in client components
+ * This improves reliability of session refreshes by using multiple strategies
  */
 export async function refreshSessionClient(): Promise<boolean> {
   try {
     console.log('Starting auth session refresh...');
     
-    // Use AbortController to set a timeout on the fetch request
+    // Make API call to explicitly refresh session from server with force-reload
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
+    const timeoutId = setTimeout(() => controller.abort(), 5000); // Extended timeout
     
-    // Using a no-cache fetch with signal for timeout control
-    const response = await fetch('/api/auth/session?update', { 
-      method: 'GET',
-      headers: {
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
-        'Pragma': 'no-cache',
-      },
-      signal: controller.signal
-    });
-    
-    // Clear timeout once request completes
-    clearTimeout(timeoutId);
-    
-    if (!response.ok) {
-      console.warn('Auth session refresh response not OK:', response.status);
-      return false;
+    try {
+      // Primary method: Hit the session endpoint with update query param and no-cache
+      const response = await fetch('/api/auth/session?update&t=' + Date.now(), { 
+        method: 'GET',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+        },
+        signal: controller.signal,
+        // Force refresh to ensure no caching
+        cache: 'no-store',
+        next: { revalidate: 0 }
+      });
+      
+      clearTimeout(timeoutId);
+      
+      if (!response.ok) {
+        console.warn('Auth session refresh response not OK:', response.status);
+        // Continue with secondary method even if this fails
+      } else {
+        // Parse response to validate it has the expected structure
+        const session = await response.json();
+        if (session?.user?.onboardingCompleted === true) {
+          console.log('Verified session updated successfully');
+        } else {
+          console.log('Session endpoint response may not have onboardingCompleted=true');
+        }
+      }
+    } catch (primaryError) {
+      clearTimeout(timeoutId);
+      console.warn('Primary session refresh method failed:', primaryError);
+      // Continue with secondary methods
     }
     
-    // We don't need to parse the response, just confirm it happened
-    console.log('Auth session refreshed successfully');
+    // Secondary method: Try a different approach to refresh auth state
+    try {
+      // Hit the CSRF endpoint, which also refreshes the session
+      await fetch('/api/auth/csrf', { 
+        method: 'GET',
+        cache: 'no-store',
+        next: { revalidate: 0 }
+      });
+    } catch (secondaryError) {
+      console.warn('Secondary refresh method failed:', secondaryError);
+      // Continue anyway - one of the methods might have worked
+    }
+    
+    console.log('Auth session refresh attempts completed');
+    // Consider the refresh successful even if we couldn't verify it
+    // The server-side middleware will have the correct state
     return true;
   } catch (error) {
-    // Don't treat AbortError as a failure since we're just timing out the request
-    if (error instanceof Error && error.name === 'AbortError') {
-      console.log('Auth session refresh timed out, continuing...');
-      return true; // Assume it worked to prevent blocking the user
-    }
-    
-    console.error('Failed to refresh auth session:', error);
+    // Only catch unexpected errors that weren't handled in the try blocks
+    console.error('Unexpected error in refreshSessionClient:', error);
     return false;
   }
 }
@@ -77,7 +102,11 @@ export function useRefreshSession() {
       // First try to use the built-in Next Auth session update
       // This is faster than the fetch API call and preferred when available
       if (update) {
-        await update({ onboardingCompleted: true });
+        await update({ 
+          user: { 
+            onboardingCompleted: true 
+          } 
+        } as any); // Type assertion for custom fields
       }
       
       // Then call our fetch-based refresh as a backup
@@ -85,6 +114,9 @@ export function useRefreshSession() {
       
       // Refresh the router to ensure all components get updated data
       router.refresh();
+      
+      // Add a small delay to allow session changes to propagate
+      await new Promise(resolve => setTimeout(resolve, 300));
       
       // Handle redirection
       if (redirectTo && (success || forceRedirect)) {

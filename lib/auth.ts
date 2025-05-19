@@ -144,15 +144,23 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         
         // Update the onboarding status if explicitly provided in the session update
         if (session?.user) {
-          // Only update fields that were explicitly provided
-          if (typeof session.user.onboardingCompleted !== 'undefined') {
+          // Check both the direct property and the nested user property for onboardingCompleted
+          // This allows for both update({ onboardingCompleted: true }) and update({ user: { onboardingCompleted: true }})
+          const onboardingCompletedFromUpdate = 
+            typeof session.user.onboardingCompleted !== 'undefined' 
+              ? session.user.onboardingCompleted 
+              : typeof session.onboardingCompleted !== 'undefined'
+                ? session.onboardingCompleted
+                : undefined;
+          
+          if (typeof onboardingCompletedFromUpdate !== 'undefined') {
             // Explicitly log the change for debugging purposes
-            console.log(`JWT callback: Updating onboardingCompleted from ${token.onboardingCompleted} to ${session.user.onboardingCompleted}`);
+            console.log(`JWT callback: Updating onboardingCompleted from ${token.onboardingCompleted} to ${onboardingCompletedFromUpdate}`);
             
-            token.onboardingCompleted = session.user.onboardingCompleted;
+            token.onboardingCompleted = onboardingCompletedFromUpdate;
             
             // If onboarding is now completed, update the redirectTo to point to dashboard
-            if (session.user.onboardingCompleted === true && token.userType) {
+            if (onboardingCompletedFromUpdate === true && token.userType) {
               const dashboardPath = token.userType === 'job_seeker' 
                 ? '/job-seeker/dashboard' 
                 : '/employer/dashboard';

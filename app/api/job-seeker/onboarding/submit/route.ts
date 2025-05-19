@@ -51,7 +51,7 @@ const pendidikanSchema = z.object({
   // Step 4: Pendidikan (Required)
   namaInstitusi: z.string().min(1, "Nama institusi wajib diisi"),
   jenjangPendidikan: z.string().min(1, "Jenjang pendidikan wajib diisi"),
-  bidangStudi: z.string().min(1, "Bidang studi wajib diisi"),
+  bidangStudi: z.string().nullable().optional(),
   tanggalLulus: z.string().min(1, "Tanggal lulus wajib diisi"),
   lokasi: z.string().min(1, "Lokasi wajib diisi"),
   // Handle nullable optional fields
@@ -158,6 +158,7 @@ export async function POST(req: NextRequest) {
     if (data.pendidikan) {
       data.pendidikan = data.pendidikan.map((item: any) => ({
         ...item,
+        bidangStudi: item.bidangStudi || "", // Always use empty string for missing bidangStudi
         deskripsiTambahan: item.deskripsiTambahan === undefined ? null : item.deskripsiTambahan,
         // We explicitly set nilaiAkhir to null as requested
         nilaiAkhir: null
@@ -289,7 +290,7 @@ export async function POST(req: NextRequest) {
               userProfileId: userProfile.id,
               namaInstitusi: pendidikan.namaInstitusi,
               jenjangPendidikan: pendidikan.jenjangPendidikan,
-              bidangStudi: pendidikan.bidangStudi,
+              bidangStudi: pendidikan.bidangStudi || "",
               tanggalLulus: pendidikan.tanggalLulus,
               lokasi: pendidikan.lokasi || null,
               nilaiAkhir: null, // Removed nilaiAkhir as requested
@@ -328,13 +329,22 @@ export async function POST(req: NextRequest) {
       await updateUserOnboardingStatus(userId, true);
       
       // 6. Immediately invalidate the onboarding status cache to prevent stale data
-      invalidateOnboardingCache(userId, 'job_seeker');
+      await invalidateOnboardingCache(userId, 'job_seeker');
 
+      // Return the success response with cache headers to ensure fresh data
       return NextResponse.json({ 
         success: true,
         message: "Onboarding completed successfully",
         profileId: userProfile.id,
         redirectUrl: "/job-seeker/dashboard" // Provide redirect URL for client
+      }, {
+        status: 200,
+        headers: {
+          // Add cache control headers to prevent caching of this response
+          'Cache-Control': 'no-store, must-revalidate, proxy-revalidate, max-age=0',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        }
       });
     });
   } catch (error) {
@@ -342,6 +352,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ 
       error: "Failed to complete onboarding",
       message: error instanceof Error ? error.message : "Unknown error"
-    }, { status: 500 });
+    }, { 
+      status: 500,
+      headers: {
+        'Cache-Control': 'no-store, no-cache',
+      }
+    });
   }
 } 

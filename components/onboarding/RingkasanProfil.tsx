@@ -2,13 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { useOnboarding } from "@/lib/context/OnboardingContext";
-import { CheckCircle2, AlertCircle, FileText, Camera, Loader2 } from "lucide-react";
+import { FileText, Camera } from "lucide-react";
 import Image from "next/image";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
 import FormNav from "@/components/FormNav";
-import { refreshSessionClient } from "@/lib/hooks/useRefreshSession";
+import { refreshSessionClient, useRefreshSession } from "@/lib/hooks/useRefreshSession";
+import { useSession } from "next-auth/react";
+import { CustomSession } from "@/lib/types";
 
 // Define proper interfaces for the data types
 interface LevelPengalamanData {
@@ -41,8 +42,9 @@ export default function RingkasanProfil() {
   const [submitSuccess, setSubmitSuccess] = useState<boolean | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isLocalSubmitting, setIsLocalSubmitting] = useState(false);
-  const [isSessionRefreshing, setIsSessionRefreshing] = useState(false);
   const router = useRouter();
+  const { data: sessionData } = useSession();
+  const { refresh: refreshSession, isRefreshing: isSessionRefreshing } = useRefreshSession();
 
   useEffect(() => {
     if (contextSubmissionError) {
@@ -51,78 +53,75 @@ export default function RingkasanProfil() {
   }, [contextSubmissionError]);
 
   /**
-   * Refreshes the auth session to update JWT token with onboardingCompleted=true
+   * Verifies that the session has the expected onboardingCompleted status
    */
-  const refreshAuthSession = async (): Promise<boolean> => {
-    try {
-      setIsSessionRefreshing(true);
-      console.log('Starting auth session refresh...');
-      
-      // Use the latest optimized approach with the refreshAuthSession utility
-      // First, add a small delay to ensure the database update has propagated
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // Use the client-safe refreshSessionClient function instead of dynamic import
-      const success = await refreshSessionClient();
-      
-      if (success) {
-        console.log('Auth session refreshed successfully');
-        
-        // Call router.refresh() to update React components with new session data
-        router.refresh();
-        return true;
-      } else {
-        console.warn('Auth session refresh may have failed');
-        return false;
-      }
-    } catch (error) {
-      console.error('Error refreshing session:', error);
-      return false;
-    } finally {
-      setIsSessionRefreshing(false);
+  const verifySessionUpdated = (): boolean => {
+    // Use as any or CustomSession to access the custom property
+    const customSession = sessionData as any;
+    if (customSession?.user?.onboardingCompleted === true) {
+      console.log('Session verified: onboardingCompleted is true');
+      return true;
     }
+    console.log('Session verification failed: onboardingCompleted is not true', customSession?.user);
+    return false;
   };
 
   const handleSubmit = async () => {
     try {
       setIsLocalSubmitting(true);
-      console.log("Starting onboarding submission process...");
       
-      // Submit using the context function
+      // Submit onboarding data to server
       const success = await submitOnboardingData();
       
-      if (success) {
-        console.log('Onboarding completed successfully');
-        setSubmitSuccess(true);
-        toast.success("Pendaftaran berhasil diselesaikan!");
-        
-        // Additional waiting time to ensure database updates are complete
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        // Refresh session to update the JWT token with onboardingCompleted=true
-        console.log('Refreshing auth session...');
-        const sessionRefreshed = await refreshAuthSession();
-        
-        if (sessionRefreshed) {
-          console.log('Session refreshed successfully');
-          // Add additional delay to ensure the refreshed session propagates
-          await new Promise(resolve => setTimeout(resolve, 1000));
-        } else {
-          console.warn('Session refresh had issues but continuing');
-          // Add more waiting time if the refresh had issues
-          await new Promise(resolve => setTimeout(resolve, 1500));
-        }
-        
-        // Use a cleaner approach with the router
-        console.log('Redirecting to dashboard...');
-        
-        // Use router.replace for a cleaner navigation experience that doesn't add to history
-        // This will cause NextAuth middleware to see the updated session
-        router.replace('/job-seeker/dashboard');
-      } else {
+      if (!success) {
         setSubmitError(contextSubmissionError || "Gagal menyelesaikan pendaftaran. Silakan coba lagi.");
         setSubmitSuccess(false);
+        toast.error("Gagal menyelesaikan pendaftaran");
+        return;
       }
+
+      // Success path
+      setSubmitSuccess(true);
+      toast.success("Pendaftaran berhasil diselesaikan!");
+      
+      // Wait to ensure database updates are complete
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Remember the server's redirect URL from the API response
+      const redirectUrl = "/job-seeker/dashboard";
+
+      // Attempt session refresh using the useRefreshSession hook
+      let sessionVerified = false;
+      
+      // Try up to 3 times to refresh the session
+      for (let i = 0; i < 3 && !sessionVerified; i++) {
+        if (i > 0) {
+          console.log(`Session refresh attempt ${i + 1}...`);
+          // Add an increasing delay between retry attempts
+          await new Promise(resolve => setTimeout(resolve, 700 * (i + 1)));
+        }
+        
+        // Refresh the session using the hook
+        await refreshSession();
+        
+        // Refresh the router to ensure all components get updated session
+        router.refresh();
+        
+        // Wait a moment for the session data to update
+        await new Promise(resolve => setTimeout(resolve, 300));
+        
+        // Verify the session was actually updated
+        sessionVerified = verifySessionUpdated();
+        if (sessionVerified) {
+          break;
+        }
+      }
+
+      console.log(`Session verification ${sessionVerified ? 'succeeded' : 'failed'}`);
+     
+      // Even if session verification failed, we proceed with redirect
+      // The server-side redirect will handle the onboarding status correctly
+      router.replace(redirectUrl);
     } catch (error) {
       console.error('Error during onboarding submission:', error);
       setSubmitError("Gagal menyelesaikan pendaftaran. Silakan coba lagi.");
@@ -136,27 +135,22 @@ export default function RingkasanProfil() {
   // Parse ekspektasiKerja if it's a string
   let ekspektasiKerjaData: ParsedEkspektasiKerja | null = null;
   
-  console.log("Raw ekspektasiKerja data:", data.ekspektasiKerja);
-  
   if (typeof data.ekspektasiKerja === 'string' && data.ekspektasiKerja) {
     try {
       // Only try to parse as JSON if it looks like a JSON string
       const strValue = data.ekspektasiKerja as string;
       if (strValue.trim().startsWith('{') && strValue.trim().endsWith('}')) {
         ekspektasiKerjaData = JSON.parse(strValue) as ParsedEkspektasiKerja;
-        console.log("Parsed ekspektasiKerja from string:", ekspektasiKerjaData);
       } else {
-        // If it's not a JSON format string, initialize with default values and use the string as jobTypes
-        console.warn("ekspektasiKerja is a string but not in JSON format:", data.ekspektasiKerja);
+        // If it's not a JSON format string, use it as jobTypes
         ekspektasiKerjaData = {
           idealSalary: 0,
           willingToTravel: "local_only",
-          jobTypes: strValue, // Use the string value as jobTypes
+          jobTypes: strValue,
           preferensiLokasiKerja: "local_only"
         };
       }
     } catch (e) {
-      console.error("Failed to parse ekspektasiKerja JSON:", e);
       ekspektasiKerjaData = {
         idealSalary: 0,
         willingToTravel: "local_only",
@@ -168,12 +162,8 @@ export default function RingkasanProfil() {
     ekspektasiKerjaData = null;
   } else {
     // Already an object, ensure it has the expected structure
-    console.log("ekspektasiKerja is already an object:", data.ekspektasiKerja);
-    
-    // Cast to avoid typescript errors
     const rawData = data.ekspektasiKerja as any;
     
-    // Add default values only for missing properties
     ekspektasiKerjaData = {
       jobTypes: rawData.jobTypes ?? "",
       idealSalary: rawData.idealSalary ?? 0,
@@ -289,7 +279,10 @@ export default function RingkasanProfil() {
             {data.pendidikan.map((pendidikan, index) => (
               <div key={pendidikan.id || index} className={`${index !== data.pendidikan.length - 1 ? 'border-b pb-4' : ''}`}>
                 <h4 className="font-medium text-gray-900">{pendidikan.namaInstitusi}</h4>
-                <p className="text-gray-600">{pendidikan.jenjangPendidikan} - {pendidikan.bidangStudi}</p>
+                <p className="text-gray-600">
+                  {pendidikan.jenjangPendidikan}
+                  {pendidikan.bidangStudi ? ` - ${pendidikan.bidangStudi}` : ''}
+                </p>
                 <p className="text-sm text-gray-500">Lokasi: {pendidikan.lokasi || '-'}</p>
                 <p className="text-sm text-gray-500">Lulus: {pendidikan.tanggalLulus}</p>
                 {pendidikan.nilaiAkhir && (
@@ -452,9 +445,12 @@ export default function RingkasanProfil() {
         />
         
         {isSessionRefreshing && (
-          <div className="mt-4 text-center text-sm text-blue-600">
-            <span className="inline-block mr-2 animate-spin">⟳</span>
-            Menyegarkan sesi login...
+          <div className="mt-4 flex items-center justify-center text-sm text-blue-600">
+            <svg className="animate-spin -ml-1 mr-3 h-4 w-4 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            Menyimpan informasi dan memperbarui sesi anda...
           </div>
         )}
       </div>

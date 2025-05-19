@@ -177,7 +177,7 @@ export const OnboardingProvider = ({ children }: { children: ReactNode }) => {
             if (!p.namaInstitusi) itemErrors.namaInstitusi = "Nama institusi wajib diisi";
             if (!p.lokasi) itemErrors.lokasi = "Lokasi wajib diisi";
             if (!p.jenjangPendidikan) itemErrors.jenjangPendidikan = "Jenjang pendidikan wajib diisi";
-            if (!p.bidangStudi) itemErrors.bidangStudi = "Bidang studi wajib diisi";
+            if (!p.bidangStudi)itemErrors.bidangStudi = "Bidang studi wajib diisi";
             if (!p.tanggalLulus) itemErrors.tanggalLulus = "Tanggal lulus wajib diisi";
             return Object.keys(itemErrors).length > 0 ? { index: i, errors: itemErrors } : null;
           }).filter(Boolean);
