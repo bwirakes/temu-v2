@@ -249,7 +249,7 @@ export async function DELETE(req: NextRequest, props: { params: Promise<{ id: st
       success: true,
       message: "Semua lokasi kerja berhasil dihapus",
       revalidated: true
-    });
+    }, { status: 200 });
   } catch (error) {
     console.error("Error deleting job work locations:", error);
     return NextResponse.json(

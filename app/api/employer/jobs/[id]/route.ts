@@ -26,7 +26,7 @@ export async function GET(req: NextRequest, props: { params: Promise<{ id: strin
   const params = await props.params;
   try {
     // Get the job ID from URL parameters
-    const jobId = params.id;
+    const jobId = await params.id;
     
     if (!jobId) {
       console.error('Missing job ID in params');
@@ -151,6 +151,40 @@ export async function GET(req: NextRequest, props: { params: Promise<{ id: strin
     console.error('Error fetching job details and applicants:', error);
     return NextResponse.json(
       { error: 'Terjadi kesalahan saat mengambil detail lowongan' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
+  try {
+    // Get the job ID from params
+    const jobId = await params.id;
+    
+    // ... existing code ...
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting job:', error);
+    return NextResponse.json(
+      { error: 'Terjadi kesalahan saat menghapus lowongan' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PATCH(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
+  try {
+    // Get the job ID from params
+    const jobId = await params.id;
+    
+    // ... existing code ...
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Error updating job:', error);
+    return NextResponse.json(
+      { error: 'Terjadi kesalahan saat memperbarui lowongan' },
       { status: 500 }
     );
   }

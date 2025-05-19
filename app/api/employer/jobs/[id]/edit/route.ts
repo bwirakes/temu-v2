@@ -65,7 +65,7 @@ export async function PUT(req: NextRequest, props: { params: Promise<{ id: strin
     }
     
     // Get the job ID from the URL parameters
-    const jobId = params.id;
+    const jobId = await params.id;
     
     if (!jobId) {
       return NextResponse.json(
@@ -163,7 +163,7 @@ export async function PUT(req: NextRequest, props: { params: Promise<{ id: strin
  */
 export async function PATCH(request: NextRequest, props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
-  return PUT(request, { params: Promise.resolve(params) });
+  return PUT(request, props);
 }
 
 /**
@@ -184,7 +184,7 @@ export async function GET(req: NextRequest, props: { params: Promise<{ id: strin
     }
     
     // Get the job ID from the URL parameters
-    const jobId = params.id;
+    const jobId = await params.id;
     
     if (!jobId) {
       return NextResponse.json(

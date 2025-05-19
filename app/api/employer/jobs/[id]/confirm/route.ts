@@ -20,7 +20,7 @@ interface CustomSession {
 export async function PATCH(request: NextRequest, props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
   try {
-    // Extract job ID from params asynchronously
+    // Extract job ID from params
     const jobId = await params.id;
 
     // Validate job ID

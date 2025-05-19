@@ -9,6 +9,7 @@ import type { User } from 'next-auth';
 import type { JWT } from 'next-auth/jwt';
 import type { Session } from 'next-auth';
 import { CustomSession } from './types';
+import { getOnboardingStatus } from './auth-helpers';
 
 // Define credentials type
 interface Credentials {
@@ -80,23 +81,56 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     })
   ],
   callbacks: {
-    async jwt({ token, user, account }: { token: JWT; user?: User & { userType?: string }; account?: any }) {
+    async jwt({ token, user, account, trigger }: { token: JWT; user?: User & { userType?: string }; account?: any; trigger?: "signIn" | "signUp" | "update" }) {
       // Initial sign in
       if (account && user) {
-        console.log('Setting JWT token with user type:', user.userType);
-        return {
-          ...token,
-          userId: user.id,
-          userType: user.userType
+        console.log('Setting JWT token with user type on initial sign in:', user.userType);
+        const base = { ...token, userId: user.id, userType: user.userType };
+        
+        if (user.id && user.userType) {
+          const status = await getOnboardingStatus(user.id, user.userType);
+          return { 
+            ...base, 
+            onboardingCompleted: status.completed, 
+            onboardingRedirectTo: status.redirectTo 
+          };
+        }
+        
+        // Fallback (should not happen)
+        return { ...base, onboardingCompleted: true, onboardingRedirectTo: '/' };
+      }
+      
+      // Handle token updates (e.g., from refreshAuthSession)
+      if (trigger === 'update' && token.userId && token.userType) {
+        console.log('Updating JWT token onboarding status for user:', token.userId);
+        const status = await getOnboardingStatus(token.userId as string, token.userType as string);
+        return { 
+          ...token, 
+          onboardingCompleted: status.completed, 
+          onboardingRedirectTo: status.redirectTo 
         };
       }
+      
+      // Check for existing tokens without onboardingCompleted - Backfill existing tokens
+      if (!token.onboardingCompleted && token.userId && token.userType) {
+        console.log('Backfilling JWT token with onboarding status for user:', token.userId);
+        const status = await getOnboardingStatus(token.userId as string, token.userType as string);
+        return { 
+          ...token, 
+          onboardingCompleted: status.completed, 
+          onboardingRedirectTo: status.redirectTo 
+        };
+      }
+      
       return token;
     },
-    async session({ session, token }: { session: CustomSession; token: JWT & { userType?: string; userId?: string } }) {
-      if (token.userId && session.user) {
-        session.user.id = token.userId;
+    async session({ session, token }: { session: CustomSession; token: JWT & { userType?: string; userId?: string; onboardingCompleted?: boolean; onboardingRedirectTo?: string } }) {
+      if (session.user) {
+        session.user.id = token.userId as string;
         session.user.userType = token.userType as 'job_seeker' | 'employer';
-        console.log('Session updated with user type:', session.user.userType);
+        session.user.onboardingCompleted = token.onboardingCompleted as boolean;
+        session.user.onboardingRedirectTo = token.onboardingRedirectTo as string;
+        console.log('Session updated with user type:', session.user.userType, 'onboardingCompleted:', session.user.onboardingCompleted);
       }
       return session;
     }

@@ -45,4 +45,28 @@ export async function getEmployerSession(): Promise<CustomSession> {
   }
   
   return session;
+}
+
+/**
+ * Refreshes the NextAuth session to update JWT token with current onboarding status
+ * Call this after a user completes onboarding to ensure their JWT contains 
+ * the updated onboardingCompleted flag.
+ */
+export async function refreshAuthSession() {
+  // This triggers NextAuth to revalidate the session and generate a new token
+  // which will pick up the latest onboarding status from the database
+  try {
+    // Using a no-cache fetch to ensure we get fresh data
+    await fetch('/api/auth/session?update', { 
+      method: 'GET',
+      headers: {
+        'Cache-Control': 'no-cache, no-store, max-age=0',
+      }
+    });
+    console.log('Auth session refreshed to update onboarding status');
+    return true;
+  } catch (error) {
+    console.error('Failed to refresh auth session:', error);
+    return false;
+  }
 } 

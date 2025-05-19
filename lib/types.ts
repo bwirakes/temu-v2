@@ -6,6 +6,8 @@ export interface CustomUser {
   email?: string | null;
   image?: string | null;
   userType?: 'job_seeker' | 'employer';
+  onboardingCompleted?: boolean;
+  onboardingRedirectTo?: string;
 }
 
 export interface CustomSession extends Session {
