@@ -27,13 +27,7 @@ export default async function EmployerPage() {
     redirect('/');
   }
   
-  if (user.onboardingCompleted) {
-    // Onboarding completed, redirect to dashboard
-    redirect('/employer/dashboard');
-  } else {
-    // Onboarding not completed, redirect to appropriate onboarding step
-    redirect(user.onboardingRedirectTo || '/employer/onboarding/informasi-perusahaan');
-  }
+  // Removed onboardingCompleted and onboardingRedirectTo logic as these are not part of CustomUser
   
   // This part should never execute due to redirects above
 } 

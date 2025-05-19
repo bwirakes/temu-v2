@@ -11,45 +11,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CheckCircle2, Building2, Globe, UserCircle, AlertCircle } from "lucide-react";
 import Image from "next/image";
 import { toast } from "sonner";
-import { refreshSessionClient } from "@/lib/hooks/useRefreshSession";
 
 export default function KonfirmasiForm() {
   const { data } = useEmployerOnboarding();
   const router = useRouter();
-  const { update: updateSession } = useSession();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isConfirmed, setIsConfirmed] = useState(false);
-  const [isSessionUpdating, setIsSessionUpdating] = useState(false);
-
-  /**
-   * Refreshes the auth session to update JWT token with onboardingCompleted=true
-   * Using a client-safe implementation
-   */
-  const refreshAuthSession = async (): Promise<boolean> => {
-    try {
-      console.log('Starting auth session refresh...');
-      
-      // Use the latest optimized approach with the refreshAuthSession utility
-      // First, add a small delay to ensure the database update has propagated
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // Use the client-safe refreshSessionClient function instead of dynamic import
-      const success = await refreshSessionClient();
-      
-      if (success) {
-        console.log('Auth session refreshed successfully');
-        // Call router.refresh() to update React components with new session data
-        router.refresh();
-        return true;
-      } else {
-        console.warn('Auth session refresh may have failed');
-        return false;
-      }
-    } catch (error) {
-      console.error('Error refreshing session:', error);
-      return false;
-    }
-  };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -85,36 +52,17 @@ export default function KonfirmasiForm() {
       
       toast.success("Pendaftaran berhasil diselesaikan!");
       
-      // Update the session to reflect completed onboarding
-      // This needs to happen before redirecting to ensure middleware sees the updated session
-      setIsSessionUpdating(true);
-
-      try {
-        // Wait for session update to complete
-        await updateSession({ user: { onboardingCompleted: true } });
-        
-        // Add a small delay to ensure the session has propagated
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        // Call the dynamically imported refreshAuthSession function
-        const refreshResult = await refreshAuthSession();
-        
-        if (!refreshResult) {
-          console.warn("Session refresh may not have completed successfully");
-        }
-        
-        // Another small delay for the session to fully update before redirect
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        // Navigate to the dashboard with replace to avoid back button issues
-        router.replace("/employer/dashboard");
-      } catch (sessionError) {
-        console.error("Error updating session:", sessionError);
-        // If session update fails, attempt to navigate anyway
-        router.replace("/employer/dashboard");
-      } finally {
-        setIsSessionUpdating(false);
-      }
+      // Add a small delay to ensure the database update has propagated
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Refresh the router to ensure middleware picks up the latest DB state
+      router.refresh();
+      
+      // Add a small delay for state changes to propagate
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      // Navigate to the dashboard - middleware will handle routing based on database status
+      router.replace("/employer/dashboard");
     } catch (error) {
       console.error("Error submitting confirmation form:", error);
       toast.error(
@@ -123,7 +71,6 @@ export default function KonfirmasiForm() {
           : "Terjadi kesalahan saat menyelesaikan pendaftaran. Silakan coba lagi."
       );
       setIsSubmitting(false);
-      setIsSessionUpdating(false);
     }
   };
 

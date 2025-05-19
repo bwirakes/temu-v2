@@ -7,9 +7,9 @@ import Image from "next/image";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import FormNav from "@/components/FormNav";
-import { refreshSessionClient, useRefreshSession } from "@/lib/hooks/useRefreshSession";
 import { useSession } from "next-auth/react";
 import { CustomSession } from "@/lib/types";
+import { Button } from "@/components/ui/button";
 
 // Define proper interfaces for the data types
 interface LevelPengalamanData {
@@ -36,7 +36,8 @@ export default function RingkasanProfil() {
     isSubmitting: contextIsSubmitting,
     submissionError: contextSubmissionError,
     currentStep,
-    submitOnboardingData
+    submitOnboardingData,
+    navigateToPreviousStep
   } = useOnboarding();
   
   const [submitSuccess, setSubmitSuccess] = useState<boolean | null>(null);
@@ -44,27 +45,12 @@ export default function RingkasanProfil() {
   const [isLocalSubmitting, setIsLocalSubmitting] = useState(false);
   const router = useRouter();
   const { data: sessionData } = useSession();
-  const { refresh: refreshSession, isRefreshing: isSessionRefreshing } = useRefreshSession();
 
   useEffect(() => {
     if (contextSubmissionError) {
       setSubmitError(contextSubmissionError);
     }
   }, [contextSubmissionError]);
-
-  /**
-   * Verifies that the session has the expected onboardingCompleted status
-   */
-  const verifySessionUpdated = (): boolean => {
-    // Use as any or CustomSession to access the custom property
-    const customSession = sessionData as any;
-    if (customSession?.user?.onboardingCompleted === true) {
-      console.log('Session verified: onboardingCompleted is true');
-      return true;
-    }
-    console.log('Session verification failed: onboardingCompleted is not true', customSession?.user);
-    return false;
-  };
 
   const handleSubmit = async () => {
     try {
@@ -87,40 +73,16 @@ export default function RingkasanProfil() {
       // Wait to ensure database updates are complete
       await new Promise(resolve => setTimeout(resolve, 500));
       
-      // Remember the server's redirect URL from the API response
+      // Set the destination URL
       const redirectUrl = "/job-seeker/dashboard";
 
-      // Attempt session refresh using the useRefreshSession hook
-      let sessionVerified = false;
+      // Refresh the router to ensure middleware picks up the latest DB state
+      router.refresh();
       
-      // Try up to 3 times to refresh the session
-      for (let i = 0; i < 3 && !sessionVerified; i++) {
-        if (i > 0) {
-          console.log(`Session refresh attempt ${i + 1}...`);
-          // Add an increasing delay between retry attempts
-          await new Promise(resolve => setTimeout(resolve, 700 * (i + 1)));
-        }
-        
-        // Refresh the session using the hook
-        await refreshSession();
-        
-        // Refresh the router to ensure all components get updated session
-        router.refresh();
-        
-        // Wait a moment for the session data to update
-        await new Promise(resolve => setTimeout(resolve, 300));
-        
-        // Verify the session was actually updated
-        sessionVerified = verifySessionUpdated();
-        if (sessionVerified) {
-          break;
-        }
-      }
-
-      console.log(`Session verification ${sessionVerified ? 'succeeded' : 'failed'}`);
-     
-      // Even if session verification failed, we proceed with redirect
-      // The server-side redirect will handle the onboarding status correctly
+      // Add a small delay for state changes to propagate
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      // Navigate to the dashboard - middleware will handle routing based on database status
       router.replace(redirectUrl);
     } catch (error) {
       console.error('Error during onboarding submission:', error);
@@ -437,22 +399,35 @@ export default function RingkasanProfil() {
           </div>
         )}
         
-        {/* Use FormNav for consistency with other steps */}
-        <FormNav 
-          onSubmit={handleSubmit}
-          isSubmitting={isLocalSubmitting || contextIsSubmitting || isSessionRefreshing}
-          disableNext={false}
-        />
-        
-        {isSessionRefreshing && (
-          <div className="mt-4 flex items-center justify-center text-sm text-blue-600">
-            <svg className="animate-spin -ml-1 mr-3 h-4 w-4 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-            Menyimpan informasi dan memperbarui sesi anda...
-          </div>
-        )}
+        {/* Custom footer instead of FormNav to show explicit "Selesaikan Pendaftaran" button */}
+        <div className="flex justify-between mt-8">
+          <Button
+            variant="outline"
+            onClick={() => navigateToPreviousStep()}
+            disabled={isLocalSubmitting || contextIsSubmitting}
+            className="px-6"
+          >
+            Sebelumnya
+          </Button>
+          
+          <Button
+            onClick={handleSubmit}
+            disabled={isLocalSubmitting || contextIsSubmitting}
+            className="px-6 bg-green-600 hover:bg-green-700"
+          >
+            {(isLocalSubmitting || contextIsSubmitting) ? (
+              <div className="flex items-center">
+                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Memproses...
+              </div>
+            ) : (
+              "Selesaikan Pendaftaran"
+            )}
+          </Button>
+        </div>
       </div>
     </div>
   );

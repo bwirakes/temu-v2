@@ -33,32 +33,21 @@ export async function GET() {
       );
     }
     
-    // Get the user profile and check if CV is uploaded
+    // Get the user profile
     const userProfile = await getJobSeekerByUserId(userId);
     
-    // Use the more comprehensive onboarding status check
+    // Get onboarding status directly from the database
+    // This is the single source of truth
     const onboardingStatus = await getJobSeekerOnboardingStatus(userId);
     
-    // Check onboarding status based on onboardingCompleted flag in users table
-    const onboardingCompleted = session.user.onboardingCompleted || false;
-    
-    if (onboardingCompleted) {
-      // If onboarding is complete, redirect to dashboard
+    if (onboardingStatus.completed) {
+      // If onboarding is complete according to the database, redirect to dashboard
       return NextResponse.json({
         completed: true,
         redirectTo: '/job-seeker/dashboard'
       });
     } else {
-      // If CV is missing but is now required, redirect to CV upload step
-      if (userProfile && !userProfile.cvFileUrl && onboardingStatus.completedSteps.includes(5)) {
-        return NextResponse.json({
-          completed: false,
-          currentStep: 8,
-          redirectTo: '/job-seeker/onboarding/cv-upload'
-        });
-      }
-      
-      // Otherwise use the status from getJobSeekerOnboardingStatus
+      // Otherwise use the detailed status from getJobSeekerOnboardingStatus
       return NextResponse.json({
         completed: onboardingStatus.completed,
         currentStep: onboardingStatus.currentStep,

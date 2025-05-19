@@ -17,8 +17,19 @@ import JobApplicationForm from '@/components/job-application/JobApplicationForm'
 // Import server action
 import { getJobApplicationPageData, JobDetails, JobSeekerProfileData } from './actions';
 
-// Remove type annotations from the page component parameters
-export default async function JobSeekerApplicationPage({ params }) {
+// Define type for work location
+interface WorkLocation {
+  city: string;
+  province: string;
+  isRemote?: boolean;
+}
+
+// Next.js 15 page component
+export default async function JobSeekerApplicationPage({
+  params,
+}: {
+  params: { jobId: string };
+}) {
   try {
     const { jobId } = params;
     
@@ -96,7 +107,7 @@ export default async function JobSeekerApplicationPage({ params }) {
 }
 
 // Separate component for job summary
-function JobSummary({ jobDetails }) {
+function JobSummary({ jobDetails }: { jobDetails: JobDetails }) {
   return (
     <div className="space-y-6">
       <Card id="job-details-card">
@@ -115,7 +126,7 @@ function JobSummary({ jobDetails }) {
           <div>
             <h5 className="text-sm font-medium text-gray-500">Lokasi</h5>
             <ul className="mt-1 text-sm text-gray-900 list-disc pl-5">
-              {jobDetails.workLocations?.map((location, index) => (
+              {jobDetails.workLocations?.map((location: WorkLocation, index: number) => (
                 <li key={index}>
                   {location.city}, {location.province}
                   {location.isRemote && " (Remote)"}

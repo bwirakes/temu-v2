@@ -3,28 +3,12 @@ import { auth } from '@/lib/auth';
 import { NextRequest } from 'next/server';
 import { CustomUser } from './lib/types';
 
-// Define path mappings for API redirects
-const API_REDIRECTS = {
-  '/api/onboarding': '/api/job-seeker/onboarding',
-};
-
-// Define path mappings for page redirects
-const PAGE_REDIRECTS = {
+// Simple path mappings for redirects
+const SIMPLE_REDIRECTS: Record<string, string> = {
   '/onboarding': '/job-seeker/onboarding',
   '/employer-onboarding': '/employer/onboarding',
   '/profile': '/job-seeker/profile',
-};
-
-// Define routes that should bypass session revalidation
-// to prevent unnecessary redirects and session validation
-const SESSION_PERSISTENCE_ROUTES = [
-  '/job-seeker/profile'
-];
-
-// Default onboarding paths if redirectTo is undefined
-const DEFAULT_PATHS: Record<string, string> = {
-  'job_seeker': '/job-seeker/onboarding/informasi-dasar',
-  'employer': '/employer/onboarding/informasi-perusahaan'
+  '/api/onboarding': '/api/job-seeker/onboarding',
 };
 
 // Auth-related routes that should never be redirected
@@ -34,12 +18,6 @@ const AUTH_ROUTES = [
   '/auth/signup',
   '/auth/error',
   '/auth/verify-request',
-  '/api/auth/session',
-  '/api/auth/signin',
-  '/api/auth/signout',
-  '/api/auth/signup',
-  '/api/auth/callback',
-  '/api/auth/apply'
 ];
 
 // Public routes - accessible to everyone
@@ -51,153 +29,156 @@ const PUBLIC_ROUTES = [
   '/login'
 ];
 
-// Routes that should skip onboarding checks
-const SKIP_ONBOARDING_CHECK_ROUTES = [
-  '/api/employer/onboarding',
-  '/api/employer/check-onboarding',
-  '/api/job-seeker/onboarding',
-  '/api/job-seeker/check-onboarding',
-  '/api/job-seeker/onboarding/submit',
-  '/api/upload',
-  '/api/upload/',
+// Routes that should completely bypass middleware
+const BYPASS_ROUTES = [
+  // API routes - bypass all API routes to avoid performance issues
+  '/api/',
+  // Static assets
   '/_next',
   '/favicon.ico',
   '.svg',
-  '/images/'
-];
-
-// Add explicit statement to exclude /api/upload from middleware
-export const EXCLUDED_PATHS = [
-  '/api/upload'
+  '/images/',
 ];
 
 export async function middleware(request: NextRequest) {
   const url = request.nextUrl.clone();
   const { pathname } = url;
 
-  // Skip logging in production to reduce overhead
-  if (process.env.NODE_ENV !== 'production') {
-    console.log(`Middleware: Processing ${pathname}`);
-  }
-
-  // Fast path: Skip middleware for paths that never need auth checks
-  // This prevents unnecessary session validation for static assets and API routes
-  if (
-    SKIP_ONBOARDING_CHECK_ROUTES.some(route => pathname.includes(route)) ||
-    AUTH_ROUTES.some(route => pathname === route || pathname.startsWith(`${route}/`)) ||
-    PUBLIC_ROUTES.some(route => pathname === route || pathname.startsWith(`${route}/`)) ||
-    EXCLUDED_PATHS.some(path => pathname === path || pathname.startsWith(`${path}/`))
-  ) {
+  // ##########################################
+  // CRITICAL PERFORMANCE OPTIMIZATION: 
+  // IMMEDIATELY BYPASS ALL API ROUTES AND STATIC ASSETS
+  // ##########################################
+  if (shouldBypassMiddleware(pathname)) {
     return NextResponse.next();
   }
 
-  // Handle path redirects (API and page redirects) before auth checks
-  // This prevents unnecessary session validation for simple path mappings
-  for (const [oldPath, newPath] of Object.entries(API_REDIRECTS)) {
-    if (pathname.startsWith(oldPath)) {
-      url.pathname = pathname.replace(oldPath, newPath);
-      return NextResponse.redirect(url);
-    }
+  // ##########################################
+  // SIMPLE PATH REDIRECTS
+  // ##########################################
+  // Handle simple path redirects before any authentication checks
+  const redirectPath = getSimpleRedirectPath(pathname);
+  if (redirectPath) {
+    url.pathname = redirectPath;
+    return NextResponse.redirect(url);
   }
 
-  for (const [oldPath, newPath] of Object.entries(PAGE_REDIRECTS)) {
-    if (pathname === oldPath || pathname.startsWith(`${oldPath}/`)) {
-      url.pathname = pathname.replace(oldPath, newPath);
-      return NextResponse.redirect(url);
-    }
+  // ##########################################
+  // PUBLIC ROUTES CHECK
+  // ##########################################
+  if (isPublicRoute(pathname)) {
+    return NextResponse.next();
   }
 
+  // ##########################################
+  // AUTHENTICATION CHECK
+  // ##########################################
   try {
-    // Get the session with auth data - this is cached so it's quite efficient
+    // Get the session with auth data
     const session = await auth();
 
-    // No user is logged in - redirect to signin except for public routes
+    // No user is logged in - redirect to signin
     if (!session?.user) {
       if (pathname === '/') {
         return NextResponse.redirect(new URL('/careers', request.url));
       }
+      
       return NextResponse.redirect(new URL('/auth/signin', request.url));
     }
 
+    // User is authenticated - extract user type
     const user = session.user as CustomUser;
     const userType = user.userType;
-    const onboardingCompleted = user.onboardingCompleted === true;
-    const onboardingRedirectTo = user.onboardingRedirectTo;
     
-    // Only log in development to reduce overhead
-    if (process.env.NODE_ENV !== 'production') {
-      console.log(`Middleware: User authenticated, type: ${userType}, email: ${user.email}, onboarding completed: ${onboardingCompleted}`);
-    }
-
-    // CASE 1: Root path for authenticated users
-    if (pathname === '/') {
-      const dashboardPath = userType === 'job_seeker' ? '/job-seeker/dashboard' : '/employer/dashboard';
-      
-      if (onboardingCompleted) {
-        return NextResponse.redirect(new URL(dashboardPath, request.url));
-      } else {
-        // Use onboardingRedirectTo from session if available, otherwise fallback to default
-        const redirectPath = onboardingRedirectTo || DEFAULT_PATHS[userType];
-        return NextResponse.redirect(new URL(redirectPath, request.url));
-      }
-    }
-    
-    // CASE 2: Handle /job-seeker and /employer base routes that should never directly render
-    if (pathname === '/job-seeker' || pathname === '/employer') {
-      if (onboardingCompleted) {
-        const dashboardPath = `${pathname}/dashboard`;
-        return NextResponse.redirect(new URL(dashboardPath, request.url));
-      } else {
-        const redirectPath = onboardingRedirectTo || DEFAULT_PATHS[userType];
-        return NextResponse.redirect(new URL(redirectPath, request.url));
-      }
-    }
-
-    // CASE 3: Handle user type specific paths
+    // ##########################################
+    // MINIMAL USER TYPE CHECK
+    // ##########################################
     const userPrefix = userType === 'job_seeker' ? '/job-seeker' : '/employer';
-    const isAccessingOnboarding = pathname.startsWith(`${userPrefix}/onboarding`);
-    const isAccessingWrongUserType = 
-      (userType === 'job_seeker' && pathname.startsWith('/employer')) || 
-      (userType === 'employer' && pathname.startsWith('/job-seeker'));
+    const otherUserTypePrefix = userType === 'job_seeker' ? '/employer' : '/job-seeker';
     
-    // Prevent accessing wrong user type routes
-    if (isAccessingWrongUserType) {
+    // Only prevent accessing wrong user type routes
+    if (pathname.startsWith(otherUserTypePrefix)) {
       return NextResponse.redirect(new URL('/', request.url));
     }
-    
-    // Handle onboarding routes
-    if (isAccessingOnboarding) {
-      // Special case: Once onboarding is completed, the user should still be able
-      // to view the confirmation page (last step), but not edit previous steps
-      const isKonfirmasiPage = pathname.includes('/konfirmasi') || pathname.includes('/ringkasan');
-      
-      // If onboarding is already completed and trying to access a non-confirmation step,
-      // redirect to dashboard
-      if (onboardingCompleted && !isKonfirmasiPage) {
-        return NextResponse.redirect(new URL(`${userPrefix}/dashboard`, request.url));
-      }
-      
-      // Otherwise, allow continuation to onboarding pages
-      return NextResponse.next();
+
+    // ##########################################
+    // ROOT REDIRECT
+    // ##########################################
+    // Only handle the root path - other paths are handled by client components
+    if (pathname === '/') {
+      return NextResponse.redirect(new URL(`${userPrefix}/dashboard`, request.url));
     }
     
-    // For non-onboarding routes, check if onboarding is completed
-    if (!onboardingCompleted) {
-      // Use onboardingRedirectTo from session if available, otherwise fallback to default
-      const redirectPath = onboardingRedirectTo || DEFAULT_PATHS[userType];
-      return NextResponse.redirect(new URL(redirectPath, request.url));
+    // Handle /job-seeker or /employer base routes
+    if (pathname === userPrefix) {
+      return NextResponse.redirect(new URL(`${userPrefix}/dashboard`, request.url));
     }
 
-    // Allow access for all other scenarios
+    // Allow access for all other paths - let the client handle navigation
     return NextResponse.next();
   } catch (error) {
-    console.error('Middleware: Unhandled error:', error);
-    // Default behavior on unhandled errors is to allow access and let the page handle errors
+    console.error('Middleware error:', error);
+    // On error, default to allowing access
     return NextResponse.next();
   }
 }
 
-// Expanded matcher to ensure we catch all relevant paths
+// ##########################################
+// HELPER FUNCTIONS (SIMPLIFIED)
+// ##########################################
+
+/**
+ * CRITICAL OPTIMIZATION: Fast check to immediately bypass middleware
+ */
+function shouldBypassMiddleware(pathname: string): boolean {
+  // First check for API routes (most important for performance)
+  if (pathname.startsWith('/api/')) {
+    return true;
+  }
+  
+  // Then check other bypass routes
+  for (const route of BYPASS_ROUTES) {
+    if (
+      pathname === route || 
+      pathname.startsWith(route) || 
+      (route.includes('.') && pathname.endsWith(route))
+    ) {
+      return true;
+    }
+  }
+  
+  // Check auth routes
+  for (const route of AUTH_ROUTES) {
+    if (pathname === route || pathname.startsWith(`${route}/`)) {
+      return true;
+    }
+  }
+  
+  return false;
+}
+
+/**
+ * Checks if a route is public
+ */
+function isPublicRoute(pathname: string): boolean {
+  return PUBLIC_ROUTES.some(route => 
+    pathname === route || 
+    pathname.startsWith(`${route}/`)
+  );
+}
+
+/**
+ * Get simple path redirect if applicable
+ */
+function getSimpleRedirectPath(pathname: string): string | null {
+  for (const [oldPath, newPath] of Object.entries(SIMPLE_REDIRECTS)) {
+    if (pathname === oldPath || pathname.startsWith(`${oldPath}/`)) {
+      return pathname.replace(oldPath, newPath);
+    }
+  }
+  return null;
+}
+
+// Middleware matcher configuration
 export const config = {
   matcher: [
     // Basic routes we want the middleware to handle

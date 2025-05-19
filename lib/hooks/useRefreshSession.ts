@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 
 /**
- * A client-safe implementation of refreshAuthSession
+ * A client-safe implementation of refreshing the session
  * This improves reliability of session refreshes by using multiple strategies
  */
 export async function refreshSessionClient(): Promise<boolean> {
@@ -36,13 +36,7 @@ export async function refreshSessionClient(): Promise<boolean> {
         console.warn('Auth session refresh response not OK:', response.status);
         // Continue with secondary method even if this fails
       } else {
-        // Parse response to validate it has the expected structure
-        const session = await response.json();
-        if (session?.user?.onboardingCompleted === true) {
-          console.log('Verified session updated successfully');
-        } else {
-          console.log('Session endpoint response may not have onboardingCompleted=true');
-        }
+        console.log('Session refreshed successfully');
       }
     } catch (primaryError) {
       clearTimeout(timeoutId);
@@ -76,7 +70,7 @@ export async function refreshSessionClient(): Promise<boolean> {
 
 /**
  * Hook for refreshing the auth session after a meaningful change
- * (like completing onboarding) that should be reflected in JWT
+ * that should be reflected in JWT and server-side state.
  * 
  * Optimized version that prevents duplicate refreshes and handles
  * errors gracefully.
@@ -102,11 +96,7 @@ export function useRefreshSession() {
       // First try to use the built-in Next Auth session update
       // This is faster than the fetch API call and preferred when available
       if (update) {
-        await update({ 
-          user: { 
-            onboardingCompleted: true 
-          } 
-        } as any); // Type assertion for custom fields
+        await update(); // General session update with no specific fields
       }
       
       // Then call our fetch-based refresh as a backup

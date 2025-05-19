@@ -16,7 +16,7 @@ export default async function JobSeekerPage() {
   // Get user from session
   const user = session?.user as CustomUser | undefined;
   
-  // Redirect logic based on authentication and onboarding status
+  // Redirect logic based on authentication and user type
   if (!user) {
     // User not authenticated, redirect to sign in
     redirect('/auth/signin');
@@ -27,13 +27,6 @@ export default async function JobSeekerPage() {
     redirect('/');
   }
   
-  if (user.onboardingCompleted) {
-    // Onboarding completed, redirect to dashboard
-    redirect('/job-seeker/dashboard');
-  } else {
-    // Onboarding not completed, redirect to appropriate onboarding step
-    redirect(user.onboardingRedirectTo || '/job-seeker/onboarding/informasi-dasar');
-  }
-  
-  // This part should never execute due to redirects above
+  // By default, redirect to the dashboard for job seekers
+  redirect('/job-seeker/dashboard');
 } 

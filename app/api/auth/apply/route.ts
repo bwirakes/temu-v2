@@ -29,15 +29,6 @@ export async function GET(request: NextRequest) {
       );
     }
     
-    // Verify onboarding is completed
-    if (!session.user.onboardingCompleted) {
-      console.log('User has not completed onboarding:', session.user.id);
-      // Redirect to onboarding with message that they need to complete it first
-      return NextResponse.redirect(
-        new URL('/job-seeker/onboarding/informasi-dasar?message=complete-onboarding-to-apply', request.url)
-      );
-    }
-    
     // Parse URL parameters
     const searchParams = request.nextUrl.searchParams;
     const employerId = searchParams.get('employerId');

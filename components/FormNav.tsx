@@ -13,6 +13,7 @@ interface FormNavProps {
   disableNext?: boolean;
   onSkip?: () => void;
   saveOnNext?: boolean;
+  forceShowSkip?: boolean;
 }
 
 export default function FormNav({ 
@@ -20,7 +21,8 @@ export default function FormNav({
   isSubmitting: formSubmitting, 
   disableNext, 
   onSkip,
-  saveOnNext = false
+  saveOnNext = false,
+  forceShowSkip = false
 }: FormNavProps) {
   const { 
     currentStep, 
@@ -73,7 +75,7 @@ export default function FormNav({
   };
 
   const isLastStep = currentStep === onboardingSteps.length;
-  const isCurrentStepOptional = isOptionalStep(currentStep);
+  const isCurrentStepOptional = isOptionalStep(currentStep) || forceShowSkip;
 
   return (
     <div className="flex justify-between mt-8">
@@ -101,7 +103,7 @@ export default function FormNav({
         <Button
           onClick={handleNext}
           disabled={disableNext || isSubmitting}
-          className={`px-6 ${isLastStep ? 'bg-green-600 hover:bg-green-700' : ''}`}
+          className="px-6"
         >
           {isSubmitting ? (
             <div className="flex items-center">
@@ -111,8 +113,6 @@ export default function FormNav({
               </svg>
               Memproses...
             </div>
-          ) : isLastStep ? (
-            "Selesaikan Pendaftaran"
           ) : (
             "Berikutnya"
           )}

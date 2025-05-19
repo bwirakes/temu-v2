@@ -100,8 +100,7 @@ export default function ProfilePhotoForm() {
       await handleUpload();
     }
     
-    // Navigate to next step regardless of whether there's a photo or not
-    // This is an optional step so users can skip photo upload
+    // Always navigate to next step regardless of upload status
     navigateToNextStep();
   };
   
@@ -271,11 +270,12 @@ export default function ProfilePhotoForm() {
         </div>
       )}
       
-      {/* Use FormNav component for consistent navigation */}
+      {/* Use FormNav component with always visible skip option */}
       <FormNav 
         onSubmit={handleSubmit} 
         isSubmitting={isSubmitting}
         onSkip={() => navigateToNextStep()}
+        forceShowSkip={true}
       />
       
       <p className="text-sm text-gray-500 text-center">
