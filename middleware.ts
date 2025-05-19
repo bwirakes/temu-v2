@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { NextRequest } from 'next/server';
 import { CustomUser } from './lib/types';
-import { getOnboardingStatus } from './lib/auth-helpers';
 
 // Define path mappings for API redirects
 const API_REDIRECTS = {
@@ -69,9 +68,13 @@ export async function middleware(request: NextRequest) {
   const url = request.nextUrl.clone();
   const { pathname } = url;
 
-  console.log(`Middleware: Processing ${pathname}`);
+  // Skip logging in production to reduce overhead
+  if (process.env.NODE_ENV !== 'production') {
+    console.log(`Middleware: Processing ${pathname}`);
+  }
 
-  // Skip middleware for excluded paths
+  // Fast path: Skip middleware for paths that never need auth checks
+  // This prevents unnecessary session validation for static assets and API routes
   if (
     SKIP_ONBOARDING_CHECK_ROUTES.some(route => pathname.includes(route)) ||
     AUTH_ROUTES.some(route => pathname === route || pathname.startsWith(`${route}/`)) ||
@@ -81,7 +84,8 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Handle path redirects (API and page redirects)
+  // Handle path redirects (API and page redirects) before auth checks
+  // This prevents unnecessary session validation for simple path mappings
   for (const [oldPath, newPath] of Object.entries(API_REDIRECTS)) {
     if (pathname.startsWith(oldPath)) {
       url.pathname = pathname.replace(oldPath, newPath);
@@ -97,6 +101,7 @@ export async function middleware(request: NextRequest) {
   }
 
   try {
+    // Get the session with auth data - this is cached so it's quite efficient
     const session = await auth();
 
     // No user is logged in - redirect to signin except for public routes
@@ -110,23 +115,40 @@ export async function middleware(request: NextRequest) {
     const user = session.user as CustomUser;
     const userType = user.userType;
     const onboardingCompleted = user.onboardingCompleted === true;
+    const onboardingRedirectTo = user.onboardingRedirectTo;
     
-    console.log(`Middleware: User authenticated, type: ${userType}, email: ${user.email}, onboarding completed: ${onboardingCompleted}`);
+    // Only log in development to reduce overhead
+    if (process.env.NODE_ENV !== 'production') {
+      console.log(`Middleware: User authenticated, type: ${userType}, email: ${user.email}, onboarding completed: ${onboardingCompleted}`);
+    }
 
-    // Handle root path for authenticated users
+    // Handle specific route cases based on auth and onboarding status
+    
+    // CASE 1: Root path for authenticated users
     if (pathname === '/') {
       const dashboardPath = userType === 'job_seeker' ? '/job-seeker/dashboard' : '/employer/dashboard';
       
       if (onboardingCompleted) {
         return NextResponse.redirect(new URL(dashboardPath, request.url));
       } else {
-        const onboardingStatus = await getOnboardingStatus(user.id, userType);
-        const redirectPath = onboardingStatus.redirectTo || DEFAULT_PATHS[userType];
+        // Use onboardingRedirectTo from session if available, otherwise fallback to default
+        const redirectPath = onboardingRedirectTo || DEFAULT_PATHS[userType];
+        return NextResponse.redirect(new URL(redirectPath, request.url));
+      }
+    }
+    
+    // CASE 2: Handle /job-seeker and /employer base routes that should never directly render
+    if (pathname === '/job-seeker' || pathname === '/employer') {
+      if (onboardingCompleted) {
+        const dashboardPath = `${pathname}/dashboard`;
+        return NextResponse.redirect(new URL(dashboardPath, request.url));
+      } else {
+        const redirectPath = onboardingRedirectTo || DEFAULT_PATHS[userType];
         return NextResponse.redirect(new URL(redirectPath, request.url));
       }
     }
 
-    // Handle user type specific paths
+    // CASE 3: Handle user type specific paths
     const userPrefix = userType === 'job_seeker' ? '/job-seeker' : '/employer';
     const isAccessingOnboarding = pathname.startsWith(`${userPrefix}/onboarding`);
     const isAccessingWrongUserType = 
@@ -135,7 +157,6 @@ export async function middleware(request: NextRequest) {
     
     // Prevent accessing wrong user type routes
     if (isAccessingWrongUserType) {
-      console.log(`Middleware: ${userType} attempting to access wrong user type route, redirecting`);
       return NextResponse.redirect(new URL('/', request.url));
     }
     
@@ -143,7 +164,6 @@ export async function middleware(request: NextRequest) {
     if (isAccessingOnboarding) {
       // If onboarding is already completed, redirect to dashboard
       if (onboardingCompleted && !pathname.includes('/konfirmasi')) {
-        console.log(`Middleware: ${userType} already completed onboarding, redirecting to dashboard`);
         return NextResponse.redirect(new URL(`${userPrefix}/dashboard`, request.url));
       }
       return NextResponse.next();
@@ -151,9 +171,8 @@ export async function middleware(request: NextRequest) {
     
     // For non-onboarding routes, check if onboarding is completed
     if (!onboardingCompleted) {
-      const onboardingStatus = await getOnboardingStatus(user.id, userType);
-      const redirectPath = onboardingStatus.redirectTo || DEFAULT_PATHS[userType];
-      console.log(`Middleware: ${userType} onboarding incomplete, redirecting to ${redirectPath}`);
+      // Use onboardingRedirectTo from session if available, otherwise fallback to default
+      const redirectPath = onboardingRedirectTo || DEFAULT_PATHS[userType];
       return NextResponse.redirect(new URL(redirectPath, request.url));
     }
 
@@ -166,11 +185,13 @@ export async function middleware(request: NextRequest) {
   }
 }
 
-// Don't invoke Middleware on some paths
+// Expanded matcher to ensure we catch all relevant paths
 export const config = {
   matcher: [
     // Basic routes we want the middleware to handle
     '/',
+    '/job-seeker',
+    '/employer',
     '/job-seeker/:path*',
     '/employer/:path*',
     '/api/onboarding/:path*',

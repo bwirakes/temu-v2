@@ -27,7 +27,12 @@ export default function ActionButton({
   primary = false 
 }: ActionButtonProps) {
   const renderIcon = () => {
-    const iconProps = { className: "h-5 w-5" };
+    const iconProps = { 
+      className: cn(
+        "h-5 w-5",
+        primary ? "text-white" : "text-gray-500"
+      )
+    };
     
     switch(icon) {
       case "Briefcase":
@@ -49,21 +54,17 @@ export default function ActionButton({
     <Link 
       href={href}
       className={cn(
-        "flex items-start p-4 rounded-lg border transition-all duration-200 overflow-hidden relative",
+        "flex items-start p-5 rounded-md border shadow-sm transition-all duration-150 group",
         primary 
-          ? "bg-gradient-to-r from-blue-600 to-blue-700 text-white border-blue-700 hover:from-blue-700 hover:to-blue-800" 
-          : "bg-white text-gray-800 border-gray-200 hover:border-blue-300 hover:shadow-md"
+          ? "bg-blue-600 text-white border-blue-600 hover:bg-blue-700 hover:shadow" 
+          : "bg-white text-gray-800 border-gray-200 hover:border-gray-300 hover:shadow"
       )}
     >
-      {primary && (
-        <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-blue-500/20 to-transparent rounded-bl-full -z-10"></div>
-      )}
-      
       <div className={cn(
-        "flex-shrink-0 h-10 w-10 rounded-full flex items-center justify-center",
+        "flex-shrink-0 h-9 w-9 rounded-md flex items-center justify-center",
         primary 
-          ? "bg-blue-500/50" 
-          : "bg-gradient-to-br from-blue-100 to-blue-200 text-blue-600"
+          ? "bg-blue-700" 
+          : "bg-gray-100 group-hover:bg-gray-200 transition-colors"
       )}>
         {renderIcon()}
       </div>
@@ -77,7 +78,7 @@ export default function ActionButton({
         </h3>
         <p className={cn(
           "text-sm mt-1", 
-          primary ? "text-blue-100" : "text-muted-foreground"
+          primary ? "text-blue-100" : "text-gray-500"
         )}>
           {description}
         </p>

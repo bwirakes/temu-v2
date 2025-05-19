@@ -11,7 +11,7 @@ const jobPostingSchema = z.object({
   minWorkExperience: z.number().int().min(0, "Work experience must be a positive number"),
   numberOfPositions: z.number().int().positive().optional(),
   lastEducation: z.enum(["SD", "SMP", "SMA/SMK", "D1", "D2", "D3", "D4", "S1", "S2", "S3"]).optional(),
-  requiredCompetencies: z.array(z.string()).optional(),
+  requiredCompetencies: z.string().optional(),
   expectations: z
     .object({
       ageRange: z
@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
       minWorkExperience: validationResult.data.minWorkExperience,
       numberOfPositions: validationResult.data.numberOfPositions,
       lastEducation: validationResult.data.lastEducation,
-      requiredCompetencies: validationResult.data.requiredCompetencies || [],
+      requiredCompetencies: validationResult.data.requiredCompetencies || '',
       expectations: validationResult.data.expectations || { ageRange: undefined },
       additionalRequirements: {
         gender: validationResult.data.additionalRequirements?.gender || "ANY",

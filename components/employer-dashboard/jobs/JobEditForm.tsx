@@ -28,9 +28,37 @@ import {
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
+import { Textarea } from "@/components/ui/textarea";
 
-// Define contract type locally
-// type ContractType = "FULL_TIME" | "PART_TIME" | "CONTRACT" | "INTERNSHIP" | "FREELANCE";
+// Define education options
+const EDUCATION_OPTIONS = [
+  { value: "SMP", label: "SMP", showJurusan: false },
+  { value: "SMK", label: "SMK", showJurusan: true },
+  { value: "SMA", label: "SMA", showJurusan: true },
+  { value: "SMA/SMK/Sederajat", label: "SMA/SMK/Sederajat", showJurusan: true },
+  { value: "D1", label: "D1", showJurusan: true },
+  { value: "D2", label: "D2", showJurusan: true },
+  { value: "D3", label: "D3", showJurusan: true },
+  { value: "D4", label: "D4", showJurusan: true },
+  { value: "S1", label: "S1", showJurusan: true },
+  { value: "S2", label: "S2", showJurusan: true },
+  { value: "S3", label: "S3", showJurusan: true }
+];
+
+// Define a constant for "no requirements" option
+const NO_REQUIREMENTS = "NO_REQUIREMENTS";
+
+// Define disability types
+const DISABILITY_TYPES = [
+  "Tuna Netra",
+  "Tuna Rungu",
+  "Tuna Wicara",
+  "Tuna Daksa",
+  "Tuna Grahita",
+  "Tuna Laras",
+  "Autisme",
+  "Lainnya"
+];
 
 // Define the schema for the form
 const jobSchema = z.object({
@@ -42,10 +70,12 @@ const jobSchema = z.object({
   gender: z.enum(["ANY", "MALE", "FEMALE"]),
   minWorkExperience: z.number().min(0).optional(),
   // Retained fields
-  lastEducation: z.enum(["SD", "SMP", "SMA/SMK", "D1", "D2", "D3", "D4", "S1", "S2", "S3"]).optional(),
+  lastEducation: z.string().optional(),
+  jurusan: z.string().optional(),
   requiredCompetencies: z.string().optional(), // Will be split into array when submitting
   acceptedDisabilityTypes: z.string().optional(), // Will be split into array when submitting
   numberOfDisabilityPositions: z.number().min(0).default(0),
+  suitableForDisability: z.boolean().default(false),
   
   // Company Expectations - only keeping age range
   ageRangeMin: z.number().min(15, "Minimal umur 15 tahun"),
@@ -91,6 +121,8 @@ export default function JobEditForm({ jobId, onSave, onCancel }: JobEditFormProp
   const [workLocations, setWorkLocations] = useState<WorkLocation[]>([
     { address: "", city: "", province: "", isRemote: false }
   ]);
+  const [showWorkLocations, setShowWorkLocations] = useState(true);
+  const [customDisabilityType, setCustomDisabilityType] = useState("");
   const [error, setError] = useState<string | null>(null);
   
   const form = useForm<JobFormValues>({
@@ -102,9 +134,11 @@ export default function JobEditForm({ jobId, onSave, onCancel }: JobEditFormProp
       minWorkExperience: 0,
       // New fields defaults
       lastEducation: undefined,
+      jurusan: undefined,
       requiredCompetencies: "",
       acceptedDisabilityTypes: "",
       numberOfDisabilityPositions: 0,
+      suitableForDisability: false,
       // Existing fields
       ageRangeMin: 18,
       ageRangeMax: 55,
@@ -134,6 +168,11 @@ export default function JobEditForm({ jobId, onSave, onCancel }: JobEditFormProp
         
         const job = jobData.job;
         
+        // Check if job has disability types or positions
+        const hasDisabilityInfo = 
+          (job.acceptedDisabilityTypes && job.acceptedDisabilityTypes.length > 0) || 
+          (job.numberOfDisabilityPositions && job.numberOfDisabilityPositions > 0);
+        
         // Format job data for the form
         form.reset({
           jobTitle: job.jobTitle || "",
@@ -142,14 +181,14 @@ export default function JobEditForm({ jobId, onSave, onCancel }: JobEditFormProp
                  job.additionalRequirements?.gender === "FEMALE" ? "FEMALE" : "ANY",
           minWorkExperience: job.minWorkExperience || 0,
           // New fields
-          lastEducation: job.lastEducation || undefined,
-          requiredCompetencies: Array.isArray(job.requiredCompetencies) 
-            ? job.requiredCompetencies.join("\n") 
-            : "",
+          lastEducation: job.lastEducation || NO_REQUIREMENTS,
+          jurusan: job.jurusan || undefined,
+          requiredCompetencies: job.requiredCompetencies || "",
           acceptedDisabilityTypes: Array.isArray(job.acceptedDisabilityTypes) 
             ? job.acceptedDisabilityTypes.join("\n") 
             : "",
           numberOfDisabilityPositions: job.numberOfDisabilityPositions || 0,
+          suitableForDisability: hasDisabilityInfo,
           // Existing fields
           ageRangeMin: job.expectations?.ageRange?.min || 18,
           ageRangeMax: job.expectations?.ageRange?.max || 55,
@@ -173,6 +212,9 @@ export default function JobEditForm({ jobId, onSave, onCancel }: JobEditFormProp
             province: loc.province || "",
             isRemote: loc.isRemote || false
           })));
+          setShowWorkLocations(true);
+        } else {
+          setShowWorkLocations(false);
         }
       } catch (err: any) {
         console.error('Error fetching job data:', err);
@@ -212,19 +254,55 @@ export default function JobEditForm({ jobId, onSave, onCancel }: JobEditFormProp
     setWorkLocations(updatedLocations);
   };
 
+  const addDisabilityType = () => {
+    if (customDisabilityType.trim() === "") return;
+    
+    const currentTypes = form.getValues("acceptedDisabilityTypes") || "";
+    const typesArray = currentTypes.split("\n").filter(Boolean);
+    
+    if (!typesArray.includes(customDisabilityType)) {
+      const updatedTypes = [...typesArray, customDisabilityType].join("\n");
+      form.setValue("acceptedDisabilityTypes", updatedTypes);
+      setCustomDisabilityType("");
+    }
+  };
+
+  const toggleDisabilityType = (type: string) => {
+    const currentTypes = form.getValues("acceptedDisabilityTypes") || "";
+    const typesArray = currentTypes.split("\n").filter(Boolean);
+    
+    let updatedTypes;
+    if (typesArray.includes(type)) {
+      updatedTypes = typesArray.filter(t => t !== type);
+    } else {
+      updatedTypes = [...typesArray, type];
+    }
+    
+    form.setValue("acceptedDisabilityTypes", updatedTypes.join("\n"));
+  };
+
+  const removeDisabilityType = (type: string) => {
+    const currentTypes = form.getValues("acceptedDisabilityTypes") || "";
+    const typesArray = currentTypes.split("\n").filter(Boolean);
+    const updatedTypes = typesArray.filter(t => t !== type).join("\n");
+    form.setValue("acceptedDisabilityTypes", updatedTypes);
+  };
+
   const onSubmit = async (data: JobFormValues) => {
     setIsSaving(true);
     
     try {
-      // Validate work locations
-      const hasValidLocations = workLocations.every(loc => loc.city && loc.province);
-      
-      if (!hasValidLocations) {
-        toast.error("Validasi gagal", {
-          description: "Setiap lokasi kerja harus memiliki kota dan provinsi."
-        });
-        setIsSaving(false);
-        return;
+      // Only validate work locations if the section is shown
+      if (showWorkLocations) {
+        const hasValidLocations = workLocations.every(loc => loc.city && loc.province);
+        
+        if (!hasValidLocations) {
+          toast.error("Validasi gagal", {
+            description: "Setiap lokasi kerja harus memiliki kota dan provinsi."
+          });
+          setIsSaving(false);
+          return;
+        }
       }
 
       // Format data for the API
@@ -232,11 +310,13 @@ export default function JobEditForm({ jobId, onSave, onCancel }: JobEditFormProp
         jobTitle: data.jobTitle,
         minWorkExperience: data.minWorkExperience,
         numberOfPositions: data.numberOfPositions,
-        // New fields
-        lastEducation: data.lastEducation,
-        requiredCompetencies: data.requiredCompetencies ? data.requiredCompetencies.split('\n').filter(Boolean) : [],
-        acceptedDisabilityTypes: data.acceptedDisabilityTypes ? data.acceptedDisabilityTypes.split('\n').filter(Boolean) : [],
-        numberOfDisabilityPositions: data.numberOfDisabilityPositions,
+        // New fields - don't send NO_REQUIREMENTS to API
+        lastEducation: data.lastEducation === NO_REQUIREMENTS ? undefined : data.lastEducation,
+        jurusan: data.jurusan,
+        requiredCompetencies: data.requiredCompetencies || '',
+        acceptedDisabilityTypes: data.suitableForDisability && data.acceptedDisabilityTypes ? 
+          data.acceptedDisabilityTypes.split('\n').filter(Boolean) : [],
+        numberOfDisabilityPositions: data.suitableForDisability ? data.numberOfDisabilityPositions : 0,
         // Only include age range in expectations
         expectations: {
           ageRange: {
@@ -264,27 +344,29 @@ export default function JobEditForm({ jobId, onSave, onCancel }: JobEditFormProp
         throw new Error(error.error || 'Failed to update job');
       }
 
-      // Delete existing locations and create new ones
-      // First, delete all existing locations
+      // Delete existing locations
       await fetch(`/api/employer/jobs/${jobId}/locations`, {
         method: 'DELETE'
       });
 
-      // Then add each location
-      for (const location of workLocations) {
-        if (location.city && location.province) {
-          await fetch(`/api/employer/jobs/${jobId}/locations`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              city: location.city,
-              province: location.province,
-              isRemote: location.isRemote,
-              address: location.address
-            })
-          });
+      // Add new locations only if the section is shown
+      if (showWorkLocations) {
+        // Then add each location
+        for (const location of workLocations) {
+          if (location.city && location.province) {
+            await fetch(`/api/employer/jobs/${jobId}/locations`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                city: location.city,
+                province: location.province,
+                isRemote: location.isRemote,
+                address: location.address
+              })
+            });
+          }
         }
       }
 
@@ -364,105 +446,119 @@ export default function JobEditForm({ jobId, onSave, onCancel }: JobEditFormProp
             )}
           </div>
 
-          {/* Work Locations */}
-          <div className="space-y-3">
-            <div className="flex justify-between items-center">
-              <Label className="flex items-center gap-1">
-                <span>Lokasi Kerja</span>
-                <span className="text-red-500">*</span>
-              </Label>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={addLocation}
-                className="flex items-center gap-1"
-              >
-                <PlusCircle className="h-4 w-4" />
-                <span>Tambah Lokasi</span>
-              </Button>
-            </div>
-
-            {workLocations.map((location, index) => (
-              <div key={index} className="p-4 border rounded-md space-y-3">
-                <div className="flex justify-between items-start">
-                  <h4 className="font-medium">Lokasi {index + 1}</h4>
-                  {index > 0 && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => removeLocation(index)}
-                      className="text-red-500 h-8 w-8 p-0"
-                    >
-                      <XCircle className="h-4 w-4" />
-                      <span className="sr-only">Hapus lokasi</span>
-                    </Button>
-                  )}
-                </div>
-
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id={`isRemote-${index}`}
-                    checked={location.isRemote}
-                    onCheckedChange={(checked) => 
-                      handleLocationChange(index, "isRemote", Boolean(checked))
-                    }
-                  />
-                  <Label htmlFor={`isRemote-${index}`}>
-                    Pekerjaan ini dapat dilakukan secara remote
-                  </Label>
-                </div>
-
-                <div className="space-y-3">
-                  <div>
-                    <Label htmlFor={`address-${index}`}>Alamat</Label>
-                    <Input
-                      id={`address-${index}`}
-                      value={location.address}
-                      onChange={(e) => handleLocationChange(index, "address", e.target.value)}
-                      placeholder="Jl. Contoh No. 123"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor={`city-${index}`} className="flex items-center gap-1">
-                        <span>Kota</span>
-                        <span className="text-red-500">*</span>
-                      </Label>
-                      <Input
-                        id={`city-${index}`}
-                        value={location.city}
-                        onChange={(e) => handleLocationChange(index, "city", e.target.value)}
-                        placeholder="Jakarta"
-                        className={!location.city ? "border-red-500" : ""}
-                      />
-                      {!location.city && (
-                        <p className="text-sm text-red-500">Kota wajib diisi</p>
-                      )}
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor={`province-${index}`} className="flex items-center gap-1">
-                        <span>Provinsi</span>
-                        <span className="text-red-500">*</span>
-                      </Label>
-                      <Input
-                        id={`province-${index}`}
-                        value={location.province}
-                        onChange={(e) => handleLocationChange(index, "province", e.target.value)}
-                        placeholder="DKI Jakarta"
-                        className={!location.province ? "border-red-500" : ""}
-                      />
-                      {!location.province && (
-                        <p className="text-sm text-red-500">Provinsi wajib diisi</p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
+          {/* Work Location Toggle */}
+          <div className="flex items-center space-x-2 pt-2">
+            <Checkbox
+              id="showWorkLocations"
+              checked={showWorkLocations}
+              onCheckedChange={(checked) => setShowWorkLocations(!!checked)}
+            />
+            <Label htmlFor="showWorkLocations" className="font-medium">
+              Tambahkan Lokasi Kerja
+            </Label>
           </div>
+
+          {/* Work Locations - Only shown if toggle is enabled */}
+          {showWorkLocations && (
+            <div className="space-y-3 pt-2">
+              <div className="flex justify-between items-center">
+                <Label className="flex items-center gap-1">
+                  <span>Lokasi Kerja</span>
+                  <span className="text-red-500">*</span>
+                </Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={addLocation}
+                  className="flex items-center gap-1"
+                >
+                  <PlusCircle className="h-4 w-4" />
+                  <span>Tambah Lokasi</span>
+                </Button>
+              </div>
+
+              {workLocations.map((location, index) => (
+                <div key={index} className="p-4 border rounded-md space-y-3">
+                  <div className="flex justify-between items-start">
+                    <h4 className="font-medium">Lokasi {index + 1}</h4>
+                    {index > 0 && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeLocation(index)}
+                        className="text-red-500 h-8 w-8 p-0"
+                      >
+                        <XCircle className="h-4 w-4" />
+                        <span className="sr-only">Hapus lokasi</span>
+                      </Button>
+                    )}
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id={`isRemote-${index}`}
+                      checked={location.isRemote}
+                      onCheckedChange={(checked) => 
+                        handleLocationChange(index, "isRemote", Boolean(checked))
+                      }
+                    />
+                    <Label htmlFor={`isRemote-${index}`}>
+                      Pekerjaan ini dapat dilakukan secara remote
+                    </Label>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div>
+                      <Label htmlFor={`address-${index}`}>Alamat</Label>
+                      <Input
+                        id={`address-${index}`}
+                        value={location.address}
+                        onChange={(e) => handleLocationChange(index, "address", e.target.value)}
+                        placeholder="Jl. Contoh No. 123"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor={`city-${index}`} className="flex items-center gap-1">
+                          <span>Kota</span>
+                          <span className="text-red-500">*</span>
+                        </Label>
+                        <Input
+                          id={`city-${index}`}
+                          value={location.city}
+                          onChange={(e) => handleLocationChange(index, "city", e.target.value)}
+                          placeholder="Jakarta"
+                          className={!location.city ? "border-red-500" : ""}
+                        />
+                        {!location.city && (
+                          <p className="text-sm text-red-500">Kota wajib diisi</p>
+                        )}
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor={`province-${index}`} className="flex items-center gap-1">
+                          <span>Provinsi</span>
+                          <span className="text-red-500">*</span>
+                        </Label>
+                        <Input
+                          id={`province-${index}`}
+                          value={location.province}
+                          onChange={(e) => handleLocationChange(index, "province", e.target.value)}
+                          placeholder="DKI Jakarta"
+                          className={!location.province ? "border-red-500" : ""}
+                        />
+                        {!location.province && (
+                          <p className="text-sm text-red-500">Provinsi wajib diisi</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -523,10 +619,14 @@ export default function JobEditForm({ jobId, onSave, onCancel }: JobEditFormProp
           <div className="space-y-2">
             <LabelText htmlFor="lastEducation">Pendidikan Terakhir</LabelText>
             <Select
-              value={form.watch("lastEducation") || ""}
+              value={form.watch("lastEducation") || NO_REQUIREMENTS}
               onValueChange={(value) => {
-                if (value) {
-                  form.setValue("lastEducation", value as any);
+                form.setValue("lastEducation", value);
+                
+                // Clear jurusan if not applicable for this education level or if "No Requirements" is selected
+                const educationOption = EDUCATION_OPTIONS.find(option => option.value === value);
+                if (!educationOption?.showJurusan || value === NO_REQUIREMENTS) {
+                  form.setValue("jurusan", "");
                 }
               }}
             >
@@ -534,17 +634,12 @@ export default function JobEditForm({ jobId, onSave, onCancel }: JobEditFormProp
                 <SelectValue placeholder="Pilih Pendidikan Minimal" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Tidak Ada Persyaratan</SelectItem>
-                <SelectItem value="SD">SD</SelectItem>
-                <SelectItem value="SMP">SMP</SelectItem>
-                <SelectItem value="SMA/SMK">SMA/SMK</SelectItem>
-                <SelectItem value="D1">D1</SelectItem>
-                <SelectItem value="D2">D2</SelectItem>
-                <SelectItem value="D3">D3</SelectItem>
-                <SelectItem value="D4">D4</SelectItem>
-                <SelectItem value="S1">S1</SelectItem>
-                <SelectItem value="S2">S2</SelectItem>
-                <SelectItem value="S3">S3</SelectItem>
+                <SelectItem value={NO_REQUIREMENTS}>Tidak Ada Persyaratan</SelectItem>
+                {EDUCATION_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
             <p className="text-xs text-gray-500">
@@ -552,16 +647,45 @@ export default function JobEditForm({ jobId, onSave, onCancel }: JobEditFormProp
             </p>
           </div>
           
+          {/* Jurusan field - only shown for applicable education levels */}
+          {(() => {
+            const currentEducation = form.watch("lastEducation");
+            // Don't show jurusan if education is NO_REQUIREMENTS
+            if (currentEducation === NO_REQUIREMENTS) return null;
+            
+            const educationOption = EDUCATION_OPTIONS.find(option => option.value === currentEducation);
+            if (educationOption?.showJurusan) {
+              return (
+                <div className="space-y-2">
+                  <LabelText htmlFor="jurusan">Jurusan</LabelText>
+                  <Input
+                    id="jurusan"
+                    placeholder="Contoh: Teknik Informatika, Manajemen Bisnis"
+                    {...form.register("jurusan")}
+                  />
+                  <p className="text-xs text-gray-500">
+                    Jurusan yang dibutuhkan untuk posisi ini (opsional)
+                  </p>
+                </div>
+              );
+            }
+            return null;
+          })()}
+          
           {/* Required Competencies */}
           <div className="space-y-2">
             <LabelText htmlFor="requiredCompetencies">Kompetensi yang Dibutuhkan</LabelText>
-            <Input
+            <Textarea
               id="requiredCompetencies"
-              placeholder="Contoh: Komunikasi efektif, Pemecahan masalah, Kerjasama tim, dll."
+              placeholder="Contoh:
+Komunikasi efektif
+Pemecahan masalah
+Kerjasama tim"
+              className="h-24"
               {...form.register("requiredCompetencies")}
             />
             <p className="text-xs text-gray-500">
-              Pisahkan beberapa kompetensi dengan koma
+              Tuliskan setiap kompetensi pada baris terpisah
             </p>
           </div>
         </CardContent>
@@ -626,31 +750,133 @@ export default function JobEditForm({ jobId, onSave, onCancel }: JobEditFormProp
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* Disability fields */}
-          <div className="space-y-2">
-            <LabelText htmlFor="acceptedDisabilityTypes">Jenis Disabilitas yang Diterima</LabelText>
-            <Input
-              id="acceptedDisabilityTypes"
-              placeholder="Contoh: Disabilitas fisik, Disabilitas sensorik, dll."
-              {...form.register("acceptedDisabilityTypes")}
-            />
-            <p className="text-xs text-gray-500">
-              Pisahkan beberapa jenis disabilitas dengan koma
-            </p>
+          {/* Suitable for Disability */}
+          <div className="flex items-start">
+            <div className="flex items-center h-5">
+              <Checkbox
+                id="suitableForDisability"
+                checked={form.watch("suitableForDisability")}
+                onCheckedChange={(checked) => {
+                  form.setValue("suitableForDisability", !!checked);
+                  if (!checked) {
+                    form.setValue("acceptedDisabilityTypes", "");
+                    form.setValue("numberOfDisabilityPositions", 0);
+                  }
+                }}
+              />
+            </div>
+            <div className="ml-3 text-sm">
+              <Label htmlFor="suitableForDisability" className="font-medium text-gray-700">
+                Pekerjaan dapat dilakukan oleh rekan dengan Disabilitas
+              </Label>
+              <p className="text-muted-foreground">
+                Centang jika posisi ini cocok untuk kandidat dengan disabilitas
+              </p>
+            </div>
           </div>
-          
-          <div className="space-y-2">
-            <LabelText htmlFor="numberOfDisabilityPositions">Jumlah Posisi untuk Disabilitas</LabelText>
-            <Input
-              id="numberOfDisabilityPositions"
-              type="number"
-              min="0"
-              {...form.register("numberOfDisabilityPositions", { valueAsNumber: true })}
-            />
-            <p className="text-xs text-gray-500">
-              Masukkan 0 jika tidak ada kuota khusus
-            </p>
-          </div>
+
+          {/* Disability-specific fields (only shown when suitableForDisability is checked) */}
+          {form.watch("suitableForDisability") && (
+            <div className="border border-blue-200 bg-blue-50 p-4 rounded-md space-y-4">
+              <h3 className="font-medium text-blue-800">Informasi Disabilitas</h3>
+              
+              {/* Accepted Disability Types */}
+              <div>
+                <Label className="block text-sm font-medium text-gray-700">
+                  Jenis Disabilitas yang Cocok <span className="text-red-500">*</span>
+                </Label>
+                <p className="text-xs text-gray-500 mb-2">
+                  Pilih satu atau lebih jenis disabilitas yang cocok untuk posisi ini
+                </p>
+                
+                <div className="grid grid-cols-2 gap-2 mt-2">
+                  {DISABILITY_TYPES.map((type) => (
+                    <div key={type} className="flex items-center">
+                      <Checkbox
+                        id={`disability-${type}`}
+                        checked={(form.watch("acceptedDisabilityTypes") || "").includes(type)}
+                        onCheckedChange={() => toggleDisabilityType(type)}
+                        className="mr-2"
+                      />
+                      <Label htmlFor={`disability-${type}`} className="text-sm text-gray-700">
+                        {type}
+                      </Label>
+                    </div>
+                  ))}
+                </div>
+                
+                {/* Custom disability type input */}
+                <div className="mt-3 flex items-center">
+                  <Input
+                    type="text"
+                    value={customDisabilityType}
+                    onChange={(e) => setCustomDisabilityType(e.target.value)}
+                    placeholder="Jenis disabilitas lainnya"
+                    className="flex-1"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={addDisabilityType}
+                    className="ml-2"
+                  >
+                    <PlusCircle className="h-4 w-4 mr-1" />
+                    <span>Tambah</span>
+                  </Button>
+                </div>
+                
+                {/* Display selected custom disability types */}
+                {form.watch("acceptedDisabilityTypes") && (
+                  <div className="mt-2">
+                    {(form.watch("acceptedDisabilityTypes") || "")
+                      .split('\n')
+                      .filter(Boolean)
+                      .filter(type => !DISABILITY_TYPES.includes(type))
+                      .length > 0 && (
+                        <div>
+                          <p className="text-xs font-medium text-gray-700 mb-1">Jenis disabilitas tambahan:</p>
+                          <div className="flex flex-wrap gap-2">
+                            {(form.watch("acceptedDisabilityTypes") || "")
+                              .split('\n')
+                              .filter(Boolean)
+                              .filter(type => !DISABILITY_TYPES.includes(type))
+                              .map(type => (
+                                <span key={type} className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                  {type}
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    onClick={() => removeDisabilityType(type)}
+                                    className="ml-1 h-4 w-4 p-0 text-blue-500 hover:text-blue-700"
+                                  >
+                                    <XCircle className="h-3 w-3" />
+                                  </Button>
+                                </span>
+                              ))
+                            }
+                          </div>
+                        </div>
+                      )}
+                  </div>
+                )}
+              </div>
+              
+              {/* Number of Disability Positions */}
+              <div className="space-y-2">
+                <LabelText htmlFor="numberOfDisabilityPositions" required>Jumlah Posisi untuk Rekan Disabilitas</LabelText>
+                <Input
+                  id="numberOfDisabilityPositions"
+                  type="number"
+                  min="1"
+                  className="w-24"
+                  {...form.register("numberOfDisabilityPositions", { valueAsNumber: true })}
+                />
+                <p className="text-xs text-gray-500">
+                  Berapa banyak posisi yang tersedia untuk kandidat dengan disabilitas?
+                </p>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 

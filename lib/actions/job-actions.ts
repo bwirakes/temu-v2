@@ -18,7 +18,7 @@ interface CreateJobResponse {
  * Valid education levels for the lastEducation field
  */
 const VALID_EDUCATION_LEVELS = [
-  'SD', 'SMP', 'SMA/SMK', 'D1', 'D2', 'D3', 'D4', 'S1', 'S2', 'S3'
+  'SD', 'SMP', 'SMK', 'SMA', 'SMA/SMK', 'D1', 'D2', 'D3', 'D4', 'S1', 'S2', 'S3'
 ];
 
 /**
@@ -36,6 +36,8 @@ export async function createJobPosting(jobData: Partial<JobPostingData>): Promis
       // Map common alternative terms to valid enum values
       if (lastEducation === 'Diploma') {
         lastEducation = 'D3'; // Default to D3 for general "Diploma" entries
+      } else if (lastEducation === 'SMA/SMK') {
+        lastEducation = 'SMA/SMK/Sederajat'; // Map to the new combined format
       }
     }
 
@@ -64,7 +66,8 @@ export async function createJobPosting(jobData: Partial<JobPostingData>): Promis
         ? parseInt(jobData.numberOfPositions, 10) 
         : jobData.numberOfPositions,
       lastEducation: lastEducation,
-      requiredCompetencies: jobData.requiredCompetencies || [],
+      jurusan: jobData.jurusan || '', // Include jurusan field
+      requiredCompetencies: jobData.requiredCompetencies || '', // Now a string instead of an array
       expectations: jobData.expectations || { ageRange: undefined },
       additionalRequirements: {
         gender: jobData.additionalRequirements?.gender || "ANY",

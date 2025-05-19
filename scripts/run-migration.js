@@ -52,5 +52,15 @@ async function applyMigration(migrationFile) {
 // Get the migration file path from command line arguments
 const migrationFile = process.argv[2] || null;
 
-// Run the migration
-applyMigration(migrationFile); 
+// Run the migration from command line arguments
+if (migrationFile) {
+  applyMigration(migrationFile);
+} else {
+  // If no file specified, run our requiredCompetencies migration
+  const requiredCompetenciesMigration = path.join(__dirname, '..', 'migrations', '0010_convert_required_competencies_to_text.sql');
+  console.log('Running migration to convert requiredCompetencies from JSONB to TEXT...');
+  applyMigration(requiredCompetenciesMigration);
+}
+
+// Note: You need to have the POSTGRES_URL environment variable set
+// You can run this script with: POSTGRES_URL=your_postgres_connection_string node scripts/run-migration.js 

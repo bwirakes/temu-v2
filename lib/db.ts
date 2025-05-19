@@ -264,7 +264,8 @@ export const jobs = pgTable('jobs', {
   postedDate: timestamp('posted_date').defaultNow().notNull(),
   numberOfPositions: integer('number_of_positions'),
   lastEducation: lastEducationEnum('last_education'),
-  requiredCompetencies: jsonb('required_competencies').$type<string[]>(),
+  jurusan: text('jurusan'),
+  requiredCompetencies: text('required_competencies'),
   expectations: jsonb('expectations').$type<{
     ageRange?: {
       min: number;

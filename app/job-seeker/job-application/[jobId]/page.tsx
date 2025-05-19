@@ -474,14 +474,12 @@ function JobSummary({ jobDetails }: { jobDetails: any }) {
             </div>
           )}
           
-          {jobDetails.requiredCompetencies && jobDetails.requiredCompetencies.length > 0 && (
+          {jobDetails.requiredCompetencies && (
             <div>
               <h5 className="text-sm font-medium text-gray-500">Kompetensi yang Dibutuhkan</h5>
-              <ul className="mt-1 text-sm text-gray-900 list-disc pl-5">
-                {jobDetails.requiredCompetencies.map((competency: string, index: number) => (
-                  <li key={index}>{competency}</li>
-                ))}
-              </ul>
+              <p className="mt-1 text-sm text-gray-900 whitespace-pre-line">
+                {jobDetails.requiredCompetencies}
+              </p>
             </div>
           )}
           

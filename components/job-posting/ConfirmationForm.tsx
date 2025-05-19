@@ -9,6 +9,13 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Globe } from "lucide-react";
 
+// Education options that should show jurusan
+const EDUCATION_WITH_JURUSAN = [
+  "SMK", "SMA", "SMA/SMK", 
+  "D1", "D2", "D3", "D4", 
+  "S1", "S2", "S3"
+];
+
 export default function ConfirmationForm() {
   const { data } = useJobPosting();
   const router = useRouter();
@@ -41,6 +48,12 @@ export default function ConfirmationForm() {
       default: return 'Tidak Spesifik';
     }
   }
+
+  // Helper function to check if this education level should show jurusan
+  const shouldShowJurusan = (education: string | undefined): boolean => {
+    if (!education) return false;
+    return EDUCATION_WITH_JURUSAN.includes(education);
+  };
 
   const handleSubmit = async () => {
     if (isSubmitting) return;
@@ -129,18 +142,21 @@ export default function ConfirmationForm() {
             <p className="text-sm font-medium text-gray-500">Pendidikan Terakhir</p>
             <p className="mt-1">{data.lastEducation || 'Tidak Ditentukan'}</p>
           </div>
+          {/* Display Jurusan if applicable and not empty */}
+          {data.lastEducation && shouldShowJurusan(data.lastEducation) && data.jurusan && (
+            <div>
+              <p className="text-sm font-medium text-gray-500">Jurusan</p>
+              <p className="mt-1">{data.jurusan}</p>
+            </div>
+          )}
           <div>
             <p className="text-sm font-medium text-gray-500">Pengalaman Kerja Minimal</p>
             <p className="mt-1">{data.minWorkExperience} tahun</p>
           </div>
           <div className="col-span-2">
             <p className="text-sm font-medium text-gray-500">Kompetensi yang Dibutuhkan</p>
-            {data.requiredCompetencies && data.requiredCompetencies.length > 0 ? (
-              <ul className="mt-1 list-disc list-inside">
-                {data.requiredCompetencies.map((competency, index) => (
-                  <li key={index}>{competency}</li>
-                ))}
-              </ul>
+            {data.requiredCompetencies ? (
+              <p className="mt-1 whitespace-pre-line">{data.requiredCompetencies}</p>
             ) : (
               <p className="mt-1">Tidak ada kompetensi yang ditentukan</p>
             )}

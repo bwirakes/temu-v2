@@ -21,7 +21,7 @@ export interface Job {
   postedDate: string;
   minWorkExperience: number;
   lastEducation?: string;
-  requiredCompetencies?: string[];
+  requiredCompetencies?: string;
   numberOfPositions?: number;
   expectations?: {
     ageRange?: {
@@ -146,14 +146,12 @@ export function JobDetailsCard({ job }: { job: Job }) {
             </div>
           )}
 
-          {job.requiredCompetencies && job.requiredCompetencies.length > 0 && (
+          {job.requiredCompetencies && (
             <div>
               <h3 className="text-sm font-medium text-muted-foreground mb-1">Kompetensi yang Dibutuhkan</h3>
-              <ul className="list-disc pl-5 space-y-1">
-                {job.requiredCompetencies.map((item, index) => (
-                  <li key={index}>{item}</li>
-                ))}
-              </ul>
+              <div className="p-3 bg-gray-50 rounded-lg">
+                <p className="text-gray-600 whitespace-pre-line">{job.requiredCompetencies}</p>
+              </div>
             </div>
           )}
         </CardContent>

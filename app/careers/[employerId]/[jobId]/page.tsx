@@ -46,7 +46,7 @@ interface Job {
   employerId: string;
   minWorkExperience: number;
   lastEducation?: "SD" | "SMP" | "SMA/SMK" | "D1" | "D2" | "D3" | "D4" | "S1" | "S2" | "S3" | null;
-  requiredCompetencies?: string[];
+  requiredCompetencies?: string;
   expectations?: {
     ageRange?: {
       min: number;
@@ -384,7 +384,7 @@ async function JobDetail({ employerId, jobId }: { employerId: string; jobId: str
         )}
         
         {/* Required Competencies */}
-        {Array.isArray(job.requiredCompetencies) && job.requiredCompetencies.length > 0 && (
+        {job.requiredCompetencies && (
           <CardContent className="border-b pt-0 pb-6">
             <h2 className="text-lg font-medium mb-4 flex items-center text-gray-900">
               <svg className="w-5 h-5 mr-2 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -392,16 +392,9 @@ async function JobDetail({ employerId, jobId }: { employerId: string; jobId: str
               </svg>
               Kompetensi yang Dibutuhkan
             </h2>
-            <ul className="space-y-3 text-gray-600">
-              {job.requiredCompetencies.map((item, index) => (
-                <li key={index} className="flex items-start">
-                  <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-yellow-100 text-yellow-800 mr-3 flex-shrink-0 text-xs font-medium">
-                    {index + 1}
-                  </span>
-                  <span>{item}</span>
-                </li>
-              ))}
-            </ul>
+            <div className="p-3 bg-gray-50 rounded-lg">
+              <p className="text-gray-600 whitespace-pre-line">{job.requiredCompetencies}</p>
+            </div>
           </CardContent>
         )}
         

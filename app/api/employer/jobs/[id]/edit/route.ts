@@ -23,7 +23,7 @@ const jobUpdateSchema = z.object({
   minWorkExperience: z.number().int().min(0, "Work experience must be a positive number"),
   numberOfPositions: z.number().int().positive().optional(),
   lastEducation: z.enum(["SD", "SMP", "SMA/SMK", "D1", "D2", "D3", "D4", "S1", "S2", "S3"]).optional(),
-  requiredCompetencies: z.array(z.string()).optional(),
+  requiredCompetencies: z.string().optional(),
   expectations: z
     .object({
       ageRange: z
@@ -118,7 +118,7 @@ export async function PUT(req: NextRequest, props: { params: Promise<{ id: strin
       ...validationResult.data,
       // Ensure new fields are properly included
       lastEducation: validationResult.data.lastEducation,
-      requiredCompetencies: validationResult.data.requiredCompetencies || [],
+      requiredCompetencies: validationResult.data.requiredCompetencies || '',
       acceptedDisabilityTypes: validationResult.data.additionalRequirements?.acceptedDisabilityTypes || [],
       numberOfDisabilityPositions: validationResult.data.additionalRequirements?.numberOfDisabilityPositions || 0,
       updatedAt: new Date() // Ensure updatedAt is refreshed

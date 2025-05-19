@@ -10,7 +10,8 @@ export interface JobPostingData {
   jobTitle: string;
   minWorkExperience: number;
   lastEducation?: string;
-  requiredCompetencies?: string[];
+  jurusan?: string;
+  requiredCompetencies?: string;
   numberOfPositions?: number;
   expectations?: {
     ageRange?: {
@@ -44,7 +45,8 @@ const defaultJobPostingData: JobPostingData = {
   jobTitle: '',
   minWorkExperience: 0,
   lastEducation: '',
-  requiredCompetencies: [],
+  jurusan: '',
+  requiredCompetencies: '',
   numberOfPositions: 0,
   expectations: {
     ageRange: {

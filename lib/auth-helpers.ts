@@ -6,10 +6,18 @@ import {
   db
 } from './db';
 import { eq } from 'drizzle-orm';
+import { getOnboardingStatusEdge } from './db-edge';
+
+/**
+ * Edge-compatible version of getOnboardingStatus
+ * For use in middleware and auth callbacks
+ */
+export { getOnboardingStatusEdge };
 
 /**
  * Fetches the onboarding status for a user by ID and type
  * This is used for redirect calculations in middleware and pages
+ * NOT Edge-compatible - do not use in middleware or auth callbacks
  */
 export async function getOnboardingStatus(userId: string, userType: string): Promise<{ completed: boolean; redirectTo: string }> {
   try {

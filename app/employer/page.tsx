@@ -1,79 +1,39 @@
-'use client';
+import { auth } from '@/lib/auth';
+import { redirect } from 'next/navigation';
+import { CustomUser } from '@/lib/types';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { useSession } from 'next-auth/react';
-import { CustomSession } from '@/lib/types';
-
-export default function EmployerDashboard() {
-  const router = useRouter();
-  const { data: session, status } = useSession() as { 
-    data: CustomSession | null;
-    status: 'loading' | 'authenticated' | 'unauthenticated';
-  };
-  const [isChecking, setIsChecking] = useState(true);
-
-  useEffect(() => {
-    async function checkOnboardingStatus() {
-      if (status === 'unauthenticated') {
-        router.push('/auth/signin');
-        return;
-      }
-      
-      if (status === 'authenticated' && session?.user) {
-        if (session.user.userType !== 'employer') {
-          router.push('/');
-          return;
-        }
-        
-        try {
-          // Make a request to an API endpoint to check onboarding status
-          console.log("Checking onboarding status...");
-          const response = await fetch('/api/employer/check-onboarding');
-          const data = await response.json();
-          
-          console.log("Onboarding status:", data);
-          
-          // If onboarding is not complete, redirect to the onboarding step
-          if (!data.completed && data.redirectTo) {
-            console.log(`Redirecting to onboarding: ${data.redirectTo}`);
-            
-            // Force a hard navigation to the onboarding page
-            window.location.href = data.redirectTo;
-            return;
-          }
-          
-          // If onboarding is complete, allow access to dashboard
-          setIsChecking(false);
-        } catch (error) {
-          console.error('Error checking onboarding status:', error);
-          setIsChecking(false);
-        }
-      }
-    }
-    
-    checkOnboardingStatus();
-  }, [status, session, router]);
-
-  // Show loading state while checking
-  if (status === 'loading' || isChecking) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500 mx-auto"></div>
-          <p className="mt-4 text-gray-600 dark:text-gray-400">Memuat...</p>
-        </div>
-      </div>
-    );
+/**
+ * Server Component: Landing page for employers
+ * 
+ * This component serves as an entry point for the /employer route.
+ * Instead of client-side redirects with API calls, we handle all redirects
+ * efficiently on the server side based on auth session data.
+ */
+export default async function EmployerPage() {
+  // Get auth session (cached by Next.js automatically)
+  const session = await auth();
+  
+  // Get user from session
+  const user = session?.user as CustomUser | undefined;
+  
+  // Redirect logic based on authentication and onboarding status
+  if (!user) {
+    // User not authenticated, redirect to sign in
+    redirect('/auth/signin');
   }
-
-  return (
-    <div className="container mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold mb-6">Employer Dashboard</h1>
-      <div className="bg-white p-6 rounded-lg shadow-md">
-        <p className="text-lg">Welcome to your employer dashboard!</p>
-        <p className="text-gray-600 mt-2">From here you can manage your job postings, view applications, and update your company profile.</p>
-      </div>
-    </div>
-  );
+  
+  if (user.userType !== 'employer') {
+    // Wrong user type, redirect to home
+    redirect('/');
+  }
+  
+  if (user.onboardingCompleted) {
+    // Onboarding completed, redirect to dashboard
+    redirect('/employer/dashboard');
+  } else {
+    // Onboarding not completed, redirect to appropriate onboarding step
+    redirect(user.onboardingRedirectTo || '/employer/onboarding/informasi-perusahaan');
+  }
+  
+  // This part should never execute due to redirects above
 } 

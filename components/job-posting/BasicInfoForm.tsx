@@ -4,12 +4,28 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useJobPosting } from "@/lib/context/JobPostingContext";
 
+// Define education options
+const EDUCATION_OPTIONS = [
+  { value: "SMP", label: "SMP", showJurusan: false },
+  { value: "SMK", label: "SMK", showJurusan: true },
+  { value: "SMA", label: "SMA", showJurusan: true },
+  { value: "SMA/SMK", label: "SMA/SMK/Sederajat", showJurusan: true },
+  { value: "D1", label: "D1", showJurusan: true },
+  { value: "D2", label: "D2", showJurusan: true },
+  { value: "D3", label: "D3", showJurusan: true },
+  { value: "D4", label: "D4", showJurusan: true },
+  { value: "S1", label: "S1", showJurusan: true },
+  { value: "S2", label: "S2", showJurusan: true },
+  { value: "S3", label: "S3", showJurusan: true }
+];
+
 // Define the form state type to avoid type mismatches
 interface BasicInfoFormState {
   jobTitle: string;
   numberOfPositions: number;
   minWorkExperience: number;
   lastEducation: string;
+  jurusan: string; // New field for major/specialization
   requiredCompetencies: string; // String for textarea input that will be split into array
 }
 
@@ -22,18 +38,34 @@ export default function BasicInfoForm() {
     numberOfPositions: data.numberOfPositions || 1,
     minWorkExperience: data.minWorkExperience || 0,
     lastEducation: data.lastEducation || "",
-    requiredCompetencies: Array.isArray(data.requiredCompetencies) 
-      ? data.requiredCompetencies.join(', ') 
-      : (data.requiredCompetencies || "")
+    jurusan: data.jurusan || "",
+    requiredCompetencies: data.requiredCompetencies || "" // Now requiredCompetencies is a string in context
   });
+
+  // Helper to check if jurusan should be shown for the selected education level
+  const shouldShowJurusan = () => {
+    const educationOption = EDUCATION_OPTIONS.find(option => option.value === formData.lastEducation);
+    return educationOption?.showJurusan || false;
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     
     if (name === "numberOfPositions" || name === "minWorkExperience") {
+      // For number inputs, convert to number to remove any leading zeros
+      const numericValue = value === '' ? 0 : Number(value);
       setFormData({
         ...formData,
-        [name]: parseInt(value) || 0
+        [name]: numericValue
+      });
+    } else if (name === "lastEducation") {
+      // If changing education level, clear jurusan if not applicable
+      const educationOption = EDUCATION_OPTIONS.find(option => option.value === value);
+      setFormData({
+        ...formData,
+        lastEducation: value,
+        // Clear jurusan if the new education level doesn't support it
+        jurusan: educationOption?.showJurusan ? formData.jurusan : ""
       });
     } else {
       setFormData({
@@ -73,18 +105,14 @@ export default function BasicInfoForm() {
       return;
     }
     
-    // Process requiredCompetencies into an array before saving
-    const competenciesArray = formData.requiredCompetencies
-      ? formData.requiredCompetencies.split(',').map(item => item.trim()).filter(Boolean)
-      : [];
-    
-    // Update form values in context
+    // Update form values in context - directly use requiredCompetencies string
     updateFormValues({
       jobTitle: formData.jobTitle,
       numberOfPositions: formData.numberOfPositions,
       minWorkExperience: formData.minWorkExperience,
       lastEducation: formData.lastEducation,
-      requiredCompetencies: competenciesArray
+      jurusan: shouldShowJurusan() ? formData.jurusan : "", // Only save jurusan if applicable for selected education
+      requiredCompetencies: formData.requiredCompetencies.trim() // Use the string directly, just trim whitespace
     });
     
     // Clear any previous errors
@@ -149,7 +177,7 @@ export default function BasicInfoForm() {
             id="minWorkExperience"
             name="minWorkExperience"
             min="0"
-            value={formData.minWorkExperience}
+            value={Number(formData.minWorkExperience)}
             onChange={handleChange}
             className="block w-24 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2"
           />
@@ -175,19 +203,34 @@ export default function BasicInfoForm() {
           } shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2`}
         >
           <option value="">Pilih Pendidikan Terakhir</option>
-          <option value="SD">SD</option>
-          <option value="SMP">SMP</option>
-          <option value="SMA/SMK">SMA/SMK</option>
-          <option value="Diploma">Diploma</option>
-          <option value="S1">S1</option>
-          <option value="S2">S2</option>
-          <option value="S3">S3</option>
-          <option value="Tidak Ada">Tidak Ada</option>
+          {EDUCATION_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
         </select>
         {errors.lastEducation && (
           <p className="mt-1 text-sm text-red-600">{errors.lastEducation}</p>
         )}
       </div>
+
+      {/* Jurusan (Major/Specialization) - Conditional */}
+      {shouldShowJurusan() && (
+        <div>
+          <label htmlFor="jurusan" className="block text-sm font-medium text-gray-700">
+            Jurusan <span className="text-gray-400 text-xs ml-1">(Opsional)</span>
+          </label>
+          <input
+            type="text"
+            id="jurusan"
+            name="jurusan"
+            value={formData.jurusan}
+            onChange={handleChange}
+            placeholder="Contoh: Teknik Informatika, Manajemen Bisnis"
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2"
+          />
+        </div>
+      )}
 
       {/* Required Competencies */}
       <div>
@@ -197,14 +240,17 @@ export default function BasicInfoForm() {
         <textarea
           id="requiredCompetencies"
           name="requiredCompetencies"
-          rows={3}
+          rows={4}
           value={formData.requiredCompetencies}
           onChange={handleChange}
-          placeholder="Contoh: Kemampuan analitis, Komunikasi yang baik, Kepemimpinan, dll."
+          placeholder="Contoh:
+Komunikasi efektif
+Pemecahan masalah
+Kerjasama tim"
           className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2"
         />
         <p className="mt-1 text-xs text-gray-500">
-          Pisahkan dengan koma (,) untuk beberapa kompetensi
+          Tuliskan setiap kompetensi pada baris terpisah untuk tampilan yang lebih baik
         </p>
       </div>
 

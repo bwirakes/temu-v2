@@ -9,7 +9,7 @@ import type { User } from 'next-auth';
 import type { JWT } from 'next-auth/jwt';
 import type { Session, DefaultSession } from 'next-auth';
 import { CustomSession, CustomUser } from './types';
-import { getOnboardingStatus } from './auth-helpers';
+import { getOnboardingStatusEdge } from './auth-helpers';
 
 // Define credentials type
 interface Credentials {
@@ -22,6 +22,7 @@ interface CustomJWT extends JWT {
   userId?: string;
   userType?: 'job_seeker' | 'employer';
   onboardingCompleted?: boolean;
+  onboardingRedirectTo?: string;
 }
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
@@ -90,55 +91,102 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   ],
   callbacks: {
     async jwt({ token, user, trigger, session }): Promise<CustomJWT> {
-      // Initial sign in
+      // Initial sign in - happens once when user first authenticates
       if (user) {
         // Type assertion to CustomUser since we know our user has these properties
         const customUser = user as CustomUser;
         
-        console.log('Setting JWT token with user data:', { 
-          userType: customUser.userType, 
-          onboardingCompleted: customUser.onboardingCompleted 
-        });
+        if (process.env.NODE_ENV !== 'production') {
+          console.log('Setting JWT token with user data:', { 
+            userType: customUser.userType, 
+            onboardingCompleted: customUser.onboardingCompleted 
+          });
+        }
         
+        // Set the token data from user object
         token.userId = customUser.id;
         token.userType = customUser.userType;
         token.onboardingCompleted = customUser.onboardingCompleted;
-      }
-      
-      // Always fetch the latest user data from database if we have a userId
-      // This ensures we always have the most current onboardingCompleted status
-      if (token.userId) {
-        try {
-          console.log(`JWT callback: Fetching latest data for user ${token.userId}`);
-          
-          // Get the latest user data from database
-          const [latestUserData] = await db
-            .select()
-            .from(users)
-            .where(eq(users.id, token.userId as string));
-          
-          if (latestUserData) {
-            // Only log if there's a change to avoid noise
-            if (token.onboardingCompleted !== latestUserData.onboardingCompleted) {
-              console.log(`JWT: Updating token onboardingCompleted from ${token.onboardingCompleted} to ${latestUserData.onboardingCompleted}`);
+        
+        // Only fetch onboarding status if onboarding is not completed
+        // This avoids unnecessary DB calls for users who have completed onboarding
+        if (!customUser.onboardingCompleted) {
+          try {
+            const status = await getOnboardingStatusEdge(customUser.id, customUser.userType);
+            // Only update token.onboardingCompleted if database says it's true
+            if (status.completed) {
+              token.onboardingCompleted = true;
             }
+            // Store redirectTo path for potential onboarding
+            token.onboardingRedirectTo = status.redirectTo;
             
-            // Always update the token with latest values
-            token.onboardingCompleted = latestUserData.onboardingCompleted;
-            token.userType = latestUserData.userType as 'job_seeker' | 'employer';
+            if (process.env.NODE_ENV !== 'production') {
+              console.log(`JWT: Initial sign-in, set onboardingRedirectTo=${token.onboardingRedirectTo}`);
+            }
+          } catch (error) {
+            console.error("Error getting onboarding status in JWT callback:", error);
+            // Continue with basic token data
           }
-        } catch (error) {
-          console.error("Error fetching latest user data in JWT callback:", error);
-          // Continue with current token data
+        } else {
+          // For users with completed onboarding, set default dashboard redirect
+          const dashboardPath = customUser.userType === 'job_seeker' 
+            ? '/job-seeker/dashboard' 
+            : '/employer/dashboard';
+          token.onboardingRedirectTo = dashboardPath;
         }
       }
       
-      // Session update from client
-      if (trigger === 'update' && session?.user) {
-        // Only update fields that were explicitly provided
-        if (typeof session.user.onboardingCompleted !== 'undefined') {
-          token.onboardingCompleted = session.user.onboardingCompleted;
-          console.log('Updated onboardingCompleted in token from session update:', token.onboardingCompleted);
+      // Session update from client - explicitly requested by calling update()
+      if (trigger === 'update') {
+        if (process.env.NODE_ENV !== 'production') {
+          console.log('JWT callback: Session update trigger');
+        }
+        
+        // Update the onboarding status if explicitly provided in the session update
+        if (session?.user) {
+          // Only update fields that were explicitly provided
+          if (typeof session.user.onboardingCompleted !== 'undefined') {
+            token.onboardingCompleted = session.user.onboardingCompleted;
+            
+            // If onboarding is now completed, update the redirectTo to point to dashboard
+            if (session.user.onboardingCompleted === true && token.userType) {
+              const dashboardPath = token.userType === 'job_seeker' 
+                ? '/job-seeker/dashboard' 
+                : '/employer/dashboard';
+              token.onboardingRedirectTo = dashboardPath;
+              
+              if (process.env.NODE_ENV !== 'production') {
+                console.log('Updated onboardingCompleted in token from session update, set dashboard redirect');
+              }
+              
+              // Skip the DB call since we just set the values explicitly
+              return token;
+            }
+            
+            if (process.env.NODE_ENV !== 'production') {
+              console.log('Updated onboardingCompleted in token from session update:', token.onboardingCompleted);
+            }
+          }
+          
+          // Only refresh onboarding data from DB if onboarding is not yet completed
+          // This avoids unnecessary DB calls for users who have completed onboarding
+          if (token.userId && token.userType && token.onboardingCompleted !== true) {
+            try {
+              const status = await getOnboardingStatusEdge(token.userId as string, token.userType as string);
+              // Only update if completed status has changed or we don't have a redirectTo path
+              if (status.completed !== token.onboardingCompleted || !token.onboardingRedirectTo) {
+                token.onboardingCompleted = status.completed;
+                token.onboardingRedirectTo = status.redirectTo;
+                
+                if (process.env.NODE_ENV !== 'production') {
+                  console.log(`JWT: Session update, refreshed onboardingRedirectTo=${token.onboardingRedirectTo}`);
+                }
+              }
+            } catch (error) {
+              console.error("Error refreshing onboarding status in JWT callback:", error);
+              // Continue with existing token data
+            }
+          }
         }
       }
       
@@ -153,11 +201,12 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           ...session.user,
           id: token.userId as string,
           userType: token.userType as 'job_seeker' | 'employer',
-          onboardingCompleted: token.onboardingCompleted as boolean
+          onboardingCompleted: token.onboardingCompleted as boolean,
+          onboardingRedirectTo: token.onboardingRedirectTo as string | undefined
         }
       } as CustomSession;
       
-      console.log(`Session callback: onboardingCompleted=${customSession.user?.onboardingCompleted} for user ${customSession.user?.id}`);
+      console.log(`Session callback: onboardingCompleted=${customSession.user?.onboardingCompleted}, onboardingRedirectTo=${customSession.user?.onboardingRedirectTo}`);
       
       return customSession;
     }

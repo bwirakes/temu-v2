@@ -37,7 +37,7 @@ interface Job {
   employerId: string;
   minWorkExperience: number;
   lastEducation?: "SD" | "SMP" | "SMA/SMK" | "D1" | "D2" | "D3" | "D4" | "S1" | "S2" | "S3" | null;
-  requiredCompetencies?: string[] | null;
+  requiredCompetencies?: string | null;
   expectations?: {
     ageRange?: {
       min: number;

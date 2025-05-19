@@ -29,15 +29,14 @@ export default function ProgressBar() {
   }, [pathname, currentStep, setCurrentStep]);
 
   return (
-    <div className="w-full py-4 px-2 sm:px-0">
-      {/* Mobile View */}
+    <div className="w-full py-4">
       <div>
-        <p className="text-sm font-medium text-blue-600">
+        <p className="text-sm font-normal text-gray-600">
           Langkah {currentStep} dari {steps.length}
         </p>
-        <div className="mt-2 w-full bg-gray-200 rounded-full h-2.5">
+        <div className="mt-3 w-full bg-gray-200 rounded-full h-1.5">
           <div
-            className="bg-blue-600 h-2.5 rounded-full transition-all duration-300 ease-in-out"
+            className="bg-gray-700 h-1.5 rounded-full transition-all duration-300 ease-in-out"
             style={{ width: `${(currentStep / steps.length) * 100}%` }}
           ></div>
         </div>
