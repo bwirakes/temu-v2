@@ -35,9 +35,18 @@ export default function NotionHeader() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, [scrolled, isEmployerArea, isJobSeekerArea]);
 
-  // Determine user type for navigation
-  const userRole = session?.user ? (session.user as any).role : null;
-  const dashboardLink = userRole === 'EMPLOYER' ? '/employer/dashboard' : '/job-seeker/dashboard';
+  // Determine dashboard link based on user type and onboarding status
+  const userType = session?.user ? (session.user as any).userType : null;
+  const onboardingCompleted = session?.user ? (session.user as any).onboardingCompleted : null;
+  
+  // Set dashboard link based on user type and onboarding status
+  let dashboardLink = '/careers'; // Default for non-logged-in users
+  
+  if (userType === 'employer') {
+    dashboardLink = onboardingCompleted ? '/employer/dashboard' : '/employer/onboarding';
+  } else if (userType === 'job_seeker') {
+    dashboardLink = onboardingCompleted ? '/job-seeker/dashboard' : '/job-seeker/onboarding';
+  }
 
   // Don't render the header in logged-in areas, but AFTER all hooks are called
   if (isEmployerArea || isJobSeekerArea) {
@@ -54,7 +63,7 @@ export default function NotionHeader() {
     >
       <div className="notion-container py-4 flex items-center justify-between">
         <div className="flex items-center">
-          <Link href="/" className="flex items-start mr-8">
+          <Link href={status === 'authenticated' ? dashboardLink : '/careers'} className="flex items-start mr-8">
             <div className="flex items-start">
               <Image 
                 src="/temu-logo.png" 
@@ -74,7 +83,7 @@ export default function NotionHeader() {
             <ul className="flex">
               <li>
                 <Link 
-                  href="/" 
+                  href={status === 'authenticated' ? dashboardLink : '/careers'} 
                   className={`notion-nav-link ${pathname === '/' ? 'bg-notion-background-hover' : ''}`}
                 >
                   Beranda
@@ -127,7 +136,7 @@ export default function NotionHeader() {
           ) : (
             <>
               <Link 
-                href="/login" 
+                href="/auth/signin" 
                 className="notion-button-outline hidden sm:inline-flex items-center gap-1 hover:bg-notion-background-gray-hover transition-colors duration-150"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">

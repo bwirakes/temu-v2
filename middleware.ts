@@ -3,7 +3,7 @@ import { auth } from '@/lib/auth';
 import { NextRequest } from 'next/server';
 import { CustomUser } from './lib/types';
 
-// Define path mappings for redirects
+// Define path mappings for API redirects
 const API_REDIRECTS = {
   '/api/onboarding': '/api/job-seeker/onboarding',
 };
@@ -13,7 +13,7 @@ const PAGE_REDIRECTS = {
   '/onboarding': '/job-seeker/onboarding',
   '/employer-onboarding': '/employer/onboarding',
   '/profile': '/job-seeker/profile',
-  '/': 'job-seeker/dashboard'
+  // Remove the root path redirect as it will be handled conditionally based on auth status
 };
 
 // Define routes that should bypass session revalidation
@@ -75,15 +75,58 @@ export async function middleware(request: NextRequest) {
     const publicRoutes = [
       '/auth/signin', 
       '/auth/signup', 
-      '/', 
       '/careers',
-      '/about'
+      '/about',
+      '/login'  // Add /login to public routes for consistency with header
     ];
 
     // Allow access to all public routes and their subpaths
     if (publicRoutes.some(route => pathname === route || pathname.startsWith(`${route}/`))) {
       console.log(`Middleware: Public route ${pathname}, allowing access`);
       return NextResponse.next();
+    }
+
+    // Special handling for the root path '/'
+    if (pathname === '/') {
+      // If user is not authenticated, redirect to careers page
+      if (!session?.user) {
+        console.log(`Middleware: No authenticated user at root, redirecting to careers`);
+        return NextResponse.redirect(new URL('/careers', request.url));
+      }
+      
+      // If user is authenticated, handle based on user type and onboarding status
+      const user = session.user as CustomUser;
+      const userType = user.userType;
+      
+      if (userType === 'job_seeker') {
+        const { onboardingCompleted } = user as {
+          onboardingCompleted: boolean;
+        };
+        
+        if (onboardingCompleted) {
+          // If job seeker onboarding is complete, redirect to dashboard
+          console.log(`Middleware: Job seeker onboarding complete at root, redirecting to dashboard`);
+          return NextResponse.redirect(new URL('/job-seeker/dashboard', request.url));
+        } else {
+          // If job seeker onboarding is not complete, redirect to onboarding
+          console.log(`Middleware: Job seeker onboarding incomplete at root, redirecting to onboarding`);
+          return NextResponse.redirect(new URL('/job-seeker/onboarding', request.url));
+        }
+      } else if (userType === 'employer') {
+        const { onboardingCompleted } = user as {
+          onboardingCompleted: boolean;
+        };
+        
+        if (onboardingCompleted) {
+          // If employer onboarding is complete, redirect to dashboard
+          console.log(`Middleware: Employer onboarding complete at root, redirecting to dashboard`);
+          return NextResponse.redirect(new URL('/employer/dashboard', request.url));
+        } else {
+          // If employer onboarding is not complete, redirect to onboarding
+          console.log(`Middleware: Employer onboarding incomplete at root, redirecting to onboarding`);
+          return NextResponse.redirect(new URL('/employer/onboarding', request.url));
+        }
+      }
     }
 
     // Special handling for profile page to prevent auth loops
@@ -113,9 +156,8 @@ export async function middleware(request: NextRequest) {
 
     // Check if the user is a job seeker
     if (userType === 'job_seeker') {
-      const { onboardingCompleted, onboardingRedirectTo } = session.user as {
+      const { onboardingCompleted } = user as {
         onboardingCompleted: boolean;
-        onboardingRedirectTo: string;
       };
       
       // Allow access to job seeker onboarding routes and API endpoints
@@ -130,32 +172,36 @@ export async function middleware(request: NextRequest) {
       
       // Check onboarding status for job seekers when accessing non-onboarding routes
       if (!onboardingCompleted) {
-        console.log(`Middleware: Job seeker onboarding incomplete, redirecting to ${onboardingRedirectTo}`);
-        return NextResponse.redirect(new URL(onboardingRedirectTo, request.url));
+        console.log(`Middleware: Job seeker onboarding incomplete, redirecting to onboarding`);
+        return NextResponse.redirect(new URL('/job-seeker/onboarding', request.url));
       }
       
       console.log(`Middleware: Job seeker onboarding complete, allowing access to ${pathname}`);
     }
 
-    // Special handling for the root route when user is already logged in
-    if (pathname === '/' && userType) {
-      if (userType === 'employer') {
-        // For employers, redirect to employer page
-        return NextResponse.redirect(new URL('/employer', request.url));
-      } else if (userType === 'job_seeker') {
-        const { onboardingCompleted, onboardingRedirectTo } = session.user as {
-          onboardingCompleted: boolean;
-          onboardingRedirectTo: string;
-        };
-        
-        if (!onboardingCompleted) {
-          // If onboarding is not complete, redirect to the appropriate step
-          return NextResponse.redirect(new URL(onboardingRedirectTo, request.url));
-        }
-        
-        // If onboarding is complete, redirect to dashboard
-        return NextResponse.redirect(new URL('/job-seeker/dashboard', request.url));
+    // Check if the user is an employer
+    if (userType === 'employer') {
+      const { onboardingCompleted } = user as {
+        onboardingCompleted: boolean;
+      };
+      
+      // Allow access to employer onboarding routes and API endpoints
+      if (
+        pathname.startsWith('/employer/onboarding') ||
+        pathname.startsWith('/api/employer/onboarding') ||
+        pathname.startsWith('/api/employer/check-onboarding')
+      ) {
+        console.log(`Middleware: Employer accessing onboarding route, allowing access`);
+        return NextResponse.next();
       }
+      
+      // Check onboarding status for employers when accessing non-onboarding routes
+      if (!onboardingCompleted) {
+        console.log(`Middleware: Employer onboarding incomplete, redirecting to onboarding`);
+        return NextResponse.redirect(new URL('/employer/onboarding', request.url));
+      }
+      
+      console.log(`Middleware: Employer onboarding complete, allowing access to ${pathname}`);
     }
 
     // Job seeker specific routes
@@ -168,19 +214,6 @@ export async function middleware(request: NextRequest) {
     if (pathname.startsWith('/employer') && userType !== 'employer') {
       console.log(`Middleware: Non-employer attempting to access employer route, redirecting`);
       return NextResponse.redirect(new URL('/', request.url));
-    }
-    
-    // Always allow access to employer onboarding when authenticated as employer
-    // The client-side logic in the page will handle navigation between steps
-    if (pathname.startsWith('/employer/onboarding/') && userType === 'employer') {
-      console.log(`Middleware: Employer accessing onboarding, allowing access`);
-      return NextResponse.next();
-    }
-
-    // Special handling for profile pages to preserve session
-    if (pathname.startsWith('/job-seeker/profile') && userType === 'job_seeker') {
-      console.log(`Middleware: Job seeker accessing profile, preserving session`);
-      return NextResponse.next();
     }
 
     console.log(`Middleware: Access granted to ${pathname}`);
