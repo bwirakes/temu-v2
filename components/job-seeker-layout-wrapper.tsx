@@ -40,23 +40,17 @@ export default function JobSeekerLayoutWrapper({
     };
   }, []);
   
-  // Determine if we're on the profile page for special handling
-  const isProfilePage = pathname?.startsWith('/job-seeker/profile');
+  // Determine if we should bypass authentication for certain routes
+  const isPublicRoute = pathname === '/job-seeker' || pathname === '/job-seeker/jobs';
   
-  // Check authentication and redirect if needed - only run when status changes to avoid extra work
+  // Check authentication and redirect if needed
   useEffect(() => {
-    if (status === 'unauthenticated') {
-      // Special handling for profile page to preserve URL after login
-      if (isProfilePage) {
-        const callbackUrl = encodeURIComponent(pathname || '/job-seeker/profile');
-        router.push(`/auth/signin?callbackUrl=${callbackUrl}`);
-      } else {
-        // For other pages, standard callback
-        const callbackUrl = encodeURIComponent(pathname || '/job-seeker');
-        router.push(`/auth/signin?callbackUrl=${callbackUrl}`);
-      }
+    if (status === 'unauthenticated' && !isPublicRoute) {
+      // Preserve the URL for returning after login
+      const callbackUrl = encodeURIComponent(pathname || '/job-seeker');
+      router.push(`/auth/signin?callbackUrl=${callbackUrl}`);
     }
-  }, [status, pathname, router, isProfilePage]);
+  }, [status, pathname, router, isPublicRoute]);
   
   const userName = session?.user?.name || "";
 
@@ -70,8 +64,8 @@ export default function JobSeekerLayoutWrapper({
     }
   }, [isMobile]);
 
-  // While session is loading (initial auth check), show a minimal loading state
-  if (status === 'loading') {
+  // While session is loading (initial auth check) and we need authentication, show a loading state
+  if (status === 'loading' && !isPublicRoute) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="animate-pulse p-4 rounded-md bg-white shadow-sm">

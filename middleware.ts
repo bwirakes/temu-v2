@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { NextRequest } from 'next/server';
 import { CustomUser } from './lib/types';
+import { getOnboardingStatus } from './lib/auth-helpers';
 
 // Define path mappings for API redirects
 const API_REDIRECTS = {
@@ -13,7 +14,6 @@ const PAGE_REDIRECTS = {
   '/onboarding': '/job-seeker/onboarding',
   '/employer-onboarding': '/employer/onboarding',
   '/profile': '/job-seeker/profile',
-  // Remove the root path redirect as it will be handled conditionally based on auth status
 };
 
 // Define routes that should bypass session revalidation
@@ -22,201 +22,134 @@ const SESSION_PERSISTENCE_ROUTES = [
   '/job-seeker/profile'
 ];
 
+// Default onboarding paths if redirectTo is undefined
+const DEFAULT_PATHS: Record<string, string> = {
+  'job_seeker': '/job-seeker/onboarding/informasi-dasar',
+  'employer': '/employer/onboarding/informasi-perusahaan'
+};
+
+// Auth-related routes that should never be redirected
+const AUTH_ROUTES = [
+  '/auth/signin',
+  '/auth/signout',
+  '/auth/signup',
+  '/auth/error',
+  '/auth/verify-request'
+];
+
+// Public routes - accessible to everyone
+const PUBLIC_ROUTES = [
+  '/auth/signin', 
+  '/auth/signup', 
+  '/careers',
+  '/about',
+  '/login'
+];
+
+// Routes that should skip onboarding checks
+const SKIP_ONBOARDING_CHECK_ROUTES = [
+  '/api/employer/onboarding',
+  '/api/employer/check-onboarding',
+  '/api/job-seeker/onboarding',
+  '/api/job-seeker/check-onboarding',
+  '/_next',
+  '/favicon.ico',
+  '.svg',
+  '/images/'
+];
+
 export async function middleware(request: NextRequest) {
   const url = request.nextUrl.clone();
   const { pathname } = url;
 
   console.log(`Middleware: Processing ${pathname}`);
 
-  // Skip middleware for static files and images
+  // Skip middleware for excluded paths
   if (
-    pathname.includes('/_next') || 
-    pathname.includes('/favicon.ico') ||
-    pathname.endsWith('.svg') ||
-    pathname.includes('/images/')
+    SKIP_ONBOARDING_CHECK_ROUTES.some(route => pathname.includes(route)) ||
+    AUTH_ROUTES.some(route => pathname === route || pathname.startsWith(`${route}/`)) ||
+    PUBLIC_ROUTES.some(route => pathname === route || pathname.startsWith(`${route}/`))
   ) {
     return NextResponse.next();
   }
 
-  // Skip middleware for employer onboarding API endpoints
-  if (
-    pathname.startsWith('/api/employer/onboarding') ||
-    pathname.startsWith('/api/employer/check-onboarding')
-  ) {
-    console.log(`Middleware: Allowing access to employer onboarding API: ${pathname}`);
-    return NextResponse.next();
-  }
-
-  // Handle path redirects first (from app/middleware.ts)
-  // Check for API redirects
+  // Handle path redirects (API and page redirects)
   for (const [oldPath, newPath] of Object.entries(API_REDIRECTS)) {
     if (pathname.startsWith(oldPath)) {
-      const newUrl = pathname.replace(oldPath, newPath);
-      url.pathname = newUrl;
-      console.log(`Middleware: Redirecting API path ${pathname} to ${newUrl}`);
+      url.pathname = pathname.replace(oldPath, newPath);
       return NextResponse.redirect(url);
     }
   }
 
-  // Check for page redirects
   for (const [oldPath, newPath] of Object.entries(PAGE_REDIRECTS)) {
     if (pathname === oldPath || pathname.startsWith(`${oldPath}/`)) {
-      const newUrl = pathname.replace(oldPath, newPath);
-      url.pathname = newUrl;
-      console.log(`Middleware: Redirecting page path ${pathname} to ${newUrl}`);
+      url.pathname = pathname.replace(oldPath, newPath);
       return NextResponse.redirect(url);
     }
   }
 
   try {
     const session = await auth();
-    
-    // Public routes - accessible to everyone
-    const publicRoutes = [
-      '/auth/signin', 
-      '/auth/signup', 
-      '/careers',
-      '/about',
-      '/login'  // Add /login to public routes for consistency with header
-    ];
 
-    // Allow access to all public routes and their subpaths
-    if (publicRoutes.some(route => pathname === route || pathname.startsWith(`${route}/`))) {
-      console.log(`Middleware: Public route ${pathname}, allowing access`);
-      return NextResponse.next();
-    }
-
-    // Special handling for the root path '/'
-    if (pathname === '/') {
-      // If user is not authenticated, redirect to careers page
-      if (!session?.user) {
-        console.log(`Middleware: No authenticated user at root, redirecting to careers`);
+    // No user is logged in - redirect to signin except for public routes
+    if (!session?.user) {
+      if (pathname === '/') {
         return NextResponse.redirect(new URL('/careers', request.url));
       }
-      
-      // If user is authenticated, handle based on user type and onboarding status
-      const user = session.user as CustomUser;
-      const userType = user.userType;
-      
-      if (userType === 'job_seeker') {
-        const { onboardingCompleted } = user as {
-          onboardingCompleted: boolean;
-        };
-        
-        if (onboardingCompleted) {
-          // If job seeker onboarding is complete, redirect to dashboard
-          console.log(`Middleware: Job seeker onboarding complete at root, redirecting to dashboard`);
-          return NextResponse.redirect(new URL('/job-seeker/dashboard', request.url));
-        } else {
-          // If job seeker onboarding is not complete, redirect to onboarding
-          console.log(`Middleware: Job seeker onboarding incomplete at root, redirecting to onboarding`);
-          return NextResponse.redirect(new URL('/job-seeker/onboarding', request.url));
-        }
-      } else if (userType === 'employer') {
-        const { onboardingCompleted } = user as {
-          onboardingCompleted: boolean;
-        };
-        
-        if (onboardingCompleted) {
-          // If employer onboarding is complete, redirect to dashboard
-          console.log(`Middleware: Employer onboarding complete at root, redirecting to dashboard`);
-          return NextResponse.redirect(new URL('/employer/dashboard', request.url));
-        } else {
-          // If employer onboarding is not complete, redirect to onboarding
-          console.log(`Middleware: Employer onboarding incomplete at root, redirecting to onboarding`);
-          return NextResponse.redirect(new URL('/employer/onboarding', request.url));
-        }
-      }
-    }
-
-    // Special handling for profile page to prevent auth loops
-    if (SESSION_PERSISTENCE_ROUTES.some(route => pathname.startsWith(route))) {
-      // If user is already authenticated, allow access immediately
-      if (session?.user) {
-        console.log(`Middleware: User authenticated for persistence route ${pathname}, allowing access`);
-        return NextResponse.next();
-      }
-      
-      // Only redirect unauthenticated users with callback
-      const callbackUrl = encodeURIComponent(pathname);
-      console.log(`Middleware: Unauthenticated for persistence route, redirecting to login with callbackUrl=${callbackUrl}`);
-      return NextResponse.redirect(new URL(`/auth/signin?callbackUrl=${callbackUrl}`, request.url));
-    }
-
-    // Check if user is authenticated for all other protected routes
-    if (!session?.user) {
-      console.log(`Middleware: No authenticated user, redirecting to signin`);
       return NextResponse.redirect(new URL('/auth/signin', request.url));
     }
 
     const user = session.user as CustomUser;
     const userType = user.userType;
+    const onboardingCompleted = user.onboardingCompleted === true;
     
-    console.log(`Middleware: User authenticated, type: ${userType}, email: ${user.email}`);
+    console.log(`Middleware: User authenticated, type: ${userType}, email: ${user.email}, onboarding completed: ${onboardingCompleted}`);
 
-    // Check if the user is a job seeker
-    if (userType === 'job_seeker') {
-      const { onboardingCompleted } = user as {
-        onboardingCompleted: boolean;
-      };
+    // Handle root path for authenticated users
+    if (pathname === '/') {
+      const dashboardPath = userType === 'job_seeker' ? '/job-seeker/dashboard' : '/employer/dashboard';
       
-      // Allow access to job seeker onboarding routes and API endpoints
-      if (
-        pathname.startsWith('/job-seeker/onboarding') ||
-        pathname.startsWith('/api/job-seeker/onboarding') ||
-        pathname.startsWith('/api/job-seeker/check-onboarding')
-      ) {
-        console.log(`Middleware: Job seeker accessing onboarding route, allowing access`);
-        return NextResponse.next();
+      if (onboardingCompleted) {
+        return NextResponse.redirect(new URL(dashboardPath, request.url));
+      } else {
+        const onboardingStatus = await getOnboardingStatus(user.id, userType);
+        const redirectPath = onboardingStatus.redirectTo || DEFAULT_PATHS[userType];
+        return NextResponse.redirect(new URL(redirectPath, request.url));
       }
-      
-      // Check onboarding status for job seekers when accessing non-onboarding routes
-      if (!onboardingCompleted) {
-        console.log(`Middleware: Job seeker onboarding incomplete, redirecting to onboarding`);
-        return NextResponse.redirect(new URL('/job-seeker/onboarding', request.url));
-      }
-      
-      console.log(`Middleware: Job seeker onboarding complete, allowing access to ${pathname}`);
     }
 
-    // Check if the user is an employer
-    if (userType === 'employer') {
-      const { onboardingCompleted } = user as {
-        onboardingCompleted: boolean;
-      };
-      
-      // Allow access to employer onboarding routes and API endpoints
-      if (
-        pathname.startsWith('/employer/onboarding') ||
-        pathname.startsWith('/api/employer/onboarding') ||
-        pathname.startsWith('/api/employer/check-onboarding')
-      ) {
-        console.log(`Middleware: Employer accessing onboarding route, allowing access`);
-        return NextResponse.next();
-      }
-      
-      // Check onboarding status for employers when accessing non-onboarding routes
-      if (!onboardingCompleted) {
-        console.log(`Middleware: Employer onboarding incomplete, redirecting to onboarding`);
-        return NextResponse.redirect(new URL('/employer/onboarding', request.url));
-      }
-      
-      console.log(`Middleware: Employer onboarding complete, allowing access to ${pathname}`);
-    }
-
-    // Job seeker specific routes
-    if (pathname.startsWith('/job-seeker') && userType !== 'job_seeker') {
-      console.log(`Middleware: Non-job-seeker attempting to access job seeker route, redirecting`);
+    // Handle user type specific paths
+    const userPrefix = userType === 'job_seeker' ? '/job-seeker' : '/employer';
+    const isAccessingOnboarding = pathname.startsWith(`${userPrefix}/onboarding`);
+    const isAccessingWrongUserType = 
+      (userType === 'job_seeker' && pathname.startsWith('/employer')) || 
+      (userType === 'employer' && pathname.startsWith('/job-seeker'));
+    
+    // Prevent accessing wrong user type routes
+    if (isAccessingWrongUserType) {
+      console.log(`Middleware: ${userType} attempting to access wrong user type route, redirecting`);
       return NextResponse.redirect(new URL('/', request.url));
     }
-
-    // Employer specific routes
-    if (pathname.startsWith('/employer') && userType !== 'employer') {
-      console.log(`Middleware: Non-employer attempting to access employer route, redirecting`);
-      return NextResponse.redirect(new URL('/', request.url));
+    
+    // Allow access to onboarding routes regardless of completion status
+    if (isAccessingOnboarding) {
+      // If onboarding is already completed, redirect to dashboard
+      if (onboardingCompleted && !pathname.includes('/konfirmasi')) {
+        console.log(`Middleware: ${userType} already completed onboarding, redirecting to dashboard`);
+        return NextResponse.redirect(new URL(`${userPrefix}/dashboard`, request.url));
+      }
+      return NextResponse.next();
+    }
+    
+    // For non-onboarding routes, check if onboarding is completed
+    if (!onboardingCompleted) {
+      const onboardingStatus = await getOnboardingStatus(user.id, userType);
+      const redirectPath = onboardingStatus.redirectTo || DEFAULT_PATHS[userType];
+      console.log(`Middleware: ${userType} onboarding incomplete, redirecting to ${redirectPath}`);
+      return NextResponse.redirect(new URL(redirectPath, request.url));
     }
 
-    console.log(`Middleware: Access granted to ${pathname}`);
+    // Allow access for all other scenarios
     return NextResponse.next();
   } catch (error) {
     console.error('Middleware: Unhandled error:', error);

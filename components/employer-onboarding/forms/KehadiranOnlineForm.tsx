@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -21,8 +20,7 @@ import EmployerFormNav from "@/components/employer-onboarding/EmployerFormNav";
 type KehadiranOnlineValues = z.infer<typeof kehadiranOnlineSchema>;
 
 export default function KehadiranOnlineForm() {
-  const { data, updateFormValues, setCurrentStep, saveCurrentStepData } = useEmployerOnboarding();
-  const router = useRouter();
+  const { data, proceedToNextStep } = useEmployerOnboarding();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedLogo, setSelectedLogo] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(data.logoUrl || null);
@@ -59,11 +57,13 @@ export default function KehadiranOnlineForm() {
   };
 
   const onSubmit = async (values: KehadiranOnlineValues) => {
+    if (isSubmitting) return;
+    
     try {
       setIsSubmitting(true);
       
-      // First, update form values in context
-      updateFormValues({
+      // Use proceedToNextStep to validate, update state, and navigate to next step
+      const stepData = {
         website: values.website,
         socialMedia: {
           instagram: values.instagram,
@@ -74,36 +74,11 @@ export default function KehadiranOnlineForm() {
         },
         logo: selectedLogo || undefined,
         logoUrl: logoPreview || undefined,
-      });
+      };
   
-      // Set the next step before saving to ensure it's captured in the API call
-      setCurrentStep(3);
-      
-      // Log the current state before saving
-      console.log("About to save data with step:", 3);
-      
-      // Now save the data with the updated step
-      const saveSuccessful = await saveCurrentStepData();
-      
-      if (saveSuccessful) {
-        console.log("Save successful, navigating to next step");
-        toast.success("Kehadiran online berhasil disimpan");
-        
-        // Use setTimeout to ensure the state update completes before navigation
-        setTimeout(() => {
-          // Force a hard navigation
-          window.location.href = "/employer/onboarding/penanggung-jawab";
-        }, 100);
-      } else {
-        console.error("Failed to save data");
-        // Revert step increment if save failed
-        setCurrentStep(2);
-        toast.error("Gagal menyimpan data. Silakan coba lagi.");
-      }
+      await proceedToNextStep(stepData);
     } catch (error) {
       console.error("Error during form submission:", error);
-      // Revert step increment on error
-      setCurrentStep(2);
       toast.error("Terjadi kesalahan. Silakan coba lagi.");
     } finally {
       setIsSubmitting(false);
@@ -259,7 +234,7 @@ export default function KehadiranOnlineForm() {
         </div>
       </div>
 
-      <EmployerFormNav isSubmitting={isSubmitting} onSubmit={handleSubmit(onSubmit)} />
+      <EmployerFormNav isSubmitting={isSubmitting} />
     </form>
   );
 } 

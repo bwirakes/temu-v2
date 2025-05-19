@@ -1,7 +1,6 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -20,10 +19,10 @@ import EmployerFormNav from "@/components/employer-onboarding/EmployerFormNav";
 type PICValues = z.infer<typeof picSchema>;
 
 export default function PenanggungJawabForm() {
-  const { data, updateFormValues, saveCurrentStepData } = useEmployerOnboarding();
-  const router = useRouter();
+  const { data, proceedToNextStep } = useEmployerOnboarding();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Extract the PIC data from the context
   const defaultValues: PICValues = {
     nama: data.pic?.nama || "",
     nomorTelepon: data.pic?.nomorTelepon || "",
@@ -33,36 +32,61 @@ export default function PenanggungJawabForm() {
     register,
     handleSubmit,
     formState: { errors },
+    reset,
+    watch,
+    setValue
   } = useForm<PICValues>({
     resolver: zodResolver(picSchema),
     defaultValues,
   });
 
+  // Ensure form updates if context data changes
+  useEffect(() => {
+    if (data.pic?.nama) {
+      setValue('nama', data.pic.nama);
+    }
+    if (data.pic?.nomorTelepon) {
+      setValue('nomorTelepon', data.pic.nomorTelepon);
+    }
+  }, [data.pic, setValue]);
+
+  // Watch form values for debugging
+  const watchedValues = watch();
+  
+  // Log form values when they change (debugging aid)
+  useEffect(() => {
+    console.log("Current form values:", watchedValues);
+  }, [watchedValues]);
+
   const onSubmit = async (values: PICValues) => {
+    if (isSubmitting) return;
+    
     try {
       setIsSubmitting(true);
+      console.log("Submitting PIC data:", values);
       
-      // Update the form values in context
-      updateFormValues({
+      // Ensure phone number format is correct
+      let phoneNumber = values.nomorTelepon;
+      // Ensure it has the correct format
+      if (!phoneNumber.match(/^(\+62|62|0)8[1-9][0-9]{6,9}$/)) {
+        if (phoneNumber.match(/^8[1-9][0-9]{6,9}$/)) {
+          // Add prefix if missing
+          phoneNumber = `0${phoneNumber}`;
+        }
+      }
+      
+      // Create the nested structure expected by the context
+      const stepData = {
         pic: {
           nama: values.nama,
-          nomorTelepon: values.nomorTelepon,
+          nomorTelepon: phoneNumber,
         }
-      });
+      };
       
-      // Log the current state before saving
-      console.log("Saving PIC data:", values);
+      const success = await proceedToNextStep(stepData);
       
-      // Save the data - the backend will handle step advancement automatically
-      const saveSuccessful = await saveCurrentStepData();
-      
-      if (saveSuccessful) {
-        toast.success("Data berhasil disimpan");
-        
-        // The saveCurrentStepData function now handles advancing to the next step
-        // and redirecting if necessary, so we don't need to manually navigate
-      } else {
-        toast.error("Gagal menyimpan data. Silakan coba lagi.");
+      if (!success) {
+        toast.error("Gagal menyimpan data. Silakan cek semua isian.");
       }
     } catch (error) {
       console.error("Error during form submission:", error);

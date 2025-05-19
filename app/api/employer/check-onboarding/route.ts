@@ -1,50 +1,14 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { getEmployerByUserId, db } from '@/lib/db';
-import { employerOnboardingProgress } from '@/lib/db';
+import { getEmployerByUserId, db, users } from '@/lib/db';
 import { eq } from 'drizzle-orm';
 import { CustomSession } from '@/lib/types';
 
-// Interface for the onboarding status response
-interface EmployerOnboardingStatusResponse {
-  completed: boolean;
-  currentStep: number;
-  redirectTo: string;
-  data?: Record<string, any>;
-  allowedSteps?: number[];
-}
-
-// Required fields for each step
-const REQUIRED_FIELDS = {
-  1: ['namaPerusahaan', 'email'],
-  2: [], // Step 2 is optional
-  3: ['pic.nama', 'pic.nomorTelepon'],
-  4: []  // Step 4 is just review
-};
-
-// Check if a step is completed based on required fields
-function isStepCompleted(data: Record<string, any> | null, step: number): boolean {
-  if (!data) return false;
-  
-  const requiredFields = REQUIRED_FIELDS[step as keyof typeof REQUIRED_FIELDS] || [];
-  
-  // If no required fields, step is automatically completed
-  if (requiredFields.length === 0) return true;
-  
-  return requiredFields.every(field => {
-    if (field.includes('.')) {
-      // Handle nested fields like pic.nama
-      const [parent, child] = field.split('.');
-      return data[parent] && 
-             typeof data[parent][child] === 'string' && 
-             data[parent][child].trim() !== '';
-    }
-    
-    // Handle regular fields
-    return typeof data[field] === 'string' && data[field].trim() !== '';
-  });
-}
-
+/**
+ * Endpoint to check if the employer has completed onboarding
+ * With the new approach, we only check if onboarding is completed
+ * We don't track progress on the server-side anymore
+ */
 export async function GET() {
   try {
     // Get the authenticated user's session
@@ -68,100 +32,46 @@ export async function GET() {
     
     const userId = session.user.id;
     
-    // First check if the user already has an employer record
+    // First check if the user's onboardingCompleted flag is true
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, userId));
+    
+    if (user?.onboardingCompleted) {
+      // If onboardingCompleted is true, onboarding is completed
+      return NextResponse.json({
+        completed: true
+      });
+    }
+    
+    // Check if the user already has an employer record
     const employer = await getEmployerByUserId(userId);
     
     if (employer) {
-      // If employer record exists, onboarding is completed
-      return NextResponse.json({
-        completed: true,
-        currentStep: 4,
-        redirectTo: '/employer',
-        allowedSteps: [1, 2, 3, 4]
-      });
-    }
-    
-    // Check if there's an onboarding progress record
-    const [progress] = await db
-      .select()
-      .from(employerOnboardingProgress)
-      .where(eq(employerOnboardingProgress.userId, userId));
-    
-    // Define step routes
-    const stepRoutes = [
-      '/employer/onboarding/informasi-perusahaan',
-      '/employer/onboarding/kehadiran-online',
-      '/employer/onboarding/penanggung-jawab',
-      '/employer/onboarding/konfirmasi'
-    ];
-    
-    // If no progress record, start at step 1
-    if (!progress) {
-      // Create initial record
+      // If employer record exists, mark onboarding as completed for consistency
       try {
         await db
-          .insert(employerOnboardingProgress)
-          .values({
-            userId,
-            currentStep: 1,
-            status: 'NOT_STARTED',
-            data: {},
-            lastUpdated: new Date(),
-            createdAt: new Date()
-          });
+          .update(users)
+          .set({ 
+            onboardingCompleted: true,
+            updatedAt: new Date() 
+          })
+          .where(eq(users.id, userId));
       } catch (error) {
-        console.error('Error creating initial onboarding record:', error);
+        console.error("Error updating onboarding status:", error);
       }
       
+      // Return completed status
       return NextResponse.json({
-        completed: false,
-        currentStep: 1,
-        redirectTo: stepRoutes[0],
-        allowedSteps: [1]
+        completed: true
       });
     }
     
-    // Ensure currentStep is valid
-    let currentStep = progress.currentStep;
-    if (isNaN(currentStep) || currentStep < 1) {
-      currentStep = 1;
-    } else if (currentStep > stepRoutes.length) {
-      currentStep = stepRoutes.length;
-    }
-    
-    // Calculate completed steps
-    const completedSteps: number[] = [];
-    for (let i = 1; i <= 4; i++) {
-      if (isStepCompleted(progress.data, i)) {
-        completedSteps.push(i);
-      }
-    }
-    
-    // Calculate allowed steps (current + previous completed steps)
-    // User can navigate to current step and any previous steps that are completed
-    const allowedSteps = Array.from(
-      new Set([...completedSteps, currentStep])
-    ).sort();
-    
-    // Determine completion status
-    const step1Completed = isStepCompleted(progress.data, 1);
-    const step3Completed = isStepCompleted(progress.data, 3);
-    const isCompleted = step1Completed && step3Completed && currentStep === 4;
-    
-    // Build response
-    const response: EmployerOnboardingStatusResponse = {
-      completed: isCompleted || progress.status === 'COMPLETED',
-      currentStep,
-      redirectTo: stepRoutes[currentStep - 1],
-      allowedSteps
-    };
-    
-    // Only include data in the response if it exists
-    if (progress.data) {
-      response.data = progress.data;
-    }
-    
-    return NextResponse.json(response);
+    // If no employer record and onboardingCompleted is false, onboarding is not completed
+    return NextResponse.json({
+      completed: false
+    });
     
   } catch (error) {
     console.error("Error checking employer onboarding status:", error);

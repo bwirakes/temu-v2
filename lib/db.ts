@@ -100,6 +100,7 @@ export const users = pgTable('users', {
   password: text('password'),
   image: text('image'),
   userType: userTypeEnum('user_type').notNull().default('job_seeker'),
+  onboardingCompleted: boolean('onboarding_completed').default(false).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull()
 });
@@ -578,6 +579,7 @@ export async function createUser(data: {
       email: data.email.toLowerCase(),
       password: data.password,
       userType: data.userType,
+      onboardingCompleted: false,
       createdAt: new Date(),
       updatedAt: new Date()
     })
@@ -647,31 +649,8 @@ export const employerOnboardingProgress = pgTable('employer_onboarding_progress'
     .references(() => users.id, { onDelete: 'cascade' }),
   currentStep: integer('current_step').default(1).notNull(),
   status: employerOnboardingStatusEnum('status').default('NOT_STARTED').notNull(),
-  data: jsonb('data').$type<Partial<{
-    // Step 1: Informasi Dasar Badan Usaha
-    namaPerusahaan: string;
-    merekUsaha?: string;
-    industri?: string;
-    alamatKantor?: string;
-    email: string;
-    
-    // Step 2: Kehadiran Online dan Identitas Merek
-    website?: string;
-    socialMedia?: {
-      instagram?: string;
-      linkedin?: string;
-      facebook?: string;
-      twitter?: string;
-      tiktok?: string;
-    };
-    logoUrl?: string;
-    
-    // Step 3: Penanggung Jawab (PIC)
-    pic?: {
-      nama: string;
-      nomorTelepon: string;
-    };
-  }>>(),
+  // Simplified data field - no longer storing comprehensive form data
+  data: jsonb('data'),
   lastUpdated: timestamp('last_updated').defaultNow().notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull()
 });
@@ -679,22 +658,48 @@ export const employerOnboardingProgress = pgTable('employer_onboarding_progress'
 // Check employer onboarding status
 export async function getEmployerOnboardingStatus(userId: string) {
   try {
-    console.log(`Checking onboarding status for user: ${userId}`);
+    console.log(`DB: Checking onboarding status for employer user: ${userId}`);
     
-    // First check if the user already has an employer record
+    // First check if the user's onboardingCompleted flag is true
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, userId));
+    
+    // If onboardingCompleted is true in users table, respect that as source of truth
+    if (user?.onboardingCompleted) {
+      console.log(`DB: User ${userId} has onboardingCompleted=true in users table`);
+      return {
+        completed: true,
+        currentStep: 4, // All steps completed
+      };
+    }
+    
+    // Then check if the user already has an employer record
     const employer = await getEmployerByUserId(userId);
     
     if (employer) {
-      console.log(`User ${userId} has completed onboarding`);
+      console.log(`DB: User ${userId} has employer record but onboardingCompleted flag not set, updating flag`);
+      
+      // If employer record exists but onboardingCompleted is not true, update it for consistency
+      if (user && !user.onboardingCompleted) {
+        try {
+          await updateUserOnboardingStatus(userId, true);
+          console.log(`DB: Updated onboardingCompleted flag for user ${userId}`);
+        } catch (updateError) {
+          console.error(`DB: Failed to update onboardingCompleted flag: ${updateError}`);
+          // Continue even if the update fails
+        }
+      }
+      
       // If employer record exists, onboarding is completed
       return {
         completed: true,
         currentStep: 4, // All steps completed
-        redirectTo: '/employer' // Redirect to employer dashboard
       };
     }
     
-    console.log(`No employer record found for user ${userId}, checking progress records`);
+    console.log(`DB: No employer record found for user ${userId}, checking progress records`);
     
     try {
       // Check if there's an onboarding progress record
@@ -704,72 +709,58 @@ export async function getEmployerOnboardingStatus(userId: string) {
         .where(eq(employerOnboardingProgress.userId, userId));
       
       if (!progress) {
-        console.log(`No progress record found for user ${userId}, starting onboarding`);
+        console.log(`DB: No progress record found for user ${userId}, starting onboarding`);
         // No progress record found, user is starting onboarding
         // Create an initial onboarding record to track progress
         try {
           await updateEmployerOnboardingProgress(userId, {
             currentStep: 1,
             status: 'NOT_STARTED',
-            data: {}
           });
-          console.log(`Created initial onboarding record for user ${userId}`);
+          console.log(`DB: Created initial onboarding record for user ${userId}`);
         } catch (error: any) {
-          console.error(`Error creating initial onboarding record: ${error.message || 'Unknown error'}`);
+          console.error(`DB: Error creating initial onboarding record: ${error.message || 'Unknown error'}`);
           // Continue even if record creation fails
         }
         
         return {
           completed: false,
           currentStep: 1,
-          redirectTo: '/employer/onboarding/informasi-perusahaan'
         };
       }
       
-      console.log(`Found progress record for user ${userId}: step ${progress.currentStep}, status ${progress.status}`);
+      console.log(`DB: Found progress record for user ${userId}: step ${progress.currentStep}, status ${progress.status}`);
       
-      // Map current step to the correct route
-      const stepRoutes = [
-        '/employer/onboarding/informasi-perusahaan',
-        '/employer/onboarding/kehadiran-online',
-        '/employer/onboarding/penanggung-jawab',
-        '/employer/onboarding/konfirmasi'
-      ];
+      const completed = progress.status === 'COMPLETED';
       
-      const redirectTo = progress.currentStep <= stepRoutes.length 
-        ? stepRoutes[progress.currentStep - 1] 
-        : '/employer';
-      
+      // Return minimal status info - no redirectTo, no form data
       return {
-        completed: progress.status === 'COMPLETED',
+        completed,
         currentStep: progress.currentStep,
-        redirectTo
       };
     } catch (dbError: any) {
       // Specific error handling for database errors
-      console.error(`Database error checking onboarding progress: ${dbError.message || 'Unknown error'}`);
+      console.error(`DB: Database error checking onboarding progress: ${dbError.message || 'Unknown error'}`);
       
       // Check if this is a "relation does not exist" error
       if (dbError.message && typeof dbError.message === 'string' && 
           dbError.message.includes("relation") && dbError.message.includes("does not exist")) {
-        console.log("Table does not exist - this is expected if migrations haven't been run");
+        console.log("DB: Table does not exist - this is expected if migrations haven't been run");
       }
       
       // Default to starting onboarding if there's a database error
       return {
         completed: false,
         currentStep: 1,
-        redirectTo: '/employer/onboarding/informasi-perusahaan'
       };
     }
     
   } catch (error: any) {
-    console.error('Error checking employer onboarding status:', error);
+    console.error('DB: Error checking employer onboarding status:', error);
     // Default to starting onboarding if there's an error
     return {
       completed: false,
       currentStep: 1,
-      redirectTo: '/employer/onboarding/informasi-perusahaan'
     };
   }
 }
@@ -778,7 +769,7 @@ export async function getEmployerOnboardingStatus(userId: string) {
 export async function updateEmployerOnboardingProgress(userId: string, data: {
   currentStep?: number;
   status?: typeof employerOnboardingStatusEnum.enumValues[number];
-  data?: any;
+  data?: any; // This is now an optional minimal data object, not full form data
 }) {
   try {
     console.log(`DB: Updating employer onboarding progress for user ${userId}`);
@@ -800,7 +791,8 @@ export async function updateEmployerOnboardingProgress(userId: string, data: {
       const updateData = {
         currentStep: data.currentStep !== undefined ? data.currentStep : existingProgress.currentStep,
         status: data.status || existingProgress.status,
-        data: data.data || existingProgress.data,
+        // Only update data if explicitly provided, otherwise keep existing (likely empty) data
+        ...(data.data !== undefined ? { data: data.data } : {}),
         lastUpdated: new Date()
       };
       
@@ -823,7 +815,7 @@ export async function updateEmployerOnboardingProgress(userId: string, data: {
         userId,
         currentStep: data.currentStep || 1,
         status: data.status || 'IN_PROGRESS',
-        data: data.data || {},
+        data: data.data || {}, // Initialize with empty object, not full form data
         lastUpdated: new Date(),
         createdAt: new Date()
       };
@@ -932,6 +924,25 @@ export async function getJobSeekerByUserId(userId: string) {
  */
 export async function getJobSeekerOnboardingStatus(userId: string) {
   try {
+    console.log(`DB: Checking onboarding status for job seeker user: ${userId}`);
+    
+    // First check if the user's onboardingCompleted flag is true
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, userId));
+    
+    // If onboardingCompleted is true in users table, respect that as source of truth
+    if (user?.onboardingCompleted) {
+      console.log(`DB: User ${userId} has onboardingCompleted=true in users table`);
+      return {
+        completed: true,
+        currentStep: 10, // All steps completed
+        redirectTo: '/job-seeker/dashboard',
+        completedSteps: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+      };
+    }
+    
     // Get job seeker profile
     const userProfile = await getJobSeekerByUserId(userId);
     
@@ -1052,10 +1063,22 @@ export async function getJobSeekerOnboardingStatus(userId: string) {
         currentStep = 10; // Summary step
         redirectTo = '/job-seeker/onboarding/ringkasan';
         completed = true;
+        
+        // If all steps are completed but onboardingCompleted flag is not set,
+        // update it for consistency
+        if (user && !user.onboardingCompleted && completed) {
+          try {
+            await updateUserOnboardingStatus(userId, true);
+            console.log(`DB: Updated onboardingCompleted flag for job seeker ${userId}`);
+          } catch (updateError) {
+            console.error(`DB: Failed to update onboardingCompleted flag: ${updateError}`);
+            // Continue even if the update fails
+          }
+        }
       }
     }
     
-    console.log(`Calculated onboarding status for user ${userId}:`, {
+    console.log(`DB: Calculated onboarding status for job seeker ${userId}:`, {
       completed,
       currentStep,
       redirectTo,
@@ -1069,7 +1092,7 @@ export async function getJobSeekerOnboardingStatus(userId: string) {
       completedSteps
     };
   } catch (error) {
-    console.error("Error checking job seeker onboarding status:", error);
+    console.error("DB: Error checking job seeker onboarding status:", error);
     throw error;
   }
 }
@@ -1090,4 +1113,43 @@ function getPathForStepNumber(stepNumber: number): string {
   };
   
   return pathMap[stepNumber] || 'informasi-dasar';
+}
+
+// Add a new function to update user onboarding status
+export async function updateUserOnboardingStatus(userId: string, completed: boolean) {
+  try {
+    console.log(`DB: Updating onboarding status for user ${userId} to ${completed}`);
+    
+    // First check if the user exists
+    const [existingUser] = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, userId));
+    
+    if (!existingUser) {
+      console.error(`DB: User with ID ${userId} does not exist`);
+      throw new Error(`User with ID ${userId} does not exist`);
+    }
+    
+    // Only update if the status is different
+    if (existingUser.onboardingCompleted === completed) {
+      console.log(`DB: User ${userId} onboardingCompleted is already ${completed}, no update needed`);
+      return existingUser;
+    }
+    
+    const [updatedUser] = await db
+      .update(users)
+      .set({ 
+        onboardingCompleted: completed,
+        updatedAt: new Date() 
+      })
+      .where(eq(users.id, userId))
+      .returning();
+    
+    console.log(`DB: Successfully updated onboardingCompleted to ${completed} for user ${userId}`);
+    return updatedUser;
+  } catch (error) {
+    console.error(`DB: Error updating onboarding status for user ${userId}:`, error);
+    throw error;
+  }
 }

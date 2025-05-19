@@ -1,7 +1,5 @@
 "use client";
 
-import { Toaster } from "sonner";
-
 export default function JobPostingEditLayout({
   children,
 }: {
@@ -10,7 +8,6 @@ export default function JobPostingEditLayout({
   return (
     <>
       {children}
-      <Toaster />
     </>
   );
 } 

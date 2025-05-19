@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
@@ -24,8 +23,7 @@ type InformasiPerusahaanValues = {
 };
 
 export default function InformasiPerusahaanForm() {
-  const { data, updateFormValues, setCurrentStep, saveCurrentStepData } = useEmployerOnboarding();
-  const router = useRouter();
+  const { data, proceedToNextStep } = useEmployerOnboarding();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const defaultValues: InformasiPerusahaanValues = {
@@ -46,47 +44,25 @@ export default function InformasiPerusahaanForm() {
   });
 
   const onSubmit = async (values: InformasiPerusahaanValues) => {
+    if (isSubmitting) return;
+    
     try {
       setIsSubmitting(true);
       
-      console.log("Form values to be saved:", values);
+      // Use proceedToNextStep to validate, update state, and navigate to next step
+      const stepData = {
+        namaPerusahaan: values.namaPerusahaan,
+        merekUsaha: values.merekUsaha,
+        industri: values.industri || "",
+        alamatKantor: values.alamatKantor || "",
+        email: values.email,
+      };
       
-      // First, ensure data is deeply cloned to avoid reference issues
-      const valuesToSave = JSON.parse(JSON.stringify(values));
-      
-      // Update the form values in context
-      updateFormValues({
-        namaPerusahaan: valuesToSave.namaPerusahaan,
-        merekUsaha: valuesToSave.merekUsaha,
-        industri: valuesToSave.industri || "",
-        alamatKantor: valuesToSave.alamatKantor || "",
-        email: valuesToSave.email,
-      });
-      
-      // Now that data is updated in context, increment the step before saving
-      setCurrentStep(2);
-      
-      // Now save the data with the updated step
-      console.log("About to save data with step 2");
-      
-      const saveSuccessful = await saveCurrentStepData();
-      
-      if (saveSuccessful) {
-        console.log("Save successful, navigating to next step");
-        toast.success("Informasi perusahaan berhasil disimpan");
-        
-        // Navigate to the next page
-        router.push("/employer/onboarding/kehadiran-online");
-      } else {
-        console.error("Failed to save data");
-        setCurrentStep(1);
-        toast.error("Gagal menyimpan data. Silakan coba lagi.");
-        setIsSubmitting(false);
-      }
+      await proceedToNextStep(stepData);
     } catch (error) {
       console.error("Error during form submission:", error);
-      setCurrentStep(1);
       toast.error("Terjadi kesalahan. Silakan coba lagi.");
+    } finally {
       setIsSubmitting(false);
     }
   };
@@ -181,7 +157,7 @@ export default function InformasiPerusahaanForm() {
         </div>
       </div>
 
-      <EmployerFormNav isSubmitting={isSubmitting} onSubmit={handleSubmit(onSubmit)} />
+      <EmployerFormNav isSubmitting={isSubmitting} />
     </form>
   );
 } 

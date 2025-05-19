@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { createEmployer, updateEmployerOnboardingProgress, db, employerOnboardingProgress } from '@/lib/db';
+import { createEmployer, db, users, updateUserOnboardingStatus } from '@/lib/db';
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { CustomSession } from '@/lib/types';
 
-// Simplified validation schema for required fields only
+// Validation schema for required fields
 const employerRequiredSchema = z.object({
   namaPerusahaan: z.string().min(1, "Nama perusahaan wajib diisi"),
   email: z.string().min(1, "Email wajib diisi").email("Format email tidak valid"),
@@ -16,7 +16,7 @@ const employerRequiredSchema = z.object({
   }),
 });
 
-// Define the employer data type based on the database schema
+// Define the employer data type
 type EmployerData = {
   userId: string;
   namaPerusahaan: string;
@@ -33,12 +33,16 @@ type EmployerData = {
   };
 };
 
+/**
+ * Endpoint to handle final submission of employer onboarding data
+ * With the new approach, this is the only endpoint that saves data to the database
+ */
 export async function POST(request: Request) {
   try {
     // Get the authenticated user's session
     const session = await auth() as CustomSession;
     
-    // Check if the user is authenticated
+    // Check authentication and role
     if (!session?.user?.id) {
       return NextResponse.json(
         { error: "Unauthorized: Authentication required" },
@@ -46,7 +50,6 @@ export async function POST(request: Request) {
       );
     }
     
-    // Check if the user has the correct role
     if (session.user.userType !== 'employer') {
       return NextResponse.json(
         { error: "Forbidden: Only employers can access this endpoint" },
@@ -56,21 +59,35 @@ export async function POST(request: Request) {
     
     const userId = session.user.id;
     
-    // Get the saved onboarding data
-    const [progress] = await db
+    // Check if onboarding is already completed to prevent duplicate submissions
+    const [user] = await db
       .select()
-      .from(employerOnboardingProgress)
-      .where(eq(employerOnboardingProgress.userId, userId));
+      .from(users)
+      .where(eq(users.id, userId));
     
-    if (!progress || !progress.data) {
+    if (user?.onboardingCompleted) {
       return NextResponse.json(
-        { error: "Onboarding data not found" },
+        { 
+          success: true, 
+          message: "Onboarding already completed",
+          completed: true
+        }
+      );
+    }
+    
+    // Get form data from request - we now expect it to always be present
+    let formData;
+    try {
+      formData = await request.json();
+    } catch (e) {
+      return NextResponse.json(
+        { error: "Invalid request body - no data provided" },
         { status: 400 }
       );
     }
     
     // Validate required fields
-    const validationResult = employerRequiredSchema.safeParse(progress.data);
+    const validationResult = employerRequiredSchema.safeParse(formData);
     
     if (!validationResult.success) {
       return NextResponse.json(
@@ -82,44 +99,47 @@ export async function POST(request: Request) {
       );
     }
     
-    // Extract valid data and ensure all required fields are present
+    // Prepare the employer data
     const validData = validationResult.data;
-    const data = progress.data as Record<string, any>;
-    
-    // Prepare the employer data for database insertion
     const employerData: EmployerData = {
       userId,
       namaPerusahaan: validData.namaPerusahaan,
-      merekUsaha: data.merekUsaha || null,
-      industri: data.industri || "",
-      alamatKantor: data.alamatKantor || "",
+      merekUsaha: formData.merekUsaha || null,
+      industri: formData.industri || "",
+      alamatKantor: formData.alamatKantor || "",
       email: validData.email,
-      website: data.website || null,
-      // Handle socialMedia - set to null if empty or undefined
-      socialMedia: data.socialMedia && typeof data.socialMedia === 'object' && 
-        Object.values(data.socialMedia).some(value => value) 
-          ? data.socialMedia 
-          : null,
-      logoUrl: data.logoUrl || null,
-      pic: validData.pic, // Required and validated field
+      website: formData.website || null,
+      socialMedia: formData.socialMedia ? formData.socialMedia : null,
+      logoUrl: formData.logoUrl || null,
+      pic: validData.pic,
     };
     
-    // Create the employer record in the database
-    const newEmployer = await createEmployer(employerData);
-    
-    // Update the onboarding progress to mark it as completed
-    await updateEmployerOnboardingProgress(userId, {
-      currentStep: 4, // Final step
-      status: 'COMPLETED',
-      data: data
-    });
+    // Create the employer record and update user status
+    let newEmployer;
+    try {
+      // 1. Create the employer record
+      newEmployer = await createEmployer(employerData);
+      
+      // 2. Update the user's onboardingCompleted status to true
+      // Use the dedicated function for better error handling and logging
+      await updateUserOnboardingStatus(userId, true);
+      
+      console.log(`Employer onboarding completed successfully for user ${userId}`);
+    } catch (dbError) {
+      console.error("Database error during employer creation:", dbError);
+      return NextResponse.json(
+        { error: "Failed to create employer record", details: dbError instanceof Error ? dbError.message : "Unknown error" },
+        { status: 500 }
+      );
+    }
     
     // Return success response
     return NextResponse.json(
       { 
         success: true, 
         employerId: newEmployer.id,
-        message: "Employer registration completed successfully"
+        message: "Employer registration completed successfully",
+        completed: true
       },
       { status: 201 }
     );

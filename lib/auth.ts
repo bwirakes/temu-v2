@@ -71,7 +71,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             name: user.name,
             email: user.email,
             image: user.image,
-            userType: user.userType
+            userType: user.userType,
+            onboardingCompleted: user.onboardingCompleted
           };
         } catch (error) {
           console.error("Database error during authentication:", error);
@@ -81,56 +82,40 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     })
   ],
   callbacks: {
-    async jwt({ token, user, account, trigger }: { token: JWT; user?: User & { userType?: string }; account?: any; trigger?: "signIn" | "signUp" | "update" }) {
+    async jwt({ token, user, trigger, session }) {
       // Initial sign in
-      if (account && user) {
-        console.log('Setting JWT token with user type on initial sign in:', user.userType);
-        const base = { ...token, userId: user.id, userType: user.userType };
+      if (user) {
+        console.log('Setting JWT token with user data:', { 
+          userType: user.userType, 
+          onboardingCompleted: user.onboardingCompleted 
+        });
         
-        if (user.id && user.userType) {
-          const status = await getOnboardingStatus(user.id, user.userType);
-          return { 
-            ...base, 
-            onboardingCompleted: status.completed, 
-            onboardingRedirectTo: status.redirectTo 
-          };
+        token.userId = user.id;
+        token.userType = user.userType;
+        token.onboardingCompleted = user.onboardingCompleted;
+      }
+      
+      // Session update from client
+      if (trigger === 'update' && session?.user) {
+        // Only update fields that were explicitly provided
+        if (typeof session.user.onboardingCompleted !== 'undefined') {
+          token.onboardingCompleted = session.user.onboardingCompleted;
+          console.log('Updated onboardingCompleted in token:', token.onboardingCompleted);
         }
-        
-        // Fallback (should not happen)
-        return { ...base, onboardingCompleted: true, onboardingRedirectTo: '/' };
-      }
-      
-      // Handle token updates (e.g., from refreshAuthSession)
-      if (trigger === 'update' && token.userId && token.userType) {
-        console.log('Updating JWT token onboarding status for user:', token.userId);
-        const status = await getOnboardingStatus(token.userId as string, token.userType as string);
-        return { 
-          ...token, 
-          onboardingCompleted: status.completed, 
-          onboardingRedirectTo: status.redirectTo 
-        };
-      }
-      
-      // Check for existing tokens without onboardingCompleted - Backfill existing tokens
-      if (!token.onboardingCompleted && token.userId && token.userType) {
-        console.log('Backfilling JWT token with onboarding status for user:', token.userId);
-        const status = await getOnboardingStatus(token.userId as string, token.userType as string);
-        return { 
-          ...token, 
-          onboardingCompleted: status.completed, 
-          onboardingRedirectTo: status.redirectTo 
-        };
       }
       
       return token;
     },
-    async session({ session, token }: { session: CustomSession; token: JWT & { userType?: string; userId?: string; onboardingCompleted?: boolean; onboardingRedirectTo?: string } }) {
+    
+    async session({ session, token }) {
+      // Add custom properties to session
       if (session.user) {
-        session.user.id = token.userId as string;
-        session.user.userType = token.userType as 'job_seeker' | 'employer';
-        session.user.onboardingCompleted = token.onboardingCompleted as boolean;
-        session.user.onboardingRedirectTo = token.onboardingRedirectTo as string;
-        console.log('Session updated with user type:', session.user.userType, 'onboardingCompleted:', session.user.onboardingCompleted);
+        // @ts-ignore - We know these properties exist on the token
+        session.user.id = token.userId;
+        // @ts-ignore - We know these properties exist on the token
+        session.user.userType = token.userType;
+        // @ts-ignore - We know these properties exist on the token
+        session.user.onboardingCompleted = token.onboardingCompleted;
       }
       return session;
     }
