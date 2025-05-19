@@ -15,10 +15,24 @@ import {
   primaryKey,
   uniqueIndex
 } from 'drizzle-orm/pg-core';
-import { count, eq, ilike } from 'drizzle-orm';
+import { count, eq, ilike, and } from 'drizzle-orm';
 import { createInsertSchema } from 'drizzle-zod';
 import postgres from 'postgres';
 import { drizzle } from 'drizzle-orm/postgres-js';
+
+// Define onboarding steps directly here for CLI usage
+const onboardingSteps = [
+  { id: 1, path: "/job-seeker/onboarding/informasi-dasar", title: "Informasi Dasar" },
+  { id: 2, path: "/job-seeker/onboarding/informasi-lanjutan", title: "Informasi Lanjutan" },
+  { id: 3, path: "/job-seeker/onboarding/alamat", title: "Alamat" },
+  { id: 4, path: "/job-seeker/onboarding/pendidikan", title: "Pendidikan" },
+  { id: 5, path: "/job-seeker/onboarding/level-pengalaman", title: "Level Pengalaman" },
+  { id: 6, path: "/job-seeker/onboarding/pengalaman-kerja", title: "Pengalaman Kerja" },
+  { id: 7, path: "/job-seeker/onboarding/ekspektasi-kerja", title: "Ekspektasi Kerja" },
+  { id: 8, path: "/job-seeker/onboarding/cv-upload", title: "CV Upload" },
+  { id: 9, path: "/job-seeker/onboarding/foto-profile", title: "Foto Profil" },
+  { id: 10, path: "/job-seeker/onboarding/ringkasan", title: "Ringkasan" },
+];
 
 // Initialize PostgreSQL connection
 const sql = postgres(process.env.POSTGRES_URL!, {

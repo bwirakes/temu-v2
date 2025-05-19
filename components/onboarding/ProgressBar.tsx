@@ -2,7 +2,8 @@
 
 import { useEffect } from "react";
 import { usePathname } from "next/navigation";
-import { useOnboarding, onboardingSteps } from "@/lib/context/OnboardingContext";
+import { useOnboarding } from "@/lib/context/OnboardingContext";
+import { onboardingSteps } from "@/lib/db-types";
 
 interface ProgressBarProps {
   forceCurrentStep?: number;
@@ -11,8 +12,7 @@ interface ProgressBarProps {
 export default function ProgressBar({ forceCurrentStep }: ProgressBarProps) {
   const { 
     currentStep: contextCurrentStep, 
-    setCurrentStep, 
-    completedSteps
+    setCurrentStep
   } = useOnboarding();
   const pathname = usePathname();
   
@@ -24,7 +24,9 @@ export default function ProgressBar({ forceCurrentStep }: ProgressBarProps) {
     if (forceCurrentStep !== undefined) return;
     
     const currentPath = pathname.split("/").pop();
-    const matchedStep = onboardingSteps.find(step => step.path.endsWith(currentPath || ""));
+    const matchedStep = onboardingSteps.find(step => {
+      return step.path.endsWith(currentPath || "");
+    });
     
     if (matchedStep && matchedStep.id !== contextCurrentStep) {
       setCurrentStep(matchedStep.id);
@@ -45,7 +47,7 @@ export default function ProgressBar({ forceCurrentStep }: ProgressBarProps) {
             Langkah {currentStep} dari {onboardingSteps.length}
           </p>
           <p className="text-xs text-gray-500">
-            {completedSteps.length} langkah selesai
+            {Math.max(0, currentStep - 1)} langkah telah dilalui
           </p>
         </div>
         <div className="mt-2 w-full bg-gray-200 rounded-full h-2.5">

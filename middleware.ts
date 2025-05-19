@@ -52,10 +52,17 @@ const SKIP_ONBOARDING_CHECK_ROUTES = [
   '/api/employer/check-onboarding',
   '/api/job-seeker/onboarding',
   '/api/job-seeker/check-onboarding',
+  '/api/upload',
+  '/api/upload/',
   '/_next',
   '/favicon.ico',
   '.svg',
   '/images/'
+];
+
+// Add explicit statement to exclude /api/upload from middleware
+export const EXCLUDED_PATHS = [
+  '/api/upload'
 ];
 
 export async function middleware(request: NextRequest) {
@@ -68,7 +75,8 @@ export async function middleware(request: NextRequest) {
   if (
     SKIP_ONBOARDING_CHECK_ROUTES.some(route => pathname.includes(route)) ||
     AUTH_ROUTES.some(route => pathname === route || pathname.startsWith(`${route}/`)) ||
-    PUBLIC_ROUTES.some(route => pathname === route || pathname.startsWith(`${route}/`))
+    PUBLIC_ROUTES.some(route => pathname === route || pathname.startsWith(`${route}/`)) ||
+    EXCLUDED_PATHS.some(path => pathname === path || pathname.startsWith(`${path}/`))
   ) {
     return NextResponse.next();
   }
@@ -161,10 +169,10 @@ export async function middleware(request: NextRequest) {
 // Don't invoke Middleware on some paths
 export const config = {
   matcher: [
-    // Match all paths except specific exclusions
-    '/((?!api/auth|_next/static|_next/image|favicon.ico|.*\\.svg$|images).*)',
-    
-    // Include specific paths for redirects
+    // Basic routes we want the middleware to handle
+    '/',
+    '/job-seeker/:path*',
+    '/employer/:path*',
     '/api/onboarding/:path*',
     '/onboarding/:path*',
     '/employer-onboarding/:path*',

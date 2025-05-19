@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
 export default function ProfilePhotoForm() {
-  const { data, updateFormValues, navigateToNextStep, saveCurrentStepData, isSaving: contextIsSaving } = useOnboarding();
+  const { data, updateFormValues, navigateToNextStep } = useOnboarding();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(data.profilePhotoUrl || null);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
@@ -46,12 +46,21 @@ export default function ProfilePhotoForm() {
     }
   };
 
-  // Define handleSubmit before the useEffect that references it
-  const handleSubmit = async () => {
+  // Handle auto-upload when a file is selected but don't auto-navigate
+  useEffect(() => {
+    if (photoFile) {
+      handleUpload();
+    }
+  }, [photoFile]);
+  
+  // Separate upload functionality from navigation
+  const handleUpload = async () => {
     if (!photoFile && !data.profilePhotoUrl) {
-      // Skip if no file uploaded - this step is optional
-      navigateToNextStep();
-      return;
+      return; // No need to upload if no file is selected - step is optional
+    }
+    
+    if (isSubmitting) {
+      return; // Don't attempt upload if already uploading
     }
     
     setIsSubmitting(true);
@@ -72,20 +81,8 @@ export default function ProfilePhotoForm() {
         profilePhotoUrl: photoUrl,
       });
       
-      // Save using context's saveCurrentStepData
-      const saveSuccess = await saveCurrentStepData();
-      
-      if (saveSuccess) {
-        setUploadStatus("success");
-        toast.success("Foto profil berhasil diunggah!");
-        
-        // Don't automatically navigate to the next step after upload
-        // Let the user manually continue or skip
-      } else {
-        setUploadStatus("error");
-        setErrorMessage("Gagal menyimpan foto profil. Silakan coba lagi.");
-        toast.error("Gagal menyimpan foto profil");
-      }
+      setUploadStatus("success");
+      toast.success("Foto profil berhasil diunggah!");
     } catch (error) {
       console.error("Error uploading file:", error);
       setUploadStatus("error");
@@ -96,13 +93,17 @@ export default function ProfilePhotoForm() {
     }
   };
   
-  // Auto-upload when a file is selected - Now handleSubmit is defined before this useEffect
-  useEffect(() => {
-    if (photoFile) {
-      // Automatically trigger the upload process when a file is selected
-      handleSubmit();
+  // Function to handle submission (used by FormNav)
+  const handleSubmit = async () => {
+    // If there's a photo file that hasn't been uploaded yet, upload it first
+    if (photoFile && uploadStatus !== 'success') {
+      await handleUpload();
     }
-  }, [photoFile]);
+    
+    // Navigate to next step regardless of whether there's a photo or not
+    // This is an optional step so users can skip photo upload
+    navigateToNextStep();
+  };
   
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -180,22 +181,12 @@ export default function ProfilePhotoForm() {
     }
   };
   
-  const handleNext = () => {
-    // Navigate to next step using navigateToNextStep
-    navigateToNextStep();
-  };
-  
-  const handleSkip = () => {
-    // Skip to next step using navigateToNextStep
-    navigateToNextStep();
-  };
-  
   return (
     <div className="space-y-6">
       <div className="space-y-4">
         <h2 className="text-lg font-medium">Unggah Foto Profil</h2>
         <p className="text-gray-500">
-          Unggah foto profil Anda untuk meningkatkan personalitas profil Anda.
+          Mohon tidak menggunakan filter atau aplikasi yang mengubah bentuk wajah
         </p>
         
         <div 
@@ -280,25 +271,16 @@ export default function ProfilePhotoForm() {
         </div>
       )}
       
-      <div className="flex flex-col sm:flex-row justify-between gap-4">
-        <Button 
-          type="button" 
-          variant="outline" 
-          onClick={handleSkip}
-          className="w-full sm:w-auto"
-        >
-          Lewati Langkah Ini
-        </Button>
-        
-        <Button
-          type="button"
-          onClick={handleNext}
-          disabled={isSubmitting || contextIsSaving}
-          className="w-full sm:w-auto"
-        >
-          {isSubmitting || contextIsSaving ? "Memproses..." : "Lanjutkan"}
-        </Button>
-      </div>
+      {/* Use FormNav component for consistent navigation */}
+      <FormNav 
+        onSubmit={handleSubmit} 
+        isSubmitting={isSubmitting}
+        onSkip={() => navigateToNextStep()}
+      />
+      
+      <p className="text-sm text-gray-500 text-center">
+        Foto profil adalah opsional dan dapat ditambahkan nanti.
+      </p>
     </div>
   );
 } 

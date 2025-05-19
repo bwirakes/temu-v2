@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { Upload, X, Check, RefreshCw, FileText } from "lucide-react";
+import { Upload, X, Check, RefreshCw, FileText, AlertCircle } from "lucide-react";
 import { useOnboarding } from "@/lib/context/OnboardingContext";
 import { Button } from "@/components/ui/button";
 import FormNav from "@/components/FormNav";
@@ -9,13 +9,19 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
 export default function CVUploadForm() {
-  const { data, updateFormValues, navigateToNextStep, saveCurrentStepData, isSaving: contextIsSaving } = useOnboarding();
+  const { data, updateFormValues, navigateToNextStep, getStepValidationErrors } = useOnboarding();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [filePreview, setFilePreview] = useState<string | null>(data.cvFileUrl || null);
   const [cvFile, setCvFile] = useState<File | null>(null);
   const [uploadStatus, setUploadStatus] = useState<"idle" | "uploading" | "success" | "error">("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // Check validation errors
+  const validationErrors = getStepValidationErrors(8);
+
+  // Compute if form can be submitted
+  const canSubmit = filePreview !== null || cvFile !== null;
   
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -31,9 +37,9 @@ export default function CVUploadForm() {
       return;
     }
     
-    // Validate file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      setErrorMessage("Ukuran file maksimal 5MB");
+    // Validate file size (max 3MB)
+    if (file.size > 3 * 1024 * 1024) {
+      setErrorMessage("Ukuran file maksimal 3MB");
       return;
     }
     
@@ -61,9 +67,9 @@ export default function CVUploadForm() {
         return;
       }
       
-      // Validate file size (max 5MB)
-      if (file.size > 5 * 1024 * 1024) {
-        setErrorMessage("Ukuran file maksimal 5MB");
+      // Validate file size (max 3MB)
+      if (file.size > 3 * 1024 * 1024) {
+        setErrorMessage("Ukuran file maksimal 3MB");
         return;
       }
       
@@ -93,20 +99,60 @@ export default function CVUploadForm() {
 
       setErrorMessage(null); // Reset error message before attempting upload
       
+      console.log(`Uploading file: ${file.name}, size: ${(file.size / 1024 / 1024).toFixed(2)}MB`);
+      
+      // Use the upload endpoint instead of direct-upload
       const response = await fetch('/api/upload', {
         method: 'POST',
         body: formData,
       });
 
+      console.log(`Upload response status: ${response.status}`);
+      
+      // First check the response status
       if (!response.ok) {
-        const errorData = await response.json();
-        // Use the specific error message from the API if available
-        throw new Error(errorData.error || `Upload failed with status: ${response.status}`);
+        // If response is not OK, try to parse the error message
+        const responseClone = response.clone(); // Clone the response before reading
+        
+        try {
+          const errorData = await responseClone.json();
+          throw new Error(errorData.error || `Upload failed with status: ${response.status}`);
+        } catch (parseError) {
+          // If parsing fails, it's likely not JSON, use text instead
+          try {
+            const textError = await response.text();
+            console.error('Response is not JSON:', textError);
+            throw new Error(`Upload failed with status: ${response.status}. Server returned: ${textError.substring(0, 100)}...`);
+          } catch (textError) {
+            // If even text extraction fails
+            throw new Error(`Upload failed with status: ${response.status}. Could not read server response.`);
+          }
+        }
       }
 
-      const data = await response.json();
-      
-      return data.url;
+      // If response is OK, try to parse the JSON
+      try {
+        const data = await response.json();
+        console.log(`Upload successful, received URL: ${data.url}`);
+        
+        if (!data?.url) {
+          throw new Error('Server response missing URL field. Please try again.');
+        }
+        
+        return data.url;
+      } catch (parseError) {
+        console.error('Error parsing successful response:', parseError);
+        
+        // Try to get the raw text to see what's being returned
+        try {
+          const responseClone = response.clone();
+          const text = await responseClone.text();
+          console.error('Raw response:', text);
+          throw new Error(`Server returned invalid JSON. Raw response: ${text.substring(0, 100)}...`);
+        } catch (textError) {
+          throw new Error('Server returned invalid JSON response. Please try again.');
+        }
+      }
     } catch (error) {
       console.error('Error uploading to Vercel Blob:', error);
       throw error;
@@ -115,8 +161,7 @@ export default function CVUploadForm() {
 
   const handleSubmit = async () => {
     if (!cvFile && !data.cvFileUrl) {
-      // Skip if no file uploaded - this step is optional
-      navigateToNextStep();
+      setErrorMessage("CV/Resume wajib diunggah. Silakan unggah file CV atau resume Anda.");
       return;
     }
     
@@ -124,42 +169,58 @@ export default function CVUploadForm() {
     setUploadStatus("uploading");
     setErrorMessage(null);
     
+    // Retry logic
+    const maxRetries = 2;
+    let retryCount = 0;
+    // Make sure fileUrl is initialized as string
+    let fileUrl: string = data.cvFileUrl || '';
+    
+    const attemptUpload = async (): Promise<string> => {
+      try {
+        if (cvFile) {
+          console.log(`Upload attempt ${retryCount + 1}/${maxRetries + 1} for file ${cvFile.name}`);
+          const url = await uploadToBlob(cvFile);
+          console.log("Upload successful, URL:", url);
+          return url;
+        }
+        return fileUrl;
+      } catch (error) {
+        console.error(`Upload attempt ${retryCount + 1} failed:`, error);
+        if (retryCount < maxRetries) {
+          retryCount++;
+          console.log(`Retrying upload (${retryCount}/${maxRetries})...`);
+          // Wait a short time before retrying
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          return attemptUpload();
+        }
+        throw error; // Re-throw if all retries failed
+      }
+    };
+    
     try {
-      // If there's already a file URL and no new file selected, we can skip upload
-      let fileUrl = data.cvFileUrl;
-      
-      // Only upload if there's a new file selected
+      // If there's a new file selected, upload it
       if (cvFile) {
         console.log("Uploading new CV file...");
-        fileUrl = await uploadToBlob(cvFile);
-        console.log("CV file uploaded successfully, URL:", fileUrl);
+        fileUrl = await attemptUpload();
+        if (!fileUrl) {
+          throw new Error("Upload failed: No URL returned from server");
+        }
       } else {
         console.log("Using existing CV URL:", fileUrl);
       }
       
       // Update context with file URL
       updateFormValues({
-        cvFileUrl: fileUrl, // Store permanent URL
+        cvFileUrl: fileUrl,
       });
       
-      // Save using context's saveCurrentStepData
-      console.log("Saving CV data...");
-      const saveSuccess = await saveCurrentStepData();
-      console.log("CV save result:", saveSuccess);
+      setUploadStatus("success");
+      toast.success("CV berhasil diunggah!");
       
-      if (saveSuccess) {
-        setUploadStatus("success");
-        toast.success("CV berhasil diunggah!");
-        
-        // Use the centralized navigation function
-        setTimeout(() => {
-          navigateToNextStep();
-        }, 500);
-      } else {
-        setUploadStatus("error");
-        setErrorMessage("Gagal menyimpan data CV. Silakan coba lagi.");
-        toast.error("Gagal menyimpan CV");
-      }
+      // Navigate to next step
+      setTimeout(() => {
+        navigateToNextStep();
+      }, 500);
     } catch (error) {
       console.error("Error uploading file:", error);
       setUploadStatus("error");
@@ -175,13 +236,15 @@ export default function CVUploadForm() {
       <div className="space-y-4">
         <h2 className="text-lg font-medium">Unggah CV/Resume</h2>
         <p className="text-gray-500">
-          Unggah CV atau resume Anda untuk meningkatkan peluang menemukan pekerjaan yang sesuai.
+          Unggah CV atau resume Anda untuk meningkatkan peluang mendapatkan pekerjaan yang sesuai.
+          CV/Resume ini akan dilihat oleh perekrut saat Anda melamar pekerjaan.
         </p>
         
         <div 
           className={cn(
             "border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors",
-            filePreview ? "border-blue-300 bg-blue-50" : "border-gray-300 hover:border-blue-300 hover:bg-blue-50"
+            filePreview ? "border-blue-300 bg-blue-50" : "border-gray-300 hover:border-blue-300 hover:bg-blue-50",
+            validationErrors.cvFileUrl && !filePreview ? "border-red-300" : ""
           )}
           onDragOver={handleDragOver}
           onDrop={handleDrop}
@@ -225,15 +288,23 @@ export default function CVUploadForm() {
               </div>
               <p className="font-medium text-gray-700 mb-1">Unggah CV/Resume Anda</p>
               <p className="text-sm text-gray-500 mb-2">Tarik dan lepas dokumen di sini atau klik untuk unggah</p>
-              <p className="text-xs text-gray-400">Format: PDF, DOC, atau DOCX (Maks. 5MB)</p>
+              <p className="text-xs text-gray-400">Format: PDF, DOC, atau DOCX (Maks. 3MB)</p>
             </div>
           )}
         </div>
       </div>
       
+      {validationErrors.cvFileUrl && !filePreview && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md flex items-center">
+          <AlertCircle className="h-4 w-4 mr-2" />
+          <span>{validationErrors.cvFileUrl}</span>
+        </div>
+      )}
+      
       {errorMessage && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md">
-          {errorMessage}
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md flex items-center">
+          <AlertCircle className="h-4 w-4 mr-2" />
+          <span>{errorMessage}</span>
         </div>
       )}
       
@@ -252,11 +323,14 @@ export default function CVUploadForm() {
       )}
       
       <FormNav 
-        onSubmit={handleSubmit}
-        isSubmitting={isSubmitting || contextIsSaving}
-        onSkip={navigateToNextStep}
-        saveOnNext={false}
+        onSubmit={handleSubmit} 
+        isSubmitting={isSubmitting}
+        disableNext={!canSubmit}
       />
+      
+      <p className="text-sm text-gray-500 text-center">
+        CV/Resume wajib diunggah untuk melamar pekerjaan.
+      </p>
     </div>
   );
 } 

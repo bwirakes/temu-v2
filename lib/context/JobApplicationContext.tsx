@@ -10,8 +10,8 @@ import {
 import { useRouter } from "next/navigation";
 import { z } from "zod";
 
-// Import for database operations
-import { db, jobApplications, applicationStatusEnum } from "@/lib/db";
+// Import for database operations - using db-types for client safety
+import { applicationStatusEnum } from "@/lib/db-types";
 
 // Import job application service
 import { jobApplicationService } from "@/lib/services/JobApplicationService";

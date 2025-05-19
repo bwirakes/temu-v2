@@ -20,7 +20,7 @@ import {
   PopoverTrigger 
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { PengalamanKerja } from "@/lib/context/OnboardingContext";
+import { PengalamanKerja } from "@/lib/db-types";
 import { FormLabel } from "@/components/ui/form-label";
 
 const levelPengalamanOptions = [
@@ -49,11 +49,9 @@ const pengalamanKerjaSchema = z.object({
   lokasi: z.string().optional(),
   gajiTerakhir: z.string().optional(),
   alasanKeluar: z.enum([
-    "Kontrak tidak diperpanjang",
-    "Gaji terlalu kecil",
-    "Tidak cocok dengan atasan / rekan kerja",
-    "Lokasi terlalu jauh",
-    "Pekerjaan terlalu berat",
+    "Dapat Tawaran Lebih Baik",
+    "Cari Peluang Lebih Baik",
+    "Tidak ada peluang karir jangka-panjang",
     "Lainnya"
   ]).optional(),
   alasanKeluarLainnya: z.string().optional(),
@@ -71,11 +69,9 @@ interface PengalamanKerjaItemProps {
 }
 
 const alasanKeluarOptions = [
-  "Kontrak tidak diperpanjang",
-  "Gaji terlalu kecil",
-  "Tidak cocok dengan atasan / rekan kerja",
-  "Lokasi terlalu jauh",
-  "Pekerjaan terlalu berat",
+  "Dapat Tawaran Lebih Baik",
+  "Cari Peluang Lebih Baik",
+  "Tidak ada peluang karir jangka-panjang",
   "Lainnya"
 ];
 
@@ -335,7 +331,7 @@ export default function PengalamanKerjaItem({
         <form className="p-4 space-y-4">
           <div className="space-y-2">
             <div className="flex items-center">
-              <FormLabel htmlFor="namaPerusahaan" required>Nama Perusahaan</FormLabel>
+              <FormLabel htmlFor="namaPerusahaan" required>Nama Perusahaan atau Tempat Kerja</FormLabel>
             </div>
             <Input
               id="namaPerusahaan"

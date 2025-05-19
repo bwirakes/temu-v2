@@ -66,7 +66,7 @@ const alamatSchema = z.object({
 type AlamatValues = z.infer<typeof alamatSchema>;
 
 export default function AlamatForm() {
-  const { data, updateFormValues, navigateToNextStep, saveCurrentStepData, isSaving: contextIsSaving } = useOnboarding();
+  const { data, updateFormValues, navigateToNextStep } = useOnboarding();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const defaultValues: Partial<AlamatValues> = {
@@ -100,26 +100,11 @@ export default function AlamatForm() {
         },
       });
 
-      // Save data using the context's saveCurrentStepData function
-      try {
-        const saveSuccess = await saveCurrentStepData();
-        
-        if (saveSuccess) {
-          toast.success("Alamat berhasil disimpan");
-          // Use the centralized navigation function
-          navigateToNextStep();
-        } else {
-          toast.error("Gagal menyimpan data alamat");
-        }
-      } catch (error) {
-        console.error("Error saving address data:", error);
-        const errorMessage = error instanceof Error 
-          ? error.message 
-          : "Gagal menyimpan data alamat. Silakan coba lagi.";
-        toast.error(errorMessage);
-      }
+      toast.success("Alamat berhasil disimpan");
+      navigateToNextStep();
     } catch (error) {
       console.error("Form submission error:", error);
+      toast.error("Gagal menyimpan data alamat");
     } finally {
       setIsSubmitting(false);
     }
@@ -189,7 +174,7 @@ export default function AlamatForm() {
         </div>
       </div>
 
-      <FormNav isSubmitting={isSubmitting || contextIsSaving} saveOnNext={false} />
+      <FormNav isSubmitting={isSubmitting} saveOnNext={false} />
     </form>
   );
 }

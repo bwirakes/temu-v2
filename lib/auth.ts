@@ -8,7 +8,7 @@ import { eq } from 'drizzle-orm';
 import type { User } from 'next-auth';
 import type { JWT } from 'next-auth/jwt';
 import type { Session } from 'next-auth';
-import { CustomSession } from './types';
+import { CustomSession, CustomUser } from './types';
 import { getOnboardingStatus } from './auth-helpers';
 
 // Define credentials type
@@ -85,14 +85,45 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     async jwt({ token, user, trigger, session }) {
       // Initial sign in
       if (user) {
+        // Type assertion to CustomUser since we know our user has these properties
+        const customUser = user as CustomUser;
+        
         console.log('Setting JWT token with user data:', { 
-          userType: user.userType, 
-          onboardingCompleted: user.onboardingCompleted 
+          userType: customUser.userType, 
+          onboardingCompleted: customUser.onboardingCompleted 
         });
         
-        token.userId = user.id;
-        token.userType = user.userType;
-        token.onboardingCompleted = user.onboardingCompleted;
+        token.userId = customUser.id;
+        token.userType = customUser.userType;
+        token.onboardingCompleted = customUser.onboardingCompleted;
+      }
+      
+      // Always fetch the latest user data from database if we have a userId
+      // This ensures we always have the most current onboardingCompleted status
+      if (token.userId) {
+        try {
+          console.log(`JWT callback: Fetching latest data for user ${token.userId}`);
+          
+          // Get the latest user data from database
+          const [latestUserData] = await db
+            .select()
+            .from(users)
+            .where(eq(users.id, token.userId as string));
+          
+          if (latestUserData) {
+            // Only log if there's a change to avoid noise
+            if (token.onboardingCompleted !== latestUserData.onboardingCompleted) {
+              console.log(`JWT: Updating token onboardingCompleted from ${token.onboardingCompleted} to ${latestUserData.onboardingCompleted}`);
+            }
+            
+            // Always update the token with latest values
+            token.onboardingCompleted = latestUserData.onboardingCompleted;
+            token.userType = latestUserData.userType;
+          }
+        } catch (error) {
+          console.error("Error fetching latest user data in JWT callback:", error);
+          // Continue with current token data
+        }
       }
       
       // Session update from client
@@ -100,7 +131,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         // Only update fields that were explicitly provided
         if (typeof session.user.onboardingCompleted !== 'undefined') {
           token.onboardingCompleted = session.user.onboardingCompleted;
-          console.log('Updated onboardingCompleted in token:', token.onboardingCompleted);
+          console.log('Updated onboardingCompleted in token from session update:', token.onboardingCompleted);
         }
       }
       
@@ -110,12 +141,12 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     async session({ session, token }) {
       // Add custom properties to session
       if (session.user) {
-        // @ts-ignore - We know these properties exist on the token
-        session.user.id = token.userId;
-        // @ts-ignore - We know these properties exist on the token
-        session.user.userType = token.userType;
-        // @ts-ignore - We know these properties exist on the token
-        session.user.onboardingCompleted = token.onboardingCompleted;
+        // Transfer token data to session
+        session.user.id = token.userId as string;
+        session.user.userType = token.userType as string;
+        session.user.onboardingCompleted = token.onboardingCompleted as boolean;
+        
+        console.log(`Session callback: onboardingCompleted=${session.user.onboardingCompleted} for user ${session.user.id}`);
       }
       return session;
     }

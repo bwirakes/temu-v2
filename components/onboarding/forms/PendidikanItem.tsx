@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { Pendidikan } from "@/lib/context/OnboardingContext";
+import { Pendidikan } from "@/lib/db-types";
 import { FormLabel } from "@/components/ui/form-label";
 
 const pendidikanSchema = z.object({
@@ -24,6 +24,7 @@ const pendidikanSchema = z.object({
   bidangStudi: z.string().optional(),
   tahunLulus: z.string().optional(),
   masihKuliah: z.boolean().optional(),
+  tidakLulus: z.boolean().optional(),
   prestasi: z.string().optional(),
 });
 
@@ -65,6 +66,9 @@ export default function PendidikanItem({
   const [masihKuliah, setMasihKuliah] = useState(
     pendidikan?.tanggalLulus === "Masih Kuliah"
   );
+  const [tidakLulus, setTidakLulus] = useState(
+    pendidikan?.tanggalLulus === "Tidak Lulus"
+  );
 
   // Effect to ensure expanded state reflects prop changes
   useEffect(() => {
@@ -82,10 +86,11 @@ export default function PendidikanItem({
     lokasi: pendidikan?.lokasi || "",
     jenjangPendidikan: pendidikan?.jenjangPendidikan || "",
     bidangStudi: pendidikan?.bidangStudi || "",
-    tahunLulus: pendidikan?.tanggalLulus && pendidikan.tanggalLulus !== "Masih Kuliah"
+    tahunLulus: pendidikan?.tanggalLulus && pendidikan.tanggalLulus !== "Masih Kuliah" && pendidikan.tanggalLulus !== "Tidak Lulus"
       ? pendidikan.tanggalLulus.split("-")[0] // Extract year from ISO date
       : "",
     masihKuliah: masihKuliah,
+    tidakLulus: tidakLulus,
     prestasi: pendidikan?.deskripsiTambahan || "",
   };
 
@@ -112,8 +117,11 @@ export default function PendidikanItem({
       bidangStudi: values.bidangStudi || "",
       tanggalLulus: values.masihKuliah 
         ? "Masih Kuliah" 
-        : values.tahunLulus || "",
+        : values.tidakLulus
+          ? values.tahunLulus || "Tidak Lulus" // Use the year if selected, otherwise just "Tidak Lulus"
+          : values.tahunLulus || "",
       deskripsiTambahan: values.prestasi,
+      tidakLulus: values.tidakLulus,
     };
 
     // Save the data
@@ -125,6 +133,7 @@ export default function PendidikanItem({
   };
 
   const watchMasihKuliah = watch("masihKuliah");
+  const watchTidakLulus = watch("tidakLulus");
   const watchJenjangPendidikan = watch("jenjangPendidikan");
 
   return (
@@ -203,7 +212,7 @@ export default function PendidikanItem({
 
           <div className="space-y-2">
             <FormLabel htmlFor="tahunLulus">
-              Tahun Kelulusan {!watchMasihKuliah && <span className="text-red-500">*</span>}
+              {watchTidakLulus ? "Berhenti Sekolah/Kuliah Tahun" : "Tahun Kelulusan"} {!watchMasihKuliah && <span className="text-red-500">*</span>}
             </FormLabel>
             <div className="flex flex-col space-y-2">
               <Select
@@ -215,7 +224,7 @@ export default function PendidikanItem({
                   id="tahunLulus"
                   className={errors.tahunLulus && !watchMasihKuliah ? "border-red-500" : ""}
                 >
-                  <SelectValue placeholder="Pilih tahun kelulusan" />
+                  <SelectValue placeholder={watchTidakLulus ? "Pilih tahun berhenti" : "Pilih tahun kelulusan"} />
                 </SelectTrigger>
                 <SelectContent>
                   {years.map((year) => (
@@ -231,15 +240,42 @@ export default function PendidikanItem({
                   id="masihKuliah"
                   checked={watchMasihKuliah}
                   onCheckedChange={(checked) => {
-                    setValue("masihKuliah", checked === true);
-                    setMasihKuliah(checked === true);
+                    const isChecked = checked === true;
+                    setValue("masihKuliah", isChecked);
+                    setMasihKuliah(isChecked);
+                    if (isChecked && watchTidakLulus) {
+                      setValue("tidakLulus", false);
+                      setTidakLulus(false);
+                    }
                   }}
                 />
                 <FormLabel
                   htmlFor="masihKuliah"
                   className="text-sm font-normal cursor-pointer"
                 >
-                  Saya masih kuliah
+                  Saat ini masih sekolah/kuliah
+                </FormLabel>
+              </div>
+              
+              <div className="flex items-center space-x-2 mt-2">
+                <Checkbox
+                  id="tidakLulus"
+                  checked={watchTidakLulus}
+                  onCheckedChange={(checked) => {
+                    const isChecked = checked === true;
+                    setValue("tidakLulus", isChecked);
+                    setTidakLulus(isChecked);
+                    if (isChecked && watchMasihKuliah) {
+                      setValue("masihKuliah", false);
+                      setMasihKuliah(false);
+                    }
+                  }}
+                />
+                <FormLabel
+                  htmlFor="tidakLulus"
+                  className="text-sm font-normal cursor-pointer"
+                >
+                  Tidak Lulus
                 </FormLabel>
               </div>
             </div>
@@ -315,8 +351,10 @@ export default function PendidikanItem({
             <div className="space-y-2 mb-4">
               <div className="text-sm text-gray-500">
                 Tahun Kelulusan: {pendidikan?.tanggalLulus === "Masih Kuliah" 
-                  ? "Masih Kuliah"
-                  : pendidikan?.tanggalLulus}
+                  ? "Saat ini masih sekolah/kuliah"
+                  : pendidikan?.tidakLulus
+                    ? `Tidak Lulus (Berhenti tahun ${pendidikan?.tanggalLulus})`
+                    : pendidikan?.tanggalLulus}
               </div>
               
               {pendidikan?.deskripsiTambahan && (

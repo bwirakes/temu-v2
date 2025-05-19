@@ -5,7 +5,7 @@
  * This hook is kept for backward compatibility. New code should use useOnboarding() 
  * from '@/lib/context/OnboardingContext' instead.
  * 
- * For saving data, use saveCurrentStepData() from useOnboarding()
+ * For final data submission, use submitOnboardingData() from useOnboarding()
  * For navigation, use navigateToNextStep(), navigateToPreviousStep() or navigateToStep()
  */
 
@@ -17,9 +17,9 @@ export function useOnboardingApi() {
     data, 
     updateFormValues, 
     currentStep, 
-    saveCurrentStepData, 
-    isSaving: contextIsSaving,
-    navigateToNextStep
+    isSubmitting: contextIsSubmitting,
+    navigateToNextStep,
+    submitOnboardingData
   } = useOnboarding();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -30,22 +30,22 @@ export function useOnboardingApi() {
     console.warn(
       "useOnboardingApi is deprecated and will be removed in a future version. " +
       "Please use useOnboarding() from '@/lib/context/OnboardingContext' instead.\n" +
-      "For saving data: use saveCurrentStepData()\n" +
+      "For submitting data: use submitOnboardingData()\n" +
       "For navigation: use navigateToNextStep(), navigateToPreviousStep() or navigateToStep()"
     );
   }, []);
 
   /**
    * Save data for a specific step
-   * @deprecated Use saveCurrentStepData from useOnboarding() instead
+   * @deprecated Saving per-step data is no longer supported. Data will only be saved on final submission.
    * @param step The step number to save data for
    * @param stepData Optional specific data to save for this step (defaults to current context data)
    * @returns Promise with the API response
    */
   const saveStep = async (step: number, stepData?: any) => {
     console.warn(
-      "useOnboardingApi.saveStep is deprecated. Use useOnboarding().saveCurrentStepData instead. " +
-      "This method will redirect to the context method if saving the current step."
+      "useOnboardingApi.saveStep is deprecated. Per-step saving is no longer supported. " +
+      "Data will be accumulated and submitted at the end via useOnboarding().submitOnboardingData()"
     );
     
     setIsLoading(true);
@@ -58,44 +58,12 @@ export function useOnboardingApi() {
       // Extract only the relevant data for this step
       const relevantData = extractStepData(step, dataToSave);
 
-      // Update the context data first
+      // Update the context data
       updateFormValues(relevantData);
       
-      // Use the context's saveCurrentStepData if the step matches current step
-      if (step === currentStep) {
-        const success = await saveCurrentStepData();
-        setLastSavedStep(step);
-        setIsLoading(false);
-        return { success, data: relevantData };
-      }
-
-      console.log(`Saving step ${step} data:`, relevantData);
-
-      const response = await fetch("/api/job-seeker/onboarding", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          step,
-          data: relevantData,
-        }),
-      });
-
-      const responseData = await response.json();
-
-      if (!response.ok) {
-        // Extract error message from response
-        const errorMessage = 
-          responseData.message || 
-          responseData.error || 
-          `Error ${response.status}: ${response.statusText || 'Unknown error'}`;
-        
-        throw new Error(errorMessage);
-      }
-
+      // We no longer save per-step, just update the in-memory context
       setLastSavedStep(step);
-      return responseData;
+      return { success: true, data: relevantData };
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "An unknown error occurred";
       setError(errorMessage);
@@ -188,14 +156,15 @@ export function useOnboardingApi() {
 
   /**
    * Auto-save the current step data
-   * @deprecated Use saveCurrentStepData from useOnboarding() instead
+   * @deprecated Per-step saving is no longer supported. Use submitOnboardingData for final submission.
    */
   const autoSaveCurrentStep = async () => {
     console.warn(
       "useOnboardingApi.autoSaveCurrentStep is deprecated. " +
-      "Using useOnboarding().saveCurrentStepData instead."
+      "Per-step saving is no longer supported. Data will be accumulated in memory and submitted at the end."
     );
-    return saveCurrentStepData();
+    // We just update in-memory state, no longer saving per step
+    return true;
   };
 
   /**
@@ -242,12 +211,12 @@ export function useOnboardingApi() {
     saveStep,
     autoSaveCurrentStep,
     loadOnboardingData,
-    isLoading: isLoading || contextIsSaving,
+    isLoading: isLoading || contextIsSubmitting,
     error,
     lastSavedStep,
     
     // Forward key methods from the context as well
-    saveCurrentStepData,
+    submitOnboardingData,
     navigateToNextStep
   };
 } 

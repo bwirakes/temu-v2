@@ -2,9 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { useOnboarding } from "@/lib/context/OnboardingContext";
-import { CheckCircle2, AlertCircle, FileText, Camera } from "lucide-react";
+import { CheckCircle2, AlertCircle, FileText, Camera, Loader2 } from "lucide-react";
 import Image from "next/image";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import FormNav from "@/components/FormNav";
 
 // Define proper interfaces for the data types
 interface LevelPengalamanData {
@@ -14,140 +17,150 @@ interface LevelPengalamanData {
   keterampilan?: string[];
 }
 
+// Add a specific type for parsed ekspektasiKerja to align with the context definition
+interface ParsedEkspektasiKerja {
+  jobTypes: string;
+  idealSalary: number;
+  willingToTravel: "wfh" | "wfo" | "travel" | "relocate" | "local_only" | "domestic" | "international";
+  preferensiLokasiKerja: "local_only" | "domestic" | "international" | "WFO" | "WFH" | "Hybrid";
+}
+
 export default function RingkasanProfil() {
   const { 
     data, 
-    isStepComplete, 
-    saveCurrentStepData, 
-    isSaving, 
-    saveError,
     navigateToStep,
-    getStepPath
+    getStepPath,
+    getStepValidationErrors,
+    isSubmitting: contextIsSubmitting,
+    submissionError: contextSubmissionError,
+    currentStep,
+    submitOnboardingData
   } = useOnboarding();
-  const [isDataLoaded, setIsDataLoaded] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  
   const [submitSuccess, setSubmitSuccess] = useState<boolean | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [isLocalSubmitting, setIsLocalSubmitting] = useState(false);
+  const [isSessionRefreshing, setIsSessionRefreshing] = useState(false);
+  const router = useRouter();
 
-  // Data is now loaded from the parent component
   useEffect(() => {
-    // Mark data as loaded when component mounts to avoid loading spinner
-    setIsDataLoaded(true);
-  }, []);
-
-  const handleSubmit = async () => {
-    setIsSubmitting(true);
-    setSubmitSuccess(null);
-    setSubmitError(null);
-
-    // Client-side validation before submission using the context's isStepComplete
-    const incompleteRequiredSteps = [];
-    
-    // Check required steps (1-5)
-    for (let step = 1; step <= 5; step++) {
-      if (!isStepComplete(step)) {
-        incompleteRequiredSteps.push(step);
-      }
+    if (contextSubmissionError) {
+      setSubmitError(contextSubmissionError);
     }
-    
-    if (incompleteRequiredSteps.length > 0) {
-      let errorMessage = "Beberapa data belum lengkap: ";
-      let redirectStep = incompleteRequiredSteps[0];
-      
-      if (incompleteRequiredSteps.includes(1)) {
-        errorMessage = "Informasi dasar belum lengkap. Anda akan dialihkan ke langkah awal.";
-        redirectStep = 1;
-      } else {
-        errorMessage = `Langkah ${incompleteRequiredSteps.join(", ")} belum lengkap. Anda akan dialihkan.`;
-      }
-      
-      setSubmitError(errorMessage);
-      setIsSubmitting(false);
-      
-      // Use the navigateToStep function from context instead of direct URL manipulation
-      setTimeout(() => {
-        navigateToStep(redirectStep);
-      }, 2000);
-      return;
-    }
+  }, [contextSubmissionError]);
 
+  /**
+   * Refreshes the auth session to update JWT token with onboardingCompleted=true
+   */
+  const refreshAuthSession = async (): Promise<boolean> => {
     try {
-      // Save the final step first using the context
-      const saveSuccess = await saveCurrentStepData();
+      setIsSessionRefreshing(true);
+      console.log('Starting auth session refresh...');
       
-      if (!saveSuccess) {
-        throw new Error(saveError || "Failed to save current step");
-      }
+      // Generate a cache-busting timestamp
+      const timestamp = new Date().getTime();
       
-      // Submit the completed profile
-      const response = await fetch("/api/job-seeker/onboarding/submit", {
-        method: "POST",
+      // Step 1: Directly call NextAuth's session endpoint to force a fresh token
+      // This will trigger the jwt and session callbacks in lib/auth.ts which will
+      // fetch the latest onboardingCompleted status from the database
+      const nextAuthResponse = await fetch(`/api/auth/session?t=${timestamp}`, {
+        method: 'GET',
         headers: {
-          "Content-Type": "application/json",
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
         }
       });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        console.error("Submission error:", result);
-        
-        // Handle validation errors with specific redirects
-        if (result.redirectTo) {
-          setSubmitError(`Ada data yang belum lengkap. Anda akan dialihkan ke halaman yang diperlukan.`);
-          setTimeout(() => {
-            window.location.href = result.redirectTo;
-          }, 2000);
-          return;
-        }
-        
-        throw new Error(result.error || "Failed to complete registration");
-      }
-
-      setSubmitSuccess(true);
       
-      // Redirect to dashboard or confirmation page after successful submission
-      setTimeout(() => {
-        window.location.href = result.redirectUrl || "/job-seeker/dashboard";
-      }, 2000);
+      if (!nextAuthResponse.ok) {
+        console.error('Next-Auth session refresh failed:', nextAuthResponse.statusText);
+        return false;
+      }
+      
+      console.log('NextAuth session endpoint called successfully');
+      
+      // Verify the session data returned
+      const nextAuthSession = await nextAuthResponse.json();
+      console.log('Next-Auth session data:', nextAuthSession);
+      
+      // Call router.refresh() to update React components with new session data
+      router.refresh();
+      
+      return true;
     } catch (error) {
-      setSubmitError("Terjadi kesalahan saat menyelesaikan pendaftaran. Silakan coba lagi.");
-      setSubmitSuccess(false);
-      console.error("Submission error:", error);
+      console.error('Error refreshing session:', error);
+      return false;
     } finally {
-      setIsSubmitting(false);
+      setIsSessionRefreshing(false);
     }
   };
 
-  if (isSaving && !isDataLoaded) {
-    return (
-      <div className="flex justify-center items-center py-12">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-        <p className="ml-3 text-gray-600">Memuat data...</p>
-      </div>
-    );
-  }
+  const handleSubmit = async () => {
+    try {
+      setIsLocalSubmitting(true);
+      console.log("Starting onboarding submission process...");
+      
+      // Submit using the context function
+      const success = await submitOnboardingData();
+      
+      if (success) {
+        console.log('Onboarding completed successfully');
+        setSubmitSuccess(true);
+        toast.success("Pendaftaran berhasil diselesaikan!");
+        
+        // Refresh session to update the JWT token with onboardingCompleted=true
+        console.log('Refreshing auth session...');
+        const sessionRefreshed = await refreshAuthSession();
+        
+        if (sessionRefreshed) {
+          console.log('Session refreshed successfully');
+        } else {
+          console.warn('Session refresh had issues but continuing');
+          // We'll continue anyway since the database was updated
+        }
+        
+        // Use a small delay before redirect to allow toast to be seen and session to be refreshed
+        setTimeout(() => {
+          // Navigate to dashboard after success
+          console.log('Redirecting to dashboard...');
+          
+          // Use window.location for a full page reload to ensure fresh session
+          window.location.href = '/job-seeker/dashboard';
+        }, 2000);
+      } else {
+        setSubmitError(contextSubmissionError || "Gagal menyelesaikan pendaftaran. Silakan coba lagi.");
+        setSubmitSuccess(false);
+      }
+    } catch (error) {
+      console.error('Error during onboarding submission:', error);
+      setSubmitError("Gagal menyelesaikan pendaftaran. Silakan coba lagi.");
+      setSubmitSuccess(false);
+      toast.error("Gagal menyelesaikan pendaftaran");
+    } finally {
+      setIsLocalSubmitting(false);
+    }
+  };
 
   // Parse ekspektasiKerja if it's a string
-  let ekspektasiKerjaData = data.ekspektasiKerja;
+  let ekspektasiKerjaData: ParsedEkspektasiKerja | null = null;
   
-  console.log("Raw ekspektasiKerja data:", ekspektasiKerjaData);
+  console.log("Raw ekspektasiKerja data:", data.ekspektasiKerja);
   
-  if (typeof ekspektasiKerjaData === 'string' && ekspektasiKerjaData) {
+  if (typeof data.ekspektasiKerja === 'string' && data.ekspektasiKerja) {
     try {
       // Only try to parse as JSON if it looks like a JSON string
-      const strValue = ekspektasiKerjaData as string;
+      const strValue = data.ekspektasiKerja as string;
       if (strValue.trim().startsWith('{') && strValue.trim().endsWith('}')) {
-        ekspektasiKerjaData = JSON.parse(strValue);
+        ekspektasiKerjaData = JSON.parse(strValue) as ParsedEkspektasiKerja;
         console.log("Parsed ekspektasiKerja from string:", ekspektasiKerjaData);
       } else {
         // If it's not a JSON format string, initialize with default values and use the string as jobTypes
-        console.warn("ekspektasiKerja is a string but not in JSON format:", ekspektasiKerjaData);
+        console.warn("ekspektasiKerja is a string but not in JSON format:", data.ekspektasiKerja);
         ekspektasiKerjaData = {
           idealSalary: 0,
           willingToTravel: "local_only",
           jobTypes: strValue, // Use the string value as jobTypes
-          preferensiLokasiKerja: "WFO"
+          preferensiLokasiKerja: "local_only"
         };
       }
     } catch (e) {
@@ -156,27 +169,24 @@ export default function RingkasanProfil() {
         idealSalary: 0,
         willingToTravel: "local_only",
         jobTypes: "",
-        preferensiLokasiKerja: "WFO"
+        preferensiLokasiKerja: "local_only"
       };
     }
-  } else if (!ekspektasiKerjaData) {
-    ekspektasiKerjaData = {
-      idealSalary: 0,
-      willingToTravel: "local_only",
-      jobTypes: "",
-      preferensiLokasiKerja: "WFO"
-    };
+  } else if (!data.ekspektasiKerja) {
+    ekspektasiKerjaData = null;
   } else {
     // Already an object, ensure it has the expected structure
-    console.log("ekspektasiKerja is already an object:", ekspektasiKerjaData);
+    console.log("ekspektasiKerja is already an object:", data.ekspektasiKerja);
+    
+    // Cast to avoid typescript errors
+    const rawData = data.ekspektasiKerja as any;
+    
     // Add default values only for missing properties
     ekspektasiKerjaData = {
-      ...ekspektasiKerjaData, // Start with the existing data
-      // Then add defaults only for missing properties
-      idealSalary: ekspektasiKerjaData.idealSalary ?? 0,
-      willingToTravel: ekspektasiKerjaData.willingToTravel ?? "local_only",
-      jobTypes: ekspektasiKerjaData.jobTypes ?? "",
-      preferensiLokasiKerja: ekspektasiKerjaData.preferensiLokasiKerja ?? "WFO"
+      jobTypes: rawData.jobTypes ?? "",
+      idealSalary: rawData.idealSalary ?? 0,
+      willingToTravel: rawData.willingToTravel ?? "local_only",
+      preferensiLokasiKerja: rawData.preferensiLokasiKerja ?? "local_only"
     };
   }
 
@@ -428,51 +438,33 @@ export default function RingkasanProfil() {
         </SectionCard>
       )}
 
-      {/* Submit Feedback */}
-      {submitSuccess === true && (
-        <div className="bg-green-50 p-4 rounded-lg border border-green-100 flex items-center">
-          <CheckCircle2 className="text-green-500 mr-2" size={20} />
-          <p className="text-green-700">
-            Pendaftaran berhasil! Anda akan dialihkan ke dashboard...
-          </p>
-        </div>
-      )}
-
-      {submitSuccess === false && (
-        <div className="bg-red-50 p-4 rounded-lg border border-red-100 flex items-center">
-          <AlertCircle className="text-red-500 mr-2" size={20} />
-          <p className="text-red-700">{submitError}</p>
-        </div>
-      )}
-
-      {/* Form Actions */}
-      <div className="flex justify-between space-x-4">
-        <button
-          type="button"
-          onClick={() => window.history.back()}
-          className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-          disabled={isSubmitting}
-        >
-          Kembali
-        </button>
-        <button
-          type="button"
-          onClick={handleSubmit}
-          className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-          disabled={isSubmitting}
-        >
-          {isSubmitting ? (
-            <div className="flex items-center">
-              <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-              Memproses...
-            </div>
-          ) : (
-            "Selesaikan Pendaftaran"
-          )}
-        </button>
+      {/* Submission Controls */}
+      <div className="mt-8">
+        {submitError && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md mb-4">
+            {submitError}
+          </div>
+        )}
+        
+        {submitSuccess && (
+          <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-md mb-4">
+            Pendaftaran berhasil diselesaikan! Anda akan dialihkan...
+          </div>
+        )}
+        
+        {/* Use FormNav for consistency with other steps */}
+        <FormNav 
+          onSubmit={handleSubmit}
+          isSubmitting={isLocalSubmitting || contextIsSubmitting || isSessionRefreshing}
+          disableNext={false}
+        />
+        
+        {isSessionRefreshing && (
+          <div className="mt-4 text-center text-sm text-blue-600">
+            <span className="inline-block mr-2 animate-spin">⟳</span>
+            Menyegarkan sesi login...
+          </div>
+        )}
       </div>
     </div>
   );
@@ -502,28 +494,37 @@ function InfoItem({ label, value }: { label: string; value: string | undefined |
 }
 
 function getWillingToTravelLabel(value?: string): string {
-  const willingness: Record<string, string> = {
-    "not_willing": "Tidak bersedia bepergian",
-    "local_only": "Hanya dalam kota",
-    "domestic": "Bersedia perjalanan domestik",
-    "international": "Bersedia perjalanan internasional",
-    "jabodetabek": "Jabodetabek",
-    "anywhere": "Di mana saja"
+  const labels: Record<string, string> = {
+    // Original values from OnboardingContext
+    "wfh": "Work From Home",
+    "wfo": "Work From Office",
+    "travel": "Bersedia Melakukan Perjalanan Bisnis",
+    "relocate": "Bersedia Relokasi",
+    // Legacy or alternative values
+    "not_willing": "Tidak bersedia",
+    "local_only": "Hanya di kota yang sama",
+    "domestic": "Perjalanan domestik",
+    "international": "Perjalanan internasional"
   };
   
-  return value ? willingness[value] || value : "-";
+  return value ? (labels[value] || value) : "-";
 }
 
 function getJobTypeLabel(value?: string): string {
-  const jobTypes: Record<string, string> = {
-    "full_time": "Waktu Penuh (Full-time)",
-    "part_time": "Paruh Waktu (Part-time)",
+  if (!value) return "-";
+  
+  // Handle if it's already a label
+  if (value.includes(",") || !value.includes("_")) {
+    return value;
+  }
+  
+  const labels: Record<string, string> = {
+    "full_time": "Pekerjaan Penuh Waktu",
+    "part_time": "Pekerjaan Paruh Waktu",
     "contract": "Kontrak",
-    "internship": "Magang",
-    "freelance": "Lepas (Freelance)",
-    "remote": "Remote",
-    "hybrid": "Hybrid"
+    "freelance": "Freelance",
+    "internship": "Magang"
   };
   
-  return value ? jobTypes[value] || value : "-";
+  return labels[value] || value;
 } 

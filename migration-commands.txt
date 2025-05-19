@@ -1,0 +1,22 @@
+// Commands to run in psql
+
+// Check if willing_to_travel enum exists
+\dT willing_to_travel
+
+// Update the enum type with new values if it exists
+ALTER TYPE willing_to_travel ADD VALUE IF NOT EXISTS 'wfh';
+ALTER TYPE willing_to_travel ADD VALUE IF NOT EXISTS 'wfo';
+ALTER TYPE willing_to_travel ADD VALUE IF NOT EXISTS 'travel';
+ALTER TYPE willing_to_travel ADD VALUE IF NOT EXISTS 'relocate';
+ALTER TYPE willing_to_travel ADD VALUE IF NOT EXISTS 'local_only';
+ALTER TYPE willing_to_travel ADD VALUE IF NOT EXISTS 'domestic';
+ALTER TYPE willing_to_travel ADD VALUE IF NOT EXISTS 'international';
+
+// Check for tidak_lulus column in user_pendidikan
+\d user_pendidikan
+
+// Add tidak_lulus column if it doesn't exist
+ALTER TABLE user_pendidikan ADD COLUMN IF NOT EXISTS tidak_lulus BOOLEAN DEFAULT FALSE;
+
+// Verify the new column was added
+\d user_pendidikan 

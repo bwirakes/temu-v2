@@ -37,7 +37,7 @@ const informasiLanjutanSchema = z.object({
 type InformasiLanjutanValues = z.infer<typeof informasiLanjutanSchema>;
 
 export default function InformasiLanjutanForm() {
-  const { data, updateFormValues, navigateToNextStep, saveCurrentStepData, isSaving: contextIsSaving } = useOnboarding();
+  const { data, updateFormValues, navigateToNextStep } = useOnboarding();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [date, setDate] = useState<Date | undefined>(
     data.tanggalLahir ? new Date(data.tanggalLahir) : undefined
@@ -156,17 +156,10 @@ export default function InformasiLanjutanForm() {
       jenisKelamin: values.jenisKelamin,
     };
     
-    updateFormValues(updatedValues);
-
     try {
-      const saveSuccess = await saveCurrentStepData();
-      
-      if (saveSuccess) {
-        toast.success("Data berhasil disimpan");
-        navigateToNextStep();
-      } else {
-        toast.error("Gagal menyimpan data. Silakan coba lagi.");
-      }
+      updateFormValues(updatedValues);
+      toast.success("Data berhasil disimpan");
+      navigateToNextStep();
     } catch (error) {
       console.error("Error saving information:", error);
       toast.error("Gagal menyimpan data. Silakan coba lagi.");
@@ -277,7 +270,7 @@ export default function InformasiLanjutanForm() {
         </div>
       </div>
 
-      <FormNav isSubmitting={isSubmitting || contextIsSaving} saveOnNext={false} />
+      <FormNav isSubmitting={isSubmitting} saveOnNext={false} />
     </form>
   );
 } 

@@ -32,7 +32,7 @@ interface LevelPengalamanFormData {
 }
 
 export default function LevelPengalamanForm() {
-  const { data, updateFormValues, navigateToNextStep, saveCurrentStepData, isSaving: contextIsSaving } = useOnboarding();
+  const { data, updateFormValues, navigateToNextStep } = useOnboarding();
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   // Initialize form state from existing data
@@ -69,23 +69,11 @@ export default function LevelPengalamanForm() {
       
       console.log("Saving level pengalaman:", formData.levelPengalaman);
       
-      // Save using context's saveCurrentStepData
-      try {
-        const saveSuccess = await saveCurrentStepData();
-        
-        if (saveSuccess) {
-          toast.success("Level pengalaman berhasil disimpan");
-          // Use the centralized navigation function
-          navigateToNextStep();
-        } else {
-          toast.error("Gagal menyimpan level pengalaman");
-        }
-      } catch (error) {
-        console.error("Error saving level pengalaman:", error);
-        toast.error("Gagal menyimpan level pengalaman. Silakan coba lagi.");
-      }
+      toast.success("Level pengalaman berhasil disimpan");
+      navigateToNextStep();
     } catch (error) {
       console.error("Form submission error:", error);
+      toast.error("Gagal menyimpan level pengalaman. Silakan coba lagi.");
     } finally {
       setIsSubmitting(false);
     }
@@ -127,7 +115,7 @@ export default function LevelPengalamanForm() {
 
       <FormNav 
         onSubmit={handleSubmit}
-        isSubmitting={isSubmitting || contextIsSaving}
+        isSubmitting={isSubmitting}
         saveOnNext={false}
       />
     </div>

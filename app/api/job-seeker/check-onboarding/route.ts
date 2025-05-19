@@ -33,33 +33,38 @@ export async function GET() {
       );
     }
     
-    console.log(`API: Checking onboarding status for job seeker ${userId}`);
+    // Get the user profile and check if CV is uploaded
+    const userProfile = await getJobSeekerByUserId(userId);
     
-    // Check onboarding status
-    try {
-      const onboardingStatus = await getJobSeekerOnboardingStatus(userId);
+    // Use the more comprehensive onboarding status check
+    const onboardingStatus = await getJobSeekerOnboardingStatus(userId);
+    
+    // Check onboarding status based on onboardingCompleted flag in users table
+    const onboardingCompleted = session.user.onboardingCompleted || false;
+    
+    if (onboardingCompleted) {
+      // If onboarding is complete, redirect to dashboard
+      return NextResponse.json({
+        completed: true,
+        redirectTo: '/job-seeker/dashboard'
+      });
+    } else {
+      // If CV is missing but is now required, redirect to CV upload step
+      if (userProfile && !userProfile.cvFileUrl && onboardingStatus.completedSteps.includes(5)) {
+        return NextResponse.json({
+          completed: false,
+          currentStep: 8,
+          redirectTo: '/job-seeker/onboarding/cv-upload'
+        });
+      }
       
-      console.log(`API: Job seeker onboarding status:`, onboardingStatus);
-      
-      // Return the status with completedSteps
+      // Otherwise use the status from getJobSeekerOnboardingStatus
       return NextResponse.json({
         completed: onboardingStatus.completed,
         currentStep: onboardingStatus.currentStep,
-        redirectTo: onboardingStatus.redirectTo,
-        completedSteps: onboardingStatus.completedSteps || []
-      });
-    } catch (dbError) {
-      console.error("Database error checking onboarding status:", dbError);
-      
-      // If we have a database error, assume user needs to start onboarding
-      return NextResponse.json({
-        completed: false,
-        currentStep: 1,
-        redirectTo: '/job-seeker/onboarding/informasi-dasar',
-        completedSteps: []
+        redirectTo: onboardingStatus.redirectTo || '/job-seeker/onboarding/informasi-dasar'
       });
     }
-    
   } catch (error: any) {
     console.error("Error checking job seeker onboarding status:", error);
     

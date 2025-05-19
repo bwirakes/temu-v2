@@ -5,34 +5,44 @@ import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
-import { 
-  useOnboarding, 
-  EkspektasiKerja,
-} from "@/lib/context/OnboardingContext";
+import { useOnboarding } from "@/lib/context/OnboardingContext";
+import { EkspektasiKerja } from "@/lib/db-types";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import FormNav from "@/components/FormNav";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { FormLabel } from "@/components/ui/form-label";
 import { toast } from "sonner";
+import { RefreshCw } from "lucide-react";
 
 const ekspektasiKerjaSchema = z.object({
   jobTypes: z.string().min(1, "Jenis pekerjaan wajib diisi"),
   idealSalary: z.coerce.number().positive("Gaji ideal harus lebih dari 0"),
-  willingToTravel: z.enum(["not_willing", "local_only", "domestic", "international"], {
+  willingToTravel: z.enum(["wfh", "wfo", "travel", "relocate"], {
     required_error: "Pilih salah satu opsi",
   }),
-  preferensiLokasiKerja: z.enum(["WFH", "WFO", "Hybrid"], {
+  preferensiLokasiKerja: z.enum(["local_only", "domestic", "international"], {
     required_error: "Pilih salah satu opsi",
   }),
 });
 
-type EkspektasiKerjaValues = z.infer<typeof ekspektasiKerjaSchema>;
+type EkspektasiKerjaValues = {
+  jobTypes: string;
+  idealSalary: number;
+  willingToTravel: "wfh" | "wfo" | "travel" | "relocate";
+  preferensiLokasiKerja: "local_only" | "domestic" | "international";
+};
 
 export default function EkspektasiKerjaForm() {
-  const { data, updateFormValues, navigateToNextStep, saveCurrentStepData, isSaving: contextIsSaving } = useOnboarding();
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { 
+    data, 
+    updateFormValues, 
+    navigateToNextStep,
+    navigateToPreviousStep
+  } = useOnboarding();
+  
+  const [isProcessing, setIsProcessing] = useState(false);
   
   // Parse existing ekspektasiKerja if it's a string
   let existingData: Partial<EkspektasiKerjaValues> = {};
@@ -54,8 +64,8 @@ export default function EkspektasiKerjaForm() {
   const defaultValues: Partial<EkspektasiKerjaValues> = {
     jobTypes: existingData.jobTypes || "",
     idealSalary: existingData.idealSalary || undefined,
-    willingToTravel: existingData.willingToTravel as any || "local_only",
-    preferensiLokasiKerja: existingData.preferensiLokasiKerja as any || "WFO",
+    willingToTravel: existingData.willingToTravel as any || "wfo",
+    preferensiLokasiKerja: existingData.preferensiLokasiKerja as any || "local_only",
   };
   
   const {
@@ -72,7 +82,7 @@ export default function EkspektasiKerjaForm() {
   // Submit the form and navigate to the next step in the onboarding flow
   const onSubmit = async (values: EkspektasiKerjaValues) => {
     try {
-      setIsSubmitting(true);
+      setIsProcessing(true);
       
       // Ensure idealSalary is a number
       const idealSalary = typeof values.idealSalary === 'string' 
@@ -86,40 +96,25 @@ export default function EkspektasiKerjaForm() {
         preferensiLokasiKerja: values.preferensiLokasiKerja,
       };
       
-      console.log("Submitting ekspektasiKerja data:", ekspektasiData);
+      console.log("Updating ekspektasiKerja data:", ekspektasiData);
       
       // Save form values to context
       updateFormValues({
         ekspektasiKerja: ekspektasiData,
       });
       
-      // Save data using context's saveCurrentStepData
-      try {
-        const saveSuccess = await saveCurrentStepData();
-        
-        if (saveSuccess) {
-          toast.success("Ekspektasi kerja berhasil disimpan");
-          // Use the centralized navigation function
-          navigateToNextStep();
-        } else {
-          toast.error("Gagal menyimpan ekspektasi kerja");
-        }
-      } catch (apiError) {
-        console.error("API Error:", apiError);
-        const errorMessage = apiError instanceof Error 
-          ? apiError.message 
-          : "Gagal menyimpan data ke server. Silakan coba lagi.";
-        
-        toast.error(errorMessage);
-      }
+      toast.success("Ekspektasi kerja berhasil disimpan");
+      
+      // Navigate to next step
+      navigateToNextStep();
     } catch (error) {
       console.error("Form submission error:", error);
       const errorMessage = error instanceof Error 
         ? error.message 
-        : "Gagal mengirim formulir. Silakan coba lagi.";
+        : "Terjadi kesalahan. Silakan coba lagi.";
       toast.error(errorMessage);
     } finally {
-      setIsSubmitting(false);
+      setIsProcessing(false);
     }
   };
   
@@ -137,7 +132,7 @@ export default function EkspektasiKerjaForm() {
             </p>
             <Textarea
               id="jobTypes"
-              placeholder="Contoh: Software Engineer, Digital Marketing Specialist, Barista"
+              placeholder="Contoh: Office Boy, Resepsionis, Sales, Software Engineer, Digital Marketing Specialist, Barista"
               className={cn(
                 "min-h-32 mt-2",
                 errors.jobTypes ? "border-red-500 focus-visible:ring-red-500" : ""
@@ -187,23 +182,23 @@ export default function EkspektasiKerjaForm() {
             className="flex flex-col space-y-2"
           >
             <div className="flex items-center space-x-2 p-3 rounded-md border hover:bg-gray-50 transition-colors cursor-pointer">
-              <RadioGroupItem value="WFH" id="wfh" />
-              <FormLabel htmlFor="wfh" className="text-base font-normal cursor-pointer w-full">
-                Work From Home (WFH)
+              <RadioGroupItem value="local_only" id="localOnly" />
+              <FormLabel htmlFor="localOnly" className="text-base font-normal cursor-pointer w-full">
+                Hanya mau bekerja di kota tempat saya tinggal
               </FormLabel>
             </div>
             
             <div className="flex items-center space-x-2 p-3 rounded-md border hover:bg-gray-50 transition-colors cursor-pointer">
-              <RadioGroupItem value="WFO" id="wfo" />
-              <FormLabel htmlFor="wfo" className="text-base font-normal cursor-pointer w-full">
-                Work From Office (WFO)
+              <RadioGroupItem value="domestic" id="domestic" />
+              <FormLabel htmlFor="domestic" className="text-base font-normal cursor-pointer w-full">
+                Bersedia bekerja di kota/provinsi lain
               </FormLabel>
             </div>
             
             <div className="flex items-center space-x-2 p-3 rounded-md border hover:bg-gray-50 transition-colors cursor-pointer">
-              <RadioGroupItem value="Hybrid" id="hybrid" />
-              <FormLabel htmlFor="hybrid" className="text-base font-normal cursor-pointer w-full">
-                Hybrid (Campuran WFH & WFO)
+              <RadioGroupItem value="international" id="international" />
+              <FormLabel htmlFor="international" className="text-base font-normal cursor-pointer w-full">
+                Bersedia bekerja di luar negeri
               </FormLabel>
             </div>
           </RadioGroup>
@@ -224,30 +219,30 @@ export default function EkspektasiKerjaForm() {
             className="flex flex-col space-y-2"
           >
             <div className="flex items-center space-x-2 p-3 rounded-md border hover:bg-gray-50 transition-colors cursor-pointer">
-              <RadioGroupItem value="not_willing" id="notWilling" />
-              <FormLabel htmlFor="notWilling" className="text-base font-normal cursor-pointer w-full">
-                Saya tidak ingin bepergian untuk pekerjaan
+              <RadioGroupItem value="wfh" id="wfh" />
+              <FormLabel htmlFor="wfh" className="text-base font-normal cursor-pointer w-full">
+                Bekerja dari jarak jauh / dari rumah (WFH)
               </FormLabel>
             </div>
             
             <div className="flex items-center space-x-2 p-3 rounded-md border hover:bg-gray-50 transition-colors cursor-pointer">
-              <RadioGroupItem value="local_only" id="travelLocal" />
-              <FormLabel htmlFor="travelLocal" className="text-base font-normal cursor-pointer w-full">
-                Saya hanya ingin bekerja sekitar tempat saya tinggal
+              <RadioGroupItem value="wfo" id="wfo" />
+              <FormLabel htmlFor="wfo" className="text-base font-normal cursor-pointer w-full">
+                Bekerja dari kantor (WFO)
               </FormLabel>
             </div>
             
             <div className="flex items-center space-x-2 p-3 rounded-md border hover:bg-gray-50 transition-colors cursor-pointer">
-              <RadioGroupItem value="domestic" id="travelDomestic" />
-              <FormLabel htmlFor="travelDomestic" className="text-base font-normal cursor-pointer w-full">
-                Saya bersedia bepergian dalam negeri
+              <RadioGroupItem value="travel" id="travel" />
+              <FormLabel htmlFor="travel" className="text-base font-normal cursor-pointer w-full">
+                Tidak masalah dengan pekerjaan yang menuntut saya banyak keluar kantor/berpergian
               </FormLabel>
             </div>
             
             <div className="flex items-center space-x-2 p-3 rounded-md border hover:bg-gray-50 transition-colors cursor-pointer">
-              <RadioGroupItem value="international" id="travelInternational" />
-              <FormLabel htmlFor="travelInternational" className="text-base font-normal cursor-pointer w-full">
-                Saya bersedia bepergian internasional
+              <RadioGroupItem value="relocate" id="relocate" />
+              <FormLabel htmlFor="relocate" className="text-base font-normal cursor-pointer w-full">
+                Tidak masalah dengan pekerjaan yang sewaktu-waktu mengharuskan saya dipindah ke kantor cabang lainnya
               </FormLabel>
             </div>
           </RadioGroup>
@@ -258,7 +253,32 @@ export default function EkspektasiKerjaForm() {
         </div>
       </div>
       
-      <FormNav isSubmitting={isSubmitting || contextIsSaving} saveOnNext={false} />
+      <div className="flex justify-between mt-8 space-x-4">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={navigateToPreviousStep}
+          className="w-full"
+          disabled={isProcessing}
+        >
+          Kembali
+        </Button>
+        
+        <Button
+          type="submit"
+          className="w-full"
+          disabled={isProcessing}
+        >
+          {isProcessing ? (
+            <div className="flex items-center justify-center">
+              <RefreshCw className="h-4 w-4 animate-spin mr-2" />
+              <span>Memproses...</span>
+            </div>
+          ) : (
+            <span>Lanjutkan</span>
+          )}
+        </Button>
+      </div>
     </form>
   );
 } 

@@ -1,8 +1,10 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { useOnboarding, onboardingSteps, optionalSteps } from "@/lib/context/OnboardingContext";
-import { useState } from "react";
+import { useOnboarding  } from "@/lib/context/OnboardingContext";
+import { onboardingSteps } from "@/lib/db-types";
+
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
 
 interface FormNavProps {
@@ -25,13 +27,17 @@ export default function FormNav({
     navigateToNextStep,
     navigateToPreviousStep,
     isOptionalStep,
-    saveCurrentStepData,
-    isSaving: contextIsSaving,
-    saveError
+    getStepPath
   } = useOnboarding();
-  const [isSaving, setIsSaving] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   
-  const isSubmitting = formSubmitting || contextIsSaving || isSaving;
+  const isSubmitting = formSubmitting || isProcessing;
+
+  useEffect(() => {
+    // Log current step info for debugging navigation issues
+    console.log(`[FormNav] Current step: ${currentStep}`);
+    console.log(`[FormNav] Next step path: ${getStepPath(currentStep + 1)}`);
+  }, [currentStep, getStepPath]);
 
   const handleNext = async () => {
     if (onSubmit) {
@@ -39,61 +45,16 @@ export default function FormNav({
       console.log("[FormNav] Using custom onSubmit handler");
       onSubmit();
     } else {
-      // Otherwise, handle navigation and data saving
-      if (saveOnNext && !isOptionalStep(currentStep)) {
-        try {
-          console.log(`[FormNav] Saving data for required step ${currentStep}`);
-          setIsSaving(true);
-          const saveSuccess = await saveCurrentStepData();
-          
-          if (saveSuccess) {
-            toast.success("Data berhasil disimpan");
-            // Use the centralized navigation function
-            console.log(`[FormNav] Data saved successfully, navigating to next step from step ${currentStep}`);
-            navigateToNextStep();
-          } else {
-            // Check if there's a specific error message from the context
-            if (saveError) {
-              console.error(`[FormNav] Failed to save data for step ${currentStep}: ${saveError}`);
-              toast.error(saveError);
-            } else {
-              toast.error("Gagal menyimpan data");
-              console.error(`[FormNav] Failed to save data for step ${currentStep} - no specific error provided`);
-            }
-          }
-        } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-          console.error(`[FormNav] Error saving data for step ${currentStep}:`, error);
-          toast.error(`Gagal menyimpan data: ${errorMessage}`);
-          // Don't continue with navigation if save fails
-        } finally {
-          setIsSaving(false);
-        }
-      } else {
-        // For optional steps or when saveOnNext is false, just navigate
-        console.log(`[FormNav] Skipping save for optional step ${currentStep} or saveOnNext=${saveOnNext}`);
-        
-        // For optional steps, try to save anyway if saveOnNext is true
-        if (saveOnNext && isOptionalStep(currentStep)) {
-          try {
-            console.log(`[FormNav] Attempting to save optional step ${currentStep} data`);
-            setIsSaving(true);
-            const saveSuccess = await saveCurrentStepData();
-            
-            if (saveSuccess) {
-              console.log(`[FormNav] Optional step ${currentStep} data saved successfully`);
-            } else {
-              console.log(`[FormNav] Optional step ${currentStep} data save skipped or failed (this is OK for optional steps)`);
-            }
-          } catch (error) {
-            console.error(`[FormNav] Error saving optional step ${currentStep} data:`, error);
-            // Don't show error toast for optional steps
-          } finally {
-            setIsSaving(false);
-          }
-        }
-        
+      // Just handle navigation - we no longer save per step
+      setIsProcessing(true);
+      try {
+        console.log(`[FormNav] Navigating to next step from step ${currentStep}`);
         navigateToNextStep();
+      } catch (error) {
+        console.error(`[FormNav] Error navigating from step ${currentStep}:`, error);
+        toast.error("Terjadi kesalahan saat navigasi");
+      } finally {
+        setIsProcessing(false);
       }
     }
   };

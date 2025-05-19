@@ -3,7 +3,8 @@
 import { useState, useEffect } from "react";
 import { PlusCircle } from "lucide-react";
 
-import { useOnboarding, Pendidikan } from "@/lib/context/OnboardingContext";
+import { useOnboarding } from "@/lib/context/OnboardingContext";
+import { Pendidikan } from "@/lib/db-types";
 import { Button } from "@/components/ui/button";
 import FormNav from "@/components/FormNav";
 import PendidikanItem from "./PendidikanItem";
@@ -12,10 +13,8 @@ import { toast } from "sonner";
 export default function PendidikanForm() {
   const { 
     data, 
-    updateFormValues, 
-    saveCurrentStepData, 
-    navigateToNextStep, 
-    isSaving: contextIsSaving 
+    updateFormValues,
+    navigateToNextStep
   } = useOnboarding();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [pendidikanList, setPendidikanList] = useState<Pendidikan[]>(
@@ -73,25 +72,8 @@ export default function PendidikanForm() {
         pendidikan: pendidikanList,
       });
       
-      // Save data using the context's saveCurrentStepData function
-      try {
-        const saveSuccess = await saveCurrentStepData();
-        
-        if (saveSuccess) {
-          toast.success("Riwayat pendidikan berhasil disimpan");
-          // Use centralized navigation
-          navigateToNextStep();
-        } else {
-          toast.error("Gagal menyimpan data pendidikan");
-        }
-      } catch (apiError) {
-        console.error("API Error:", apiError);
-        const errorMessage = apiError instanceof Error 
-          ? apiError.message 
-          : "Gagal menyimpan data ke server. Silakan coba lagi.";
-        
-        toast.error(errorMessage);
-      }
+      toast.success("Riwayat pendidikan berhasil disimpan");
+      navigateToNextStep();
     } catch (error) {
       console.error("Form submission error:", error);
       const errorMessage = error instanceof Error 
@@ -102,6 +84,14 @@ export default function PendidikanForm() {
       setIsSubmitting(false);
     }
   };
+  
+  const hasInvalidEntries = pendidikanList.length === 0 || 
+    pendidikanList.some(p => 
+      !p.namaInstitusi || 
+      !p.lokasi || 
+      !p.jenjangPendidikan || 
+      (!p.tanggalLulus && p.tanggalLulus !== "Masih Kuliah")
+    );
   
   return (
     <div className="space-y-6">
@@ -144,8 +134,8 @@ export default function PendidikanForm() {
       
       <FormNav 
         onSubmit={handleSubmit}
-        isSubmitting={isSubmitting || contextIsSaving}
-        disableNext={pendidikanList.length === 0 || pendidikanList.some(p => !p.namaInstitusi || !p.lokasi || !p.jenjangPendidikan || (!p.tanggalLulus && p.tanggalLulus !== "Masih Kuliah"))}
+        isSubmitting={isSubmitting}
+        disableNext={hasInvalidEntries}
         saveOnNext={false}
       />
     </div>

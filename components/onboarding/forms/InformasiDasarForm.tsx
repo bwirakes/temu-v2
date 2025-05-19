@@ -7,9 +7,10 @@ import { z } from "zod";
 
 import { useOnboarding } from "@/lib/context/OnboardingContext";
 import { Input } from "@/components/ui/input";
-import FormNav from "@/components/FormNav";
+import { Button } from "@/components/ui/button"; 
 import { FormLabel } from "@/components/ui/form-label";
 import { toast } from "sonner";
+import { RefreshCw } from "lucide-react";
 
 // Schema for basic personal information
 const informasiDasarSchema = z.object({
@@ -45,13 +46,10 @@ interface InformasiDasarFormProps {
 export default function InformasiDasarForm({ userName, userEmail }: InformasiDasarFormProps) {
   const { 
     data, 
-    updateFormValues, 
-    saveCurrentStepData, 
-    isSaving, 
-    saveError,
+    updateFormValues,
     navigateToNextStep
   } = useOnboarding();
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [submitAttempted, setSubmitAttempted] = useState(false);
 
   const defaultValues: Partial<InformasiDasarValues> = {
@@ -84,7 +82,7 @@ export default function InformasiDasarForm({ userName, userEmail }: InformasiDas
 
   const onSubmit = async (values: InformasiDasarValues) => {
     try {
-      setIsSubmitting(true);
+      setIsProcessing(true);
       setSubmitAttempted(true);
             
       // Create a sanitized values object
@@ -95,48 +93,24 @@ export default function InformasiDasarForm({ userName, userEmail }: InformasiDas
       };
       
       // Log for debugging
-      console.log("Submitting Step 1 data:", sanitizedValues);
+      console.log("Updating with basic information:", sanitizedValues);
       
-      // Update context with form values first
+      // Update context with form values
       updateFormValues(sanitizedValues);
       
-      // Then try to save the data
-      const saveSuccess = await saveCurrentStepData();
+      // Show success message
+      toast.success("Informasi pribadi berhasil disimpan");
       
-      if (saveSuccess) {
-        toast.success("Informasi pribadi berhasil disimpan");
-        // Navigate to next step using the context's navigation function
-        navigateToNextStep();
-      } else {
-        // Handle error from saving
-        if (saveError) {
-          console.error("Error saving step 1 data:", saveError);
-          
-          // Check if the error is related to the next step
-          if (saveError.includes("Tanggal lahir") || 
-              saveError.includes("Tempat lahir")) {
-            // This is likely an issue with the step validation logic
-            toast.success("Informasi pribadi berhasil disimpan");
-            // Attempt to navigate to the next step anyway
-            navigateToNextStep();
-          } else {
-            // Display specific error message
-            toast.error(saveError);
-          }
-        } else {
-          // Generic error when no specific message
-          toast.error("Gagal menyimpan data. Silakan coba lagi.");
-          console.error("Failed to save step 1 data with no specific error");
-        }
-      }
+      // Navigate to next step
+      navigateToNextStep();
     } catch (error) {
       console.error("Form submission error:", error);
       const errorMessage = error instanceof Error 
         ? error.message 
-        : "Gagal mengirim formulir. Silakan coba lagi.";
+        : "Terjadi kesalahan. Silakan coba lagi.";
       toast.error(errorMessage);
     } finally {
-      setIsSubmitting(false);
+      setIsProcessing(false);
     }
   };
 
@@ -208,11 +182,22 @@ export default function InformasiDasarForm({ userName, userEmail }: InformasiDas
         </div>
       )}
 
-      <FormNav 
-        isSubmitting={isSubmitting} 
-        disableNext={submitAttempted && !isValid} 
-        saveOnNext={false}
-      />
+      <div className="flex justify-end mt-6">
+        <Button 
+          type="submit" 
+          disabled={isProcessing}
+          className="w-full"
+        >
+          {isProcessing ? (
+            <div className="flex items-center justify-center">
+              <RefreshCw className="h-4 w-4 animate-spin mr-2" />
+              <span>Memproses...</span>
+            </div>
+          ) : (
+            <span>Lanjutkan</span>
+          )}
+        </Button>
+      </div>
     </form>
   );
 }

@@ -1,4 +1,11 @@
-import 'server-only';
+// Import server-only conditionally to avoid errors in client components
+let isServer = true;
+try {
+  // This will only succeed on the server
+  require('server-only');
+} catch (error) {
+  isServer = false;
+}
 
 import {
   pgTable,
@@ -68,7 +75,7 @@ export const levelPengalamanEnum = pgEnum('level_pengalaman', [
   '5-10 tahun',
   '10 tahun lebih'
 ]);
-export const willingToTravelEnum = pgEnum('willing_to_travel', ['local_only', 'jabodetabek', 'anywhere']);
+export const willingToTravelEnum = pgEnum('willing_to_travel', ['wfh', 'wfo', 'travel', 'relocate', 'local_only', 'domestic', 'international']);
 export const applicationStatusEnum = pgEnum('application_status', [
   'SUBMITTED',
   'REVIEWING',
@@ -214,6 +221,7 @@ export const userPendidikan = pgTable('user_pendidikan', {
   nilaiAkhir: text('nilai_akhir'),
   lokasi: text('lokasi'),
   deskripsiTambahan: text('deskripsi_tambahan'),
+  tidakLulus: boolean('tidak_lulus').default(false),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull()
 });
@@ -1011,10 +1019,8 @@ export async function getJobSeekerOnboardingStatus(userId: string) {
       completedSteps.push(7);
     }
     
-    // Step 8: CV Upload (optional)
+    // Step 8: CV Upload (now required)
     if (userProfile.cvFileUrl) {
-      completedSteps.push(8);
-    } else if (completedSteps.includes(7)) {
       completedSteps.push(8);
     }
     
@@ -1040,16 +1046,32 @@ export async function getJobSeekerOnboardingStatus(userId: string) {
       }
     }
     
+    // Check for CV Upload (Step 8) as it's now required
+    if (completedSteps.includes(1) && 
+        completedSteps.includes(2) && 
+        completedSteps.includes(3) && 
+        completedSteps.includes(4) && 
+        completedSteps.includes(5) && 
+        !completedSteps.includes(8)) {
+      currentStep = 8;
+      const stepInfo = onboardingSteps.find(step => step.id === 8);
+      redirectTo = stepInfo?.path || `/job-seeker/onboarding/${getPathForStepNumber(8)}`;
+    }
+    
     // If all required steps are complete
     if (completedSteps.includes(1) && 
         completedSteps.includes(2) && 
         completedSteps.includes(3) && 
         completedSteps.includes(4) && 
-        completedSteps.includes(5)) {
+        completedSteps.includes(5) &&
+        completedSteps.includes(8)) {
       
-      // If we've reached here, all required steps (1-5) are complete
+      // If we've reached here, all required steps (1-5, 8) are complete
       // Check for the first incomplete optional step
       for (let i = 6; i <= 9; i++) {
+        // Skip step 8 as it's now required and already checked above
+        if (i === 8) continue;
+        
         if (!completedSteps.includes(i)) {
           currentStep = i;
           const stepInfo = onboardingSteps.find(step => step.id === i);
