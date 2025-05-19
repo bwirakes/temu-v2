@@ -42,9 +42,29 @@ export async function getOnboardingStatus(userId: string, userType: string): Pro
     } else if (userType === 'employer') {
       const status = await getEmployerOnboardingStatus(userId);
       console.log(`Auth-helpers: Employer ${userId} onboarding status:`, status);
+      
+      // Calculate the redirect path based on the currentStep
+      let redirectTo = '/employer';
+      if (!status.completed) {
+        // Map the current step to the appropriate onboarding URL
+        switch (status.currentStep) {
+          case 1:
+            redirectTo = '/employer/onboarding/informasi-perusahaan';
+            break;
+          case 2:
+            redirectTo = '/employer/onboarding/informasi-kontak';
+            break;
+          case 3:
+            redirectTo = '/employer/onboarding/upload-dokumen';
+            break;
+          default:
+            redirectTo = '/employer/onboarding/informasi-perusahaan';
+        }
+      }
+      
       return { 
         completed: status.completed, 
-        redirectTo: status.redirectTo || '/employer' 
+        redirectTo
       };
     }
     

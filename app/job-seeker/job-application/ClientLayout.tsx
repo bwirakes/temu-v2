@@ -1,14 +1,13 @@
 'use client';
 
 import { ReactNode } from 'react';
-import { JobApplicationProvider } from '@/lib/context/JobApplicationContext';
-// If JobPostingContext is also needed for all pages in this segment:
-// import { JobPostingProvider } from '@/lib/context/JobPostingContext';
+// Removing the JobApplicationProvider import since we won't use it here
+// The provider is already properly used in [jobId]/page.tsx
 
 /**
  * Client component layout for the job application section.
- * It provides the JobApplicationContext.
- * It relies on the global SessionProvider from app/layout.tsx.
+ * Child components like [jobId]/page.tsx already provide the JobApplicationContext
+ * with the required jobId parameter.
  */
 export default function ClientLayout({
   children,
@@ -16,11 +15,8 @@ export default function ClientLayout({
   children: ReactNode;
 }) {
   return (
-    <JobApplicationProvider>
-      {/* If JobPostingProvider is needed here: */}
-      {/* <JobPostingProvider> */}
+    <div className="job-application-layout">
       {children}
-      {/* </JobPostingProvider> */}
-    </JobApplicationProvider>
+    </div>
   );
 } 

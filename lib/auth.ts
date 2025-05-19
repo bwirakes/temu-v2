@@ -7,7 +7,7 @@ import { db, users } from './db'; // Use actual database
 import { eq } from 'drizzle-orm';
 import type { User } from 'next-auth';
 import type { JWT } from 'next-auth/jwt';
-import type { Session } from 'next-auth';
+import type { Session, DefaultSession } from 'next-auth';
 import { CustomSession, CustomUser } from './types';
 import { getOnboardingStatus } from './auth-helpers';
 
@@ -15,6 +15,13 @@ import { getOnboardingStatus } from './auth-helpers';
 interface Credentials {
   email: string;
   password: string;
+}
+
+// Define custom JWT type to include our custom properties
+interface CustomJWT extends JWT {
+  userId?: string;
+  userType?: 'job_seeker' | 'employer';
+  onboardingCompleted?: boolean;
 }
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
@@ -82,7 +89,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     })
   ],
   callbacks: {
-    async jwt({ token, user, trigger, session }) {
+    async jwt({ token, user, trigger, session }): Promise<CustomJWT> {
       // Initial sign in
       if (user) {
         // Type assertion to CustomUser since we know our user has these properties
@@ -118,7 +125,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             
             // Always update the token with latest values
             token.onboardingCompleted = latestUserData.onboardingCompleted;
-            token.userType = latestUserData.userType;
+            token.userType = latestUserData.userType as 'job_seeker' | 'employer';
           }
         } catch (error) {
           console.error("Error fetching latest user data in JWT callback:", error);
@@ -138,17 +145,21 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       return token;
     },
     
-    async session({ session, token }) {
+    async session({ session, token }): Promise<CustomSession> {
       // Add custom properties to session
-      if (session.user) {
-        // Transfer token data to session
-        session.user.id = token.userId as string;
-        session.user.userType = token.userType as string;
-        session.user.onboardingCompleted = token.onboardingCompleted as boolean;
-        
-        console.log(`Session callback: onboardingCompleted=${session.user.onboardingCompleted} for user ${session.user.id}`);
-      }
-      return session;
+      const customSession = {
+        ...session,
+        user: {
+          ...session.user,
+          id: token.userId as string,
+          userType: token.userType as 'job_seeker' | 'employer',
+          onboardingCompleted: token.onboardingCompleted as boolean
+        }
+      } as CustomSession;
+      
+      console.log(`Session callback: onboardingCompleted=${customSession.user?.onboardingCompleted} for user ${customSession.user?.id}`);
+      
+      return customSession;
     }
   },
   debug: process.env.NODE_ENV === 'development',
