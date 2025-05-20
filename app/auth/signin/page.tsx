@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
 import Link from 'next/link';
 import { signIn, useSession, getSession } from 'next-auth/react';
 import { useForm } from 'react-hook-form';
@@ -45,7 +45,19 @@ const isValidCallbackUrl = (url: string): boolean => {
   return validPrefixes.some(prefix => url.startsWith(prefix));
 };
 
-export default function SignInPage() {
+// Loading fallback component
+function SignInLoadingFallback() {
+  return (
+    <div className="mt-7 bg-white border border-gray-200 rounded-xl shadow-2xs dark:bg-neutral-900 dark:border-neutral-700 w-full max-w-md mx-auto px-4 sm:px-0">
+      <div className="p-4 sm:p-7 flex justify-center items-center">
+        <div className="h-8 w-8 border-4 border-blue-500 border-r-transparent animate-spin rounded-full"></div>
+      </div>
+    </div>
+  );
+}
+
+// Main SignIn component that uses useSearchParams
+function SignInContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [serverError, setServerError] = useState<string | null>(null);
@@ -278,5 +290,14 @@ export default function SignInPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+// Page component with Suspense boundary
+export default function SignInPage() {
+  return (
+    <Suspense fallback={<SignInLoadingFallback />}>
+      <SignInContent />
+    </Suspense>
   );
 } 

@@ -128,7 +128,7 @@ export const jobApplicationSchema = z.object({
       namaPerusahaan: z.string().optional(),
       tanggalMulai: z.union([z.string(), z.date()]).optional(),
       tanggalSelesai: z.union([z.string(), z.date()]).optional(),
-      deskripsiPekerjaan: z.union([z.string(), z.null()]).optional(),
+      deskripsiPekerjaan: z.string().optional(),
     })
   ).optional(),
 });

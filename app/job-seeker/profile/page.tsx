@@ -4,13 +4,16 @@ import ProfileClient from '@/components/job-seeker/profile/ProfileClient';
 import ProfileSkeleton from '@/components/job-seeker/profile/ProfileSkeleton';
 import { getProfileData } from './actions';
 
+// Mark this page as dynamic to prevent static generation errors with headers()
+export const dynamic = 'force-dynamic';
+
 export const metadata: Metadata = {
   title: 'Profil Pencari Kerja | Temu',
   description: 'Kelola profil pencari kerja Anda',
 };
 
-// Enable ISR for this page
-export const revalidate = 60; // Revalidate at most once per minute
+// Remove ISR revalidation since we're using force-dynamic
+// export const revalidate = 60; // Revalidate at most once per minute
 
 export default async function ProfilePage() {
   // Fetch profile data using the server action

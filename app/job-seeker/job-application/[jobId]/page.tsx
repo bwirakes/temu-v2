@@ -100,15 +100,18 @@ export default async function JobSeekerApplicationPage({ params }: PageParams) {
       preferensiLokasiKerja: profileData.preferensiLokasiKerja || undefined,
       preferensiJenisPekerjaan: profileData.preferensiJenisPekerjaan || undefined,
       pendidikanFull: profileData.pendidikan || undefined,
-      // Map pengalamanKerja to ensure proper type handling, transforming null to undefined where needed
+      // Map pengalamanKerja to ensure proper type handling, transforming null to undefined
       pengalamanKerjaFull: profileData.pengalamanKerja ? 
-        profileData.pengalamanKerja.map(exp => ({
-          posisi: exp.posisi,
-          namaPerusahaan: exp.namaPerusahaan,
-          tanggalMulai: exp.tanggalMulai,
-          tanggalSelesai: exp.tanggalSelesai,
-          deskripsiPekerjaan: exp.deskripsiPekerjaan // Allow null values
-        })) : undefined,
+        profileData.pengalamanKerja.map(exp => {
+          // Destructure to handle null values properly
+          const { deskripsiPekerjaan, ...rest } = exp;
+          
+          return {
+            ...rest,
+            // Don't include deskripsiPekerjaan if null
+            ...(deskripsiPekerjaan !== null ? { deskripsiPekerjaan } : {})
+          };
+        }) : undefined,
     } : undefined;
     
     // Render application form

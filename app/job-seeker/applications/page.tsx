@@ -4,6 +4,9 @@ import ApplicationsClient from "@/components/job-seeker/applications/Application
 import { Loader2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
+// Mark this page as dynamic to prevent static generation errors with headers()
+export const dynamic = 'force-dynamic';
+
 // Define the ApplicationsSkeleton component in-place
 function ApplicationsSkeleton() {
   return (

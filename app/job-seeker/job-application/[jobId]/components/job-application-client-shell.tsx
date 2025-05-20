@@ -46,7 +46,7 @@ interface ApplicationProfileData {
     namaPerusahaan?: string;
     tanggalMulai?: string | Date;
     tanggalSelesai?: string | Date;
-    deskripsiPekerjaan?: string | null;
+    deskripsiPekerjaan?: string;
   }>;
 }
 
@@ -282,17 +282,6 @@ export default function JobApplicationClientShell({
     minWorkExperience: jobDetails.minWorkExperience
   };
 
-  // Transform applicationProfileData to ensure deskripsiPekerjaan is never null
-  const transformedProfileData = applicationProfileData ? {
-    ...applicationProfileData,
-    // Transform pengalamanKerjaFull if it exists
-    pengalamanKerjaFull: applicationProfileData.pengalamanKerjaFull?.map(item => ({
-      ...item,
-      // Convert null to undefined for deskripsiPekerjaan
-      deskripsiPekerjaan: item.deskripsiPekerjaan === null ? undefined : item.deskripsiPekerjaan
-    }))
-  } : undefined;
-
   return (
     <div className="w-full">
       <div className="p-4 lg:p-6 max-w-7xl mx-auto">
@@ -312,7 +301,7 @@ export default function JobApplicationClientShell({
               }}>
                 <JobApplicationProvider 
                   jobId={jobId} 
-                  profileData={transformedProfileData}
+                  profileData={applicationProfileData}
                 >
                   <JobApplicationForm jobId={jobId} />
                 </JobApplicationProvider>

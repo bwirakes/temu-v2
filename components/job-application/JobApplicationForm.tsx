@@ -484,7 +484,8 @@ export default function JobApplicationForm({ jobId }: JobApplicationFormProps) {
                                       </p>
                                     </div>
                                     <p className="text-sm">{pengalaman.namaPerusahaan || 'N/A'}</p>
-                                    {pengalaman.deskripsiPekerjaan && (
+                                    {/* Only render if deskripsiPekerjaan exists and is not null */}
+                                    {typeof pengalaman.deskripsiPekerjaan === 'string' && pengalaman.deskripsiPekerjaan !== '' && (
                                       <p className="text-sm text-muted-foreground mt-2">{pengalaman.deskripsiPekerjaan}</p>
                                     )}
                                   </div>
