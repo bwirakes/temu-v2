@@ -27,6 +27,7 @@ class JobApplicationService {
 
       if (!response.ok) {
         const errorData = await response.json();
+        console.error('API error response:', errorData);
         throw new Error(errorData.error || 'Failed to submit application');
       }
 
@@ -35,11 +36,11 @@ class JobApplicationService {
       // Create a proper JobApplication object from the API response
       const application: JobApplication = {
         id: result.application.id,
-        jobPostingId: result.application.jobPostingId,
+        jobPostingId: result.application.jobPostingId || jobPostingId,
         applicant: applicantData,
-        status: result.application.status,
-        createdAt: new Date(result.application.createdAt),
-        updatedAt: new Date(result.application.createdAt)
+        status: result.application.status || 'SUBMITTED',
+        createdAt: new Date(result.application.createdAt || new Date()),
+        updatedAt: new Date(result.application.createdAt || new Date())
       };
       
       // Store in memory for compatibility with other methods

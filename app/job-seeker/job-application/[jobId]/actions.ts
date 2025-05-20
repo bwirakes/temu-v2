@@ -10,7 +10,7 @@ import {
   getEmployerById,
   jobApplications
 } from "@/lib/db";
-import { redirect } from 'next/navigation';
+import { redirect, notFound } from 'next/navigation';
 import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 
@@ -193,8 +193,8 @@ export async function getJobApplicationPageData(jobId: string): Promise<JobAppli
       : await getJobByHumanId(jobId);
     
     if (!job) {
-      // Redirect or return error if job not found
-      throw new Error("Job not found");
+      // Use notFound() instead of throwing an error for job not found
+      notFound();
     }
     
     // 4. Fetch related job details
@@ -205,7 +205,8 @@ export async function getJobApplicationPageData(jobId: string): Promise<JobAppli
     const employer = await getEmployerById(job.employerId);
     
     if (!employer) {
-      throw new Error("Employer details not found");
+      // Use notFound() for missing employer details as well
+      notFound();
     }
     
     // 5. Get education data
@@ -281,6 +282,11 @@ export async function getJobApplicationPageData(jobId: string): Promise<JobAppli
     };
     
   } catch (error) {
+    // Check if this is a Next.js notFound() error (these should be propagated, not logged)
+    if (error instanceof Error && error.message.includes('NEXT_HTTP_ERROR_FALLBACK;404')) {
+      throw error; // Re-throw notFound errors directly to be handled by Next.js
+    }
+    
     console.error("Error getting job application page data:", error);
     
     // For authentication errors, redirect to login
@@ -293,7 +299,13 @@ export async function getJobApplicationPageData(jobId: string): Promise<JobAppli
       redirect("/");
     }
     
-    // For job not found, return null data
+    // For job not found errors, use notFound()
+    if (error instanceof Error && error.message.includes('not found')) {
+      notFound();
+    }
+    
+    // Rethrow the error for other unexpected errors
+    // Next.js will handle NEXT_REDIRECT internally
     throw error;
   }
 } 

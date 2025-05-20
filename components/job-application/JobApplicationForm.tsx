@@ -155,8 +155,25 @@ export default function JobApplicationForm({ jobId }: JobApplicationFormProps) {
       
       // If there are field-specific errors, set them in the form
       if (error && typeof error === 'object') {
+        // Handle validation errors from Zod or API
+        if ('form' in (error as any)) {
+          toast({
+            title: "Error",
+            description: (error as any).form || "Failed to submit application. Please try again.",
+            variant: "destructive",
+          });
+        }
+        
+        // Set field errors
         Object.entries(error as Record<string, string>).forEach(([field, message]) => {
           form.setError(field as any, { message });
+        });
+      } else {
+        // Generic error
+        toast({
+          title: "Error",
+          description: "Failed to submit application. Please try again.",
+          variant: "destructive",
         });
       }
     }

@@ -169,7 +169,7 @@ export const JobApplicationProvider = ({
         fullName: data.fullName,
         email: data.email,
         phone: data.phone,
-        additionalNotes: data.additionalNotes,
+        additionalNotes: data.additionalNotes || " ", // Ensure we always have some value
         education: data.education,
         resumeUrl: data.resumeUrl || "",
         cvFileUrl: data.cvFileUrl || "", // Explicitly include cvFileUrl
@@ -190,7 +190,10 @@ export const JobApplicationProvider = ({
       
     } catch (error) {
       console.error("Error saving application to database:", error);
-      throw new Error("Failed to save application");
+      // Preserve the original error for better debugging
+      throw error instanceof Error 
+        ? error 
+        : new Error("Failed to save application");
     }
   }, [data]);
 
@@ -207,7 +210,8 @@ export const JobApplicationProvider = ({
       // Get the applicant profile ID
       const res = await fetch('/api/job-seeker/profile');
       if (!res.ok) {
-        throw new Error("Failed to get applicant profile");
+        const responseData = await res.json();
+        throw new Error(responseData.error || "Failed to get applicant profile");
       }
       
       const { id: applicantProfileId } = await res.json();
@@ -221,6 +225,13 @@ export const JobApplicationProvider = ({
       return Promise.resolve();
     } catch (error) {
       console.error("Error submitting application:", error);
+      
+      // Create a more helpful error object for the form component
+      if (error instanceof Error) {
+        const errorMessage = error.message || "Failed to submit application. Please try again.";
+        return Promise.reject({ form: errorMessage });
+      }
+      
       return Promise.reject({ form: "Failed to submit application. Please try again." });
     } finally {
       setIsSubmitting(false);

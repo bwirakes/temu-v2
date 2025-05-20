@@ -6,7 +6,7 @@ import { signIn, useSession, getSession } from 'next-auth/react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 const loginSchema = z.object({
   email: z.string().email('Masukkan alamat email yang valid'),
@@ -22,8 +22,32 @@ interface ExtendedUser {
   [key: string]: any;
 }
 
+// Helper function to validate callback URL
+const isValidCallbackUrl = (url: string): boolean => {
+  // Basic security check - ensure the URL is relative and doesn't contain protocol/domain bypasses
+  if (!url.startsWith('/') || url.startsWith('//') || url.includes(':')) {
+    return false;
+  }
+  
+  // Allow paths for job applications and other valid internal paths
+  const validPrefixes = [
+    '/careers/',
+    '/job-seeker/',
+    '/employer/',
+    '/auth/',
+    '/dashboard',
+    '/profile',
+    '/applications',
+    '/jobs',
+    '/api/auth/apply' // Also allow the API route for apply
+  ];
+  
+  return validPrefixes.some(prefix => url.startsWith(prefix));
+};
+
 export default function SignInPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [serverError, setServerError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -51,6 +75,17 @@ export default function SignInPage() {
         return '/';
     }
   };
+  
+  // Function to get safe callback URL or default path
+  const getRedirectUrl = (userType: string | undefined): string => {
+    const callbackUrl = searchParams.get('callbackUrl');
+    
+    if (callbackUrl && isValidCallbackUrl(decodeURIComponent(callbackUrl))) {
+      return decodeURIComponent(callbackUrl);
+    }
+    
+    return getRedirectPath(userType);
+  };
 
   const onSubmit = async (data: LoginForm) => {
     try {
@@ -75,9 +110,9 @@ export default function SignInPage() {
       // Safely access userType with type assertion
       const userType = (session?.user as ExtendedUser | undefined)?.userType;
       
-      // Redirect based on user type
-      const redirectPath = getRedirectPath(userType);
-      router.push(redirectPath);
+      // Get redirect URL (either callback URL or default path)
+      const redirectUrl = getRedirectUrl(userType);
+      router.push(redirectUrl);
     } catch (error) {
       console.error("Sign in error:", error);
       setServerError('Terjadi kesalahan saat masuk. Silakan coba lagi.');
@@ -90,9 +125,13 @@ export default function SignInPage() {
     try {
       setIsLoading(true);
       
-      // Sign in with Google
+      // Get callback URL from search params for redirect after Google auth
+      const callbackUrl = searchParams.get('callbackUrl');
+      
+      // Sign in with Google, passing the callback URL
       const res = await signIn('google', {
         redirect: false,
+        callbackUrl: callbackUrl ? decodeURIComponent(callbackUrl) : undefined
       });
       
       if (res?.error) {
@@ -106,9 +145,9 @@ export default function SignInPage() {
       // Safely access userType with type assertion
       const userType = (session?.user as ExtendedUser | undefined)?.userType;
       
-      // Redirect based on user type
-      const redirectPath = getRedirectPath(userType);
-      router.push(redirectPath);
+      // Get redirect URL (either callback URL or default path)
+      const redirectUrl = getRedirectUrl(userType);
+      router.push(redirectUrl);
     } catch (error) {
       console.error("Google sign in error:", error);
       setServerError('Terjadi kesalahan saat masuk dengan Google. Silakan coba lagi.');

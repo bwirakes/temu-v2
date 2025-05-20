@@ -13,7 +13,7 @@ export default function JobApplicationDetailLayout({
   // This layout completely overrides the parent layout
   // No header or sidebar will be shown
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen w-full bg-white">
       {children}
     </div>
   );

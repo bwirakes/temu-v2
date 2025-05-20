@@ -1,74 +1,54 @@
-'use client';
-
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { useSession } from 'next-auth/react';
-import { useRouteParams } from '@/lib/hooks/useRouteParams';
-import { Loader2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { redirect } from 'next/navigation';
+import { auth } from '@/lib/auth';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import ErrorDisplay from './ErrorDisplay';
 
-export default function JobApplyRedirectPage() {
-  const { data: session, status } = useSession();
-  const router = useRouter();
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const { employerId, jobId } = useRouteParams();
+export default async function JobApplyRedirectPage({
+  params
+}: {
+  params: Promise<{ employerId: string; jobId: string }>
+}) {
+  // Error could occur here when resolving params or in auth()
+  // Instead of using try/catch which causes the component to render when there's an error
+  // We'll handle specific errors and use the built-in Next.js error handling
 
-  useEffect(() => {
-    // Only proceed when session status is definitively determined
-    if (status === 'loading') return;
+  // Get authentication session server-side
+  const session = await auth();
+  
+  // Await params as it's a Promise in Next.js 15
+  const resolvedParams = await params;
+  const { employerId, jobId } = resolvedParams;
 
-    const handleAuthentication = async () => {
-      try {
-        if (status === 'authenticated') {
-          // User is authenticated, proceed to the application process API
-          console.log('User authenticated, redirecting to application process API...');
-          const apiUrl = `/api/auth/apply?employerId=${encodeURIComponent(employerId)}&jobId=${encodeURIComponent(jobId)}`;
-          router.push(apiUrl);
-        } else {
-          // User is not authenticated, redirect to sign-in page with callback URL
-          console.log('User not authenticated, redirecting to sign-in...');
-          const currentUrl = `/careers/${employerId}/${jobId}/apply`;
-          const callbackUrl = encodeURIComponent(currentUrl);
-          router.push(`/auth/signin?callbackUrl=${callbackUrl}`);
-        }
-      } catch (err) {
-        console.error('Error during authentication flow:', err);
-        setError('Terjadi kesalahan saat memproses permintaan. Silakan coba lagi.');
-        setLoading(false);
-      }
-    };
+  // Input validation: Check if employerId and jobId are valid
+  if (!employerId || !jobId) {
+    const errorUrl = `/error?message=${encodeURIComponent('ID lowongan atau perusahaan tidak valid')}&back=${encodeURIComponent('/')}`;
+    redirect(errorUrl);
+  }
 
-    handleAuthentication();
-  }, [status, employerId, jobId, router]);
+  // If user is authenticated, redirect to the application process API
+  if (session?.user) {
+    const apiUrl = `/api/auth/apply?employerId=${encodeURIComponent(employerId)}&jobId=${encodeURIComponent(jobId)}`;
+    redirect(apiUrl);
+  } else {
+    // User is not authenticated, redirect to sign-in page with callback URL
+    const currentUrl = `/careers/${employerId}/${jobId}/apply`;
+    const callbackUrl = encodeURIComponent(currentUrl);
+    redirect(`/auth/signin?callbackUrl=${callbackUrl}`);
+  }
 
+  // This part will never render due to the redirects above
+  // But we keep it for type correctness and as a fallback
   return (
     <div className="container max-w-md mx-auto py-12">
       <Card>
         <CardHeader>
           <CardTitle>Pengalihan</CardTitle>
           <CardDescription>
-            {error ? 'Terjadi kesalahan' : 'Mengarahkan Anda ke halaman selanjutnya...'}
+            Terjadi kesalahan
           </CardDescription>
         </CardHeader>
         <CardContent className="flex justify-center pt-6">
-          {error ? (
-            <div className="space-y-4 w-full">
-              <p className="text-red-600 text-sm">{error}</p>
-              <Button 
-                onClick={() => window.location.reload()} 
-                className="w-full"
-              >
-                Coba Lagi
-              </Button>
-            </div>
-          ) : (
-            <Button disabled className="w-full">
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Mohon tunggu...
-            </Button>
-          )}
+          <ErrorDisplay errorMessage="Terjadi kesalahan saat memproses permintaan. Silakan coba lagi." />
         </CardContent>
       </Card>
     </div>

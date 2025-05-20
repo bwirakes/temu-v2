@@ -16,8 +16,9 @@ export async function GET(request: NextRequest) {
     const session = await auth() as CustomSession;
     
     if (!session?.user) {
-      // If not authenticated, redirect to sign-in
-      return NextResponse.redirect(new URL('/auth/signin', request.url));
+      // If not authenticated, redirect to sign-in with the callback URL
+      const callbackUrl = encodeURIComponent(request.url);
+      return NextResponse.redirect(new URL(`/auth/signin?callbackUrl=${callbackUrl}`, request.url));
     }
     
     // Verify user is a job seeker
@@ -45,16 +46,20 @@ export async function GET(request: NextRequest) {
     const userProfile = await getUserProfileByUserId(session.user.id);
     if (!userProfile) {
       console.error('User profile not found:', session.user.id);
+      // Redirect to profile creation page instead of generic error
       return NextResponse.redirect(
-        new URL('/error?message=Profil pengguna tidak ditemukan', request.url)
+        new URL('/job-seeker/profile?message=profile-required-for-application', request.url)
       );
     }
     
+    // Determine if jobId is UUID or human-readable ID
+    // Use regex to check if it's a UUID
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(jobId);
+    
     // Verify job posting exists
-    const [jobPosting] = await db
-      .select()
-      .from(jobs)
-      .where(eq(jobs.id, jobId));
+    const jobPosting = isUuid 
+      ? (await db.select().from(jobs).where(eq(jobs.id, jobId)))[0]
+      : (await db.select().from(jobs).where(eq(jobs.jobId, jobId)))[0];
     
     if (!jobPosting) {
       console.error('Job posting not found:', jobId);
@@ -63,18 +68,21 @@ export async function GET(request: NextRequest) {
       );
     }
     
+    // Use the UUID for database operations
+    const jobUuid = isUuid ? jobId : jobPosting.id;
+    
     // Check if user has already applied to this job
     const existingApplications = await db
       .select({ id: jobApplications.id })
       .from(jobApplications)
       .where(
-        sql`${jobApplications.jobId} = ${jobId} AND ${jobApplications.applicantProfileId} = ${userProfile.id}`
+        sql`${jobApplications.jobId} = ${jobUuid} AND ${jobApplications.applicantProfileId} = ${userProfile.id}`
       );
     
     if (existingApplications.length > 0) {
       // User has already applied, redirect to the existing application
       const applicationId = existingApplications[0].id;
-      console.log('User has already applied to this job:', { userId: session.user.id, jobId, applicationId });
+      console.log('User has already applied to this job:', { userId: session.user.id, jobId: jobUuid, applicationId });
       return NextResponse.redirect(
         new URL(`/job-seeker/applications/${applicationId}/view?message=already-applied`, request.url)
       );
@@ -90,7 +98,7 @@ export async function GET(request: NextRequest) {
     
     await db.insert(jobApplications).values({
       id: applicationId,
-      jobId: jobId,
+      jobId: jobUuid,
       applicantProfileId: userProfile.id,  // Use the profile ID, not user ID
       status: 'SUBMITTED',  // Use the correct enum value from the schema
       additionalNotes: 'Application created via job application flow',
@@ -98,17 +106,33 @@ export async function GET(request: NextRequest) {
       // Other fields can be updated later in the application flow
     });
     
-    console.log('Created new application:', { applicationId, jobId, userProfileId: userProfile.id });
+    console.log('Created new application:', { applicationId, jobId: jobUuid, userProfileId: userProfile.id });
     
-    // Redirect to the application form
+    // For the redirect, use the original jobId format (UUID or human-readable) that was passed in
+    // This ensures compatibility with the job application page's URL structure
     return NextResponse.redirect(
-      new URL(`/job-seeker/applications/${applicationId}/step-1`, request.url)
+      new URL(`/job-seeker/job-application/${jobId}`, request.url)
     );
     
   } catch (error) {
     console.error('Error in job application process:', error);
+    
+    let errorMessage = 'Terjadi kesalahan saat memproses lamaran';
+    let backLink = '/';
+    
+    // Check for specific error types and set appropriate messages
+    if (error instanceof Error) {
+      if (error.message.includes('database') || error.message.includes('query')) {
+        errorMessage = 'Kesalahan database saat memproses lamaran';
+      } else if (error.message.includes('not found') || error.message.includes('tidak ditemukan')) {
+        errorMessage = 'Lowongan tidak ditemukan atau sudah ditutup';
+        backLink = '/job-seeker/jobs';
+      }
+    }
+    
+    // Add encoded back parameter for better user experience
     return NextResponse.redirect(
-      new URL('/error?message=Terjadi kesalahan saat memproses lamaran', request.url)
+      new URL(`/error?message=${encodeURIComponent(errorMessage)}&back=${encodeURIComponent(backLink)}`, request.url)
     );
   }
 }

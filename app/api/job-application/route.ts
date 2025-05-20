@@ -23,8 +23,9 @@ const applicationSchema = z.object({
   email: z.string().email({ message: "Valid email is required" }),
   phone: z.string().min(10, { message: "Phone number must be at least 10 characters" }),
   education: z.enum(["SD", "SMP", "SMA/SMK", "D1", "D2", "D3", "D4", "S1", "S2", "S3"]).optional(),
-  additionalNotes: z.string().min(50, { message: "Additional notes must be at least 50 characters" })
-    .max(2000, { message: "Additional notes must not exceed 2000 characters" }),
+  additionalNotes: z.string()
+    .max(2000, { message: "Additional notes must not exceed 2000 characters" })
+    .optional(),
   resumeUrl: z.string().optional(),
   cvFileUrl: z.string().optional(),
 });

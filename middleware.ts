@@ -47,6 +47,7 @@ export async function middleware(request: NextRequest) {
   // ##########################################
   // CRITICAL PERFORMANCE OPTIMIZATION: 
   // IMMEDIATELY BYPASS ALL API ROUTES AND STATIC ASSETS
+  // This ensures routes like /api/auth/apply are never redirected
   // ##########################################
   if (shouldBypassMiddleware(pathname)) {
     return NextResponse.next();
@@ -82,7 +83,13 @@ export async function middleware(request: NextRequest) {
         return NextResponse.redirect(new URL('/careers', request.url));
       }
       
-      return NextResponse.redirect(new URL('/auth/signin', request.url));
+      // Preserve the original URL as a callbackUrl parameter
+      const signinUrl = new URL('/auth/signin', request.url);
+      // Only add callbackUrl if the current path isn't already /auth/signin
+      if (pathname !== '/auth/signin') {
+        signinUrl.searchParams.set('callbackUrl', pathname);
+      }
+      return NextResponse.redirect(signinUrl);
     }
 
     // User is authenticated - extract user type
@@ -132,7 +139,16 @@ export async function middleware(request: NextRequest) {
 function shouldBypassMiddleware(pathname: string): boolean {
   // First check for API routes (most important for performance)
   if (pathname.startsWith('/api/')) {
+    // This ensures routes like /api/auth/apply are never redirected
     return true;
+  }
+  
+  // Check AUTH_ROUTES to ensure signin/signup pages are accessible
+  for (const route of AUTH_ROUTES) {
+    if (pathname === route || pathname.startsWith(`${route}/`)) {
+      // This ensures auth pages like /auth/signin with callbackUrl are not interrupted
+      return true;
+    }
   }
   
   // Then check other bypass routes
@@ -142,13 +158,6 @@ function shouldBypassMiddleware(pathname: string): boolean {
       pathname.startsWith(route) || 
       (route.includes('.') && pathname.endsWith(route))
     ) {
-      return true;
-    }
-  }
-  
-  // Check auth routes
-  for (const route of AUTH_ROUTES) {
-    if (pathname === route || pathname.startsWith(`${route}/`)) {
       return true;
     }
   }
