@@ -12,7 +12,7 @@ A complete authentication solution built with:
 ## Features
 
 - Email/Password Authentication
-- OAuth Authentication (Google, GitHub)
+- OAuth Authentication (GitHub)
 - Form Validation with Zod
 - Responsive UI with Tailwind CSS
 - Protected Routes
@@ -48,8 +48,6 @@ AUTH_SECRET=your-secret-key-at-least-32-chars
 # OAuth Providers (optional)
 AUTH_GITHUB_ID=your_github_client_id
 AUTH_GITHUB_SECRET=your_github_client_secret
-AUTH_GOOGLE_ID=your_google_client_id
-AUTH_GOOGLE_SECRET=your_google_client_secret
 ```
 
 ### Installation

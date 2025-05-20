@@ -1,5 +1,4 @@
 import NextAuth from 'next-auth';
-import Google from 'next-auth/providers/google';
 import Credentials from 'next-auth/providers/credentials';
 import { z } from 'zod';
 import bcrypt from 'bcryptjs';
@@ -12,7 +11,7 @@ import { CustomSession, CustomUser } from './types';
 import { getOnboardingStatusEdge } from './auth-helpers';
 
 // Define credentials type
-interface Credentials {
+interface CredentialsType {
   email: string;
   password: string;
 }
@@ -25,10 +24,6 @@ interface CustomJWT extends JWT {
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [
-    Google({
-      clientId: process.env.AUTH_GOOGLE_ID,
-      clientSecret: process.env.AUTH_GOOGLE_SECRET
-    }),
     Credentials({
       id: 'credentials',
       name: 'Credentials',
@@ -39,7 +34,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       async authorize(credentials) {
         if (!credentials) return null;
         
-        const { email, password } = credentials as Credentials;
+        const { email, password } = credentials as CredentialsType;
         
         if (!email || !password) {
           return null;
