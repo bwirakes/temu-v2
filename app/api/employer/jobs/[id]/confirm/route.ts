@@ -3,6 +3,9 @@ import { getJobById, updateJob, getEmployerByUserId } from "@/lib/db";
 import { auth } from '@/lib/auth';
 import { revalidatePath } from "next/cache";
 
+// Mark this API route as dynamic to prevent static generation errors with headers()
+export const dynamic = 'force-dynamic';
+
 // Define the custom session type to match what's in lib/auth.ts
 interface CustomSession {
   user?: {

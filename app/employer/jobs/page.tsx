@@ -38,6 +38,9 @@ import { JobsClientWrapper } from "./jobs-client";
 // Enable Incremental Static Regeneration
 export const revalidate = 3600; // Revalidate every hour
 
+// Mark this page as dynamic to prevent static generation errors with headers()
+export const dynamic = 'force-dynamic';
+
 // Job interface matching our updated database schema
 interface Job {
   id: string;

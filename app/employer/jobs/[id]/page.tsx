@@ -32,6 +32,9 @@ import type { Applicant } from "./applicants";
 // Configure ISR - revalidate job pages every 1 hour (3600 seconds)
 export const revalidate = 3600;
 
+// Mark this page as dynamic to prevent static generation errors with headers()
+export const dynamic = 'force-dynamic';
+
 // Utility functions
 const getStatusBadge = (isConfirmed: boolean) => {
   if (isConfirmed) {

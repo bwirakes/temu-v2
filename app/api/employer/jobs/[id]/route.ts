@@ -11,6 +11,9 @@ import {
 } from '@/lib/db';
 import { and, eq, sql } from 'drizzle-orm';
 
+// Mark this API route as dynamic to prevent static generation errors with headers()
+export const dynamic = 'force-dynamic';
+
 // Define the Applicant type inline instead of importing it
 type ApplicantType = {
   id: string;

@@ -3,6 +3,9 @@ import { createJob, getEmployerByUserId, getJobsByEmployerId } from "@/lib/db";
 import { z } from "zod";
 import { auth } from '@/lib/auth';
 
+// Mark this API route as dynamic to prevent static generation errors with headers()
+export const dynamic = 'force-dynamic';
+
 /**
  * Schema for validating job posting data
  */
