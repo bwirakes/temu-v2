@@ -397,10 +397,92 @@ export default function ProfileClient({ initialProfileData }: ProfileClientProps
               
               <TabsContent value="informasi-dasar">
                 <div className="space-y-4">
-                  {/* Basic information tab content - simplified */}
+                  {/* Basic information tab content */}
+                  {isEditing ? (
+                    <div className="space-y-4 p-4 border rounded-md">
+                      <h3 className="text-sm font-medium">Edit Informasi Dasar</h3>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="tanggalLahir" className="text-sm">Tanggal Lahir</Label>
+                          <Input
+                            id="tanggalLahir"
+                            name="tanggalLahir"
+                            type="date"
+                            value={editData.tanggalLahir || ""}
+                            onChange={handleInputChange}
+                            className="text-sm h-9"
+                          />
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <Label htmlFor="tempatLahir" className="text-sm">Tempat Lahir</Label>
+                          <Input
+                            id="tempatLahir"
+                            name="tempatLahir"
+                            value={editData.tempatLahir || ""}
+                            onChange={handleInputChange}
+                            placeholder="Contoh: Jakarta"
+                            className="text-sm h-9"
+                          />
+                        </div>
+                        
+                        <div className="space-y-2 col-span-1 md:col-span-2">
+                          <Label htmlFor="jenisKelamin" className="text-sm">Jenis Kelamin</Label>
+                          <Select
+                            value={editData.jenisKelamin || ""}
+                            onValueChange={(value) => handleSelectChange("jenisKelamin", value)}
+                          >
+                            <SelectTrigger id="jenisKelamin" className="text-sm h-9">
+                              <SelectValue placeholder="Pilih jenis kelamin" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="Laki-laki">Laki-laki</SelectItem>
+                              <SelectItem value="Perempuan">Perempuan</SelectItem>
+                              <SelectItem value="Lainnya">Lainnya</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="divide-y border rounded-md overflow-hidden">
+                      <div className="bg-gray-50 px-4 py-3">
+                        <h3 className="text-sm font-medium">Informasi Dasar</h3>
+                      </div>
+                      
+                      <div className="divide-y">
+                        <div className="px-4 py-3 flex justify-between items-center">
+                          <span className="text-sm text-gray-500">Tanggal Lahir</span>
+                          <span className="text-sm font-medium">
+                            {profileData.tanggalLahir ? new Date(profileData.tanggalLahir).toLocaleDateString('id-ID', {
+                              day: 'numeric',
+                              month: 'long',
+                              year: 'numeric'
+                            }) : 'Tidak diisi'}
+                          </span>
+                        </div>
+                        
+                        <div className="px-4 py-3 flex justify-between items-center">
+                          <span className="text-sm text-gray-500">Tempat Lahir</span>
+                          <span className="text-sm font-medium">
+                            {profileData.tempatLahir || 'Tidak diisi'}
+                          </span>
+                        </div>
+                        
+                        <div className="px-4 py-3 flex justify-between items-center">
+                          <span className="text-sm text-gray-500">Jenis Kelamin</span>
+                          <span className="text-sm font-medium">
+                            {profileData.jenisKelamin || 'Tidak diisi'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
                   <div className="p-4 bg-gray-50 rounded-md text-sm">
-                    Selain informasi kontak, profil Anda mencakup data tentang pendidikan dan pengalaman kerja. 
-                    Klik tab di atas untuk melihat dan mengedit informasi tersebut.
+                    <p>Informasi dasar Anda digunakan oleh perekrut untuk mempertimbangkan kesesuaian Anda dengan posisi yang ditawarkan.</p>
+                    <p className="mt-1">Selain informasi dasar, profil Anda juga mencakup data tentang pendidikan dan pengalaman kerja.</p>
                   </div>
                 </div>
               </TabsContent>

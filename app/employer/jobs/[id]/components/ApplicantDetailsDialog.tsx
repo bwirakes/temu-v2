@@ -43,7 +43,8 @@ const formatDate = (dateString: string | null | undefined) => {
   try {
     return format(parseISO(dateString), "dd MMMM yyyy", { locale: id });
   } catch (e) {
-    return dateString;
+    console.warn("Invalid date string for formatting:", dateString);
+    return "N/A";
   }
 };
 

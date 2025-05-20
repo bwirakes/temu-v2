@@ -12,7 +12,8 @@ import {
   MoreHorizontal,
   ArrowUpDown,
   Loader2,
-  Info
+  Info,
+  Filter
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -180,6 +181,23 @@ export const formatDate = (dateString: string) => {
   }
 };
 
+// Helper function to get latest education display
+export const getLatestEducationDisplay = (pendidikanFull: Applicant['pendidikanFull']): string => {
+  if (!pendidikanFull?.length) return "N/A";
+  
+  const sortedEdu = [...pendidikanFull]
+    .filter(edu => edu.tanggalLulus && edu.jenjangPendidikan)
+    .sort((a, b) => {
+      try {
+        return new Date(b.tanggalLulus!).getTime() - new Date(a.tanggalLulus!).getTime();
+      } catch { 
+        return 0; // Handle invalid dates gracefully in sort
+      }
+    });
+  
+  return sortedEdu.length > 0 && sortedEdu[0].jenjangPendidikan ? sortedEdu[0].jenjangPendidikan : "N/A";
+};
+
 interface ApplicantsTabProps {
   jobId: string;
   initialApplicants: Applicant[];
@@ -197,6 +215,13 @@ export function ApplicantsTab({ jobId, initialApplicants, jobTitle }: Applicants
   const [updatingApplicationId, setUpdatingApplicationId] = useState<string | null>(null);
   const [lastRefreshed, setLastRefreshed] = useState<Date | null>(new Date());
   const [refreshing, setRefreshing] = useState(false);
+  
+  // New filter states
+  const [showFilters, setShowFilters] = useState(false);
+  const [educationFilter, setEducationFilter] = useState<string | null>(null);
+  const [pendidikanTerakhirFilter, setPendidikanTerakhirFilter] = useState<string | null>(null);
+  const [pengalamanKerjaFilter, setPengalamanKerjaFilter] = useState<string | null>(null);
+  const [levelPengalamanFilter, setLevelPengalamanFilter] = useState<string | null>(null);
   
   // State for reason dialog
   const [isReasonDialogOpen, setIsReasonDialogOpen] = useState(false);
@@ -260,15 +285,101 @@ export function ApplicantsTab({ jobId, initialApplicants, jobTitle }: Applicants
     }
   };
 
-  // Filter applicants based on search query and status filter
+  // Filter applicants based on search query and all filters
   const filteredApplicants = useMemo(() => {
     return applicants.filter(applicant => {
-      const matchesSearch = applicant.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+      // Text search filter
+      const matchesSearch = searchQuery === "" || 
+                          applicant.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
                           applicant.email.toLowerCase().includes(searchQuery.toLowerCase());
+      
+      // Status filter
       const matchesStatus = statusFilter === null || applicant.status === statusFilter;
-      return matchesSearch && matchesStatus;
+      
+      // Education filter (formal education level)
+      const matchesEducation = educationFilter === null || applicant.education === educationFilter;
+      
+      // Pendidikan Terakhir filter (latest education from pendidikanFull)
+      const matchesPendidikanTerakhir = pendidikanTerakhirFilter === null || 
+        getLatestEducationDisplay(applicant.pendidikanFull) === pendidikanTerakhirFilter;
+      
+      // Pengalaman Kerja filter
+      const matchesPengalamanKerja = pengalamanKerjaFilter === null || 
+        (applicant.pengalamanKerjaTerakhir?.posisi && 
+         applicant.pengalamanKerjaTerakhir.posisi.includes(pengalamanKerjaFilter));
+      
+      // Level Pengalaman filter
+      const matchesLevelPengalaman = levelPengalamanFilter === null || 
+        applicant.levelPengalaman === levelPengalamanFilter;
+      
+      // Return true only if all filters match
+      return matchesSearch && 
+             matchesStatus && 
+             matchesEducation && 
+             matchesPendidikanTerakhir && 
+             matchesPengalamanKerja && 
+             matchesLevelPengalaman;
     });
-  }, [applicants, searchQuery, statusFilter]);
+  }, [
+    applicants, 
+    searchQuery, 
+    statusFilter, 
+    educationFilter, 
+    pendidikanTerakhirFilter, 
+    pengalamanKerjaFilter, 
+    levelPengalamanFilter
+  ]);
+
+  // Extract unique values for filter dropdowns
+  const uniqueEducationLevels = useMemo(() => {
+    const levels = applicants
+      .map(app => app.education)
+      .filter((value, index, self) => 
+        value !== null && 
+        value !== undefined && 
+        self.indexOf(value) === index
+      ) as string[];
+    return levels.sort();
+  }, [applicants]);
+
+  const uniquePendidikanTerakhir = useMemo(() => {
+    const levels = applicants
+      .map(app => getLatestEducationDisplay(app.pendidikanFull))
+      .filter((value, index, self) => 
+        value !== "N/A" && 
+        self.indexOf(value) === index
+      );
+    return levels.sort();
+  }, [applicants]);
+
+  const uniqueLevelPengalaman = useMemo(() => {
+    const levels = applicants
+      .map(app => app.levelPengalaman)
+      .filter((value, index, self) => 
+        value !== null && 
+        value !== undefined && 
+        self.indexOf(value) === index
+      ) as string[];
+    return levels.sort();
+  }, [applicants]);
+
+  // Reset all filters
+  const resetAllFilters = () => {
+    setSearchQuery("");
+    setStatusFilter(null);
+    setEducationFilter(null);
+    setPendidikanTerakhirFilter(null);
+    setPengalamanKerjaFilter(null);
+    setLevelPengalamanFilter(null);
+  };
+
+  // Check if any filter is active
+  const hasActiveFilters = searchQuery || 
+    statusFilter || 
+    educationFilter || 
+    pendidikanTerakhirFilter || 
+    pengalamanKerjaFilter || 
+    levelPengalamanFilter;
 
   // Sort the filtered applicants based on sort column and direction
   const sortedApplicants = useMemo(() => {
@@ -503,26 +614,138 @@ export function ApplicantsTab({ jobId, initialApplicants, jobTitle }: Applicants
                 />
               </div>
 
-              <Select
-                value={statusFilter || "ALL"}
-                onValueChange={(value) => setStatusFilter(value === "ALL" ? null : value as Applicant['status'])}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowFilters(!showFilters)}
+                className="flex items-center gap-1"
               >
-                <SelectTrigger className="w-full sm:w-[180px]">
-                  <SelectValue placeholder="Semua Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ALL">Semua Status</SelectItem>
-                  <SelectItem value="SUBMITTED">Diajukan</SelectItem>
-                  <SelectItem value="REVIEWING">Sedang Ditinjau</SelectItem>
-                  <SelectItem value="INTERVIEW">Wawancara</SelectItem>
-                  <SelectItem value="OFFERED">Ditawari</SelectItem>
-                  <SelectItem value="ACCEPTED">Diterima</SelectItem>
-                  <SelectItem value="REJECTED">Ditolak</SelectItem>
-                  <SelectItem value="WITHDRAWN">Dicabut</SelectItem>
-                </SelectContent>
-              </Select>
+                <Filter className="h-4 w-4" />
+                <span>Filter</span>
+                {hasActiveFilters && (
+                  <Badge variant="secondary" className="ml-1 rounded-full h-5 w-5 p-0 flex items-center justify-center">
+                    {(statusFilter ? 1 : 0) + 
+                     (educationFilter ? 1 : 0) + 
+                     (pendidikanTerakhirFilter ? 1 : 0) + 
+                     (pengalamanKerjaFilter ? 1 : 0) + 
+                     (levelPengalamanFilter ? 1 : 0)}
+                  </Badge>
+                )}
+                <ChevronDown className={`h-4 w-4 ml-1 transition-transform ${showFilters ? 'rotate-180' : ''}`} />
+              </Button>
             </div>
           </div>
+
+          {/* Advanced Filter Section */}
+          {showFilters && (
+            <div className="mt-4 space-y-4 border rounded-md p-4 bg-muted/20">
+              <div className="flex justify-between items-center">
+                <h3 className="text-sm font-medium">Filter Lanjutan</h3>
+                {hasActiveFilters && (
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={resetAllFilters}
+                  >
+                    Reset Semua
+                  </Button>
+                )}
+              </div>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                {/* Status Filter */}
+                <div>
+                  <p className="text-xs mb-1 font-medium">Status</p>
+                  <Select
+                    value={statusFilter || "ALL"}
+                    onValueChange={(value) => setStatusFilter(value === "ALL" ? null : value as Applicant['status'])}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Semua Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ALL">Semua Status</SelectItem>
+                      <SelectItem value="SUBMITTED">Diajukan</SelectItem>
+                      <SelectItem value="REVIEWING">Sedang Ditinjau</SelectItem>
+                      <SelectItem value="INTERVIEW">Wawancara</SelectItem>
+                      <SelectItem value="OFFERED">Ditawari</SelectItem>
+                      <SelectItem value="ACCEPTED">Diterima</SelectItem>
+                      <SelectItem value="REJECTED">Ditolak</SelectItem>
+                      <SelectItem value="WITHDRAWN">Dicabut</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Education Filter */}
+                <div>
+                  <p className="text-xs mb-1 font-medium">Pendidikan</p>
+                  <Select
+                    value={educationFilter || "ALL"}
+                    onValueChange={(value) => setEducationFilter(value === "ALL" ? null : value)}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Semua Pendidikan" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ALL">Semua Pendidikan</SelectItem>
+                      {uniqueEducationLevels.map(edu => (
+                        <SelectItem key={edu} value={edu}>{edu}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Pendidikan Terakhir Filter */}
+                <div>
+                  <p className="text-xs mb-1 font-medium">Pendidikan Terakhir</p>
+                  <Select
+                    value={pendidikanTerakhirFilter || "ALL"}
+                    onValueChange={(value) => setPendidikanTerakhirFilter(value === "ALL" ? null : value)}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Semua Jenjang" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ALL">Semua Jenjang</SelectItem>
+                      {uniquePendidikanTerakhir.map(edu => (
+                        <SelectItem key={edu} value={edu}>{edu}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Level Pengalaman Filter */}
+                <div>
+                  <p className="text-xs mb-1 font-medium">Level Pengalaman</p>
+                  <Select
+                    value={levelPengalamanFilter || "ALL"}
+                    onValueChange={(value) => setLevelPengalamanFilter(value === "ALL" ? null : value)}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Semua Level" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ALL">Semua Level</SelectItem>
+                      {uniqueLevelPengalaman.map(level => (
+                        <SelectItem key={level} value={level}>{level}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Pengalaman Kerja Filter */}
+                <div>
+                  <p className="text-xs mb-1 font-medium">Pengalaman Kerja</p>
+                  <Input
+                    placeholder="Cari posisi kerja..."
+                    value={pengalamanKerjaFilter || ""}
+                    onChange={(e) => setPengalamanKerjaFilter(e.target.value || null)}
+                    className="w-full"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
         </CardHeader>
         <CardContent>
           {filteredApplicants.length === 0 ? (
@@ -532,25 +755,36 @@ export function ApplicantsTab({ jobId, initialApplicants, jobTitle }: Applicants
               </div>
               <h3 className="text-lg font-medium text-gray-900">Tidak ada pelamar ditemukan</h3>
               <p className="mt-1 text-sm text-gray-500">
-                {searchQuery || statusFilter ? 
-                  "Tidak ada pelamar yang cocok dengan filter Anda. Coba ubah filter pencarian." : 
+                {hasActiveFilters ? 
+                  "Tidak ada pelamar yang cocok dengan filter Anda. Coba ubah kriteria filter." : 
                   "Belum ada pelamar untuk lowongan ini."}
               </p>
-              {(searchQuery || statusFilter) && (
+              {hasActiveFilters && (
                 <Button 
                   variant="outline" 
                   className="mt-4"
-                  onClick={() => {
-                    setSearchQuery("");
-                    setStatusFilter(null);
-                  }}
+                  onClick={resetAllFilters}
                 >
-                  Reset Filter
+                  Reset Semua Filter
                 </Button>
               )}
             </div>
           ) : (
             <div className="rounded-md border overflow-x-auto">
+              {hasActiveFilters && (
+                <div className="px-4 py-2 bg-muted/20 border-b flex items-center justify-between">
+                  <div className="text-sm">
+                    Menampilkan <span className="font-medium">{filteredApplicants.length}</span> dari <span className="font-medium">{applicants.length}</span> pelamar
+                  </div>
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    onClick={resetAllFilters}
+                  >
+                    Reset Filter
+                  </Button>
+                </div>
+              )}
               <Table className="w-full table-fixed">
                 <TableHeader>
                   <TableRow>
@@ -584,6 +818,11 @@ export function ApplicantsTab({ jobId, initialApplicants, jobTitle }: Applicants
                     >
                       <div className="flex items-center">
                         <span className="text-xs font-medium">Status</span>
+                        {statusFilter && (
+                          <Badge variant="secondary" className="ml-1 h-4 w-4 p-0 flex items-center justify-center text-[10px]">
+                            •
+                          </Badge>
+                        )}
                         <ArrowUpDown className="ml-1 h-3 w-3" />
                         {sortColumn === 'status' && (
                           <span className="ml-1 text-xs">{sortDirection === 'asc' ? '↑' : '↓'}</span>
@@ -596,9 +835,44 @@ export function ApplicantsTab({ jobId, initialApplicants, jobTitle }: Applicants
                     >
                       <div className="flex items-center">
                         <span className="text-xs font-medium">Pendidikan</span>
+                        {educationFilter && (
+                          <Badge variant="secondary" className="ml-1 h-4 w-4 p-0 flex items-center justify-center text-[10px]">
+                            •
+                          </Badge>
+                        )}
                         <ArrowUpDown className="ml-1 h-3 w-3" />
                         {sortColumn === 'education' && (
                           <span className="ml-1 text-xs">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                        )}
+                      </div>
+                    </TableHead>
+                    <TableHead className="hidden lg:table-cell px-2 py-3 w-[12%]">
+                      <div className="flex items-center">
+                        <span className="text-xs font-medium">Pendidikan Terakhir</span>
+                        {pendidikanTerakhirFilter && (
+                          <Badge variant="secondary" className="ml-1 h-4 w-4 p-0 flex items-center justify-center text-[10px]">
+                            •
+                          </Badge>
+                        )}
+                      </div>
+                    </TableHead>
+                    <TableHead className="hidden xl:table-cell px-2 py-3 w-[12%]">
+                      <div className="flex items-center">
+                        <span className="text-xs font-medium">Peng. Kerja</span>
+                        {pengalamanKerjaFilter && (
+                          <Badge variant="secondary" className="ml-1 h-4 w-4 p-0 flex items-center justify-center text-[10px]">
+                            •
+                          </Badge>
+                        )}
+                      </div>
+                    </TableHead>
+                    <TableHead className="hidden md:table-cell px-2 py-3 w-[10%]">
+                      <div className="flex items-center">
+                        <span className="text-xs font-medium">Level Peng.</span>
+                        {levelPengalamanFilter && (
+                          <Badge variant="secondary" className="ml-1 h-4 w-4 p-0 flex items-center justify-center text-[10px]">
+                            •
+                          </Badge>
                         )}
                       </div>
                     </TableHead>
@@ -656,6 +930,15 @@ export function ApplicantsTab({ jobId, initialApplicants, jobTitle }: Applicants
                         ) : (
                           <span className="text-muted-foreground text-xs">N/A</span>
                         )}
+                      </TableCell>
+                      <TableCell className="hidden lg:table-cell p-2 text-xs">
+                        {getLatestEducationDisplay(applicant.pendidikanFull)}
+                      </TableCell>
+                      <TableCell className="hidden xl:table-cell p-2 text-xs">
+                        {applicant.pengalamanKerjaTerakhir?.posisi || 'N/A'}
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell p-2 text-xs">
+                        {applicant.levelPengalaman || 'N/A'}
                       </TableCell>
                       {sortedApplicants.some(app => app.matchScore !== undefined) && (
                         <TableCell className="hidden md:table-cell p-2">

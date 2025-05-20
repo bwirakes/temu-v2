@@ -177,7 +177,7 @@ export default async function JobDetailPage(props: { params: Promise<{ id: strin
     id: application.id,
     name: application.name || 'Unknown',
     email: application.email || 'No email',
-    applicationDate: new Date().toISOString(), // Use current date as fallback
+    applicationDate: new Date().toISOString(), // Use current date as fallback since we don't store application date
     status: application.status,
     resumeUrl: application.resumeUrl,
     cvFileUrl: application.cvFileUrl,

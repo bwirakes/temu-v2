@@ -1,6 +1,6 @@
 'use server';
 
-import { getUserProfileByUserId } from "@/lib/db";
+import { getUserProfileByUserId, getUserPendidikanByProfileId, getUserPengalamanKerjaByProfileId } from "@/lib/db";
 import { redirect } from "next/navigation";
 import { getJobSeekerSession } from "@/lib/auth-utils";
 
@@ -65,7 +65,78 @@ export async function getProfileData(): Promise<ProfileData | null> {
     
     // Get profile data using the server-side function
     const profileData = await getUserProfileByUserId(session.user.id);
-    return profileData;
+    
+    if (!profileData) {
+      return null;
+    }
+    
+    // Fetch related data
+    const pendidikanFromDb = await getUserPendidikanByProfileId(profileData.id);
+    const pengalamanKerjaFromDb = await getUserPengalamanKerjaByProfileId(profileData.id);
+    
+    // Process any JSON fields that might be returned as strings
+    let parsedEkspektasiKerja = profileData.ekspektasiKerja;
+    if (parsedEkspektasiKerja && typeof parsedEkspektasiKerja === 'string') {
+      try {
+        parsedEkspektasiKerja = JSON.parse(parsedEkspektasiKerja);
+      } catch (error) {
+        console.error('Error parsing ekspektasiKerja JSON:', error);
+        parsedEkspektasiKerja = null;
+      }
+    }
+    
+    // Format dates if needed (cvUploadDate is sometimes returned in different formats)
+    let cvUploadDate = profileData.cvUploadDate;
+    if (cvUploadDate && !(cvUploadDate instanceof Date)) {
+      cvUploadDate = new Date(cvUploadDate);
+    }
+    
+    // Map the database pendidikan to the expected Pendidikan type
+    const mappedPendidikan: Pendidikan[] = pendidikanFromDb.map(p => ({
+      id: p.id,
+      namaInstitusi: p.namaInstitusi,
+      lokasi: p.lokasi || '',
+      jenjangPendidikan: p.jenjangPendidikan,
+      bidangStudi: p.bidangStudi,
+      tanggalLulus: p.tanggalLulus,
+      deskripsiTambahan: p.deskripsiTambahan || undefined,
+      masihBelajar: p.tidakLulus || false
+    }));
+    
+    // Map the database pengalaman kerja to the expected PengalamanKerja type
+    const mappedPengalamanKerja: PengalamanKerja[] = pengalamanKerjaFromDb.map(p => ({
+      id: p.id,
+      namaPerusahaan: p.namaPerusahaan,
+      posisi: p.posisi,
+      tanggalMulai: p.tanggalMulai,
+      tanggalSelesai: p.tanggalSelesai,
+      lokasi: p.lokasi || '',
+      lokasiKerja: p.lokasiKerja === 'WFH' ? 'Work From Home (WFH)' :
+                    p.lokasiKerja === 'WFO' ? 'Work From Office (WFO)' : 'Hybrid',
+      deskripsiPekerjaan: p.deskripsiPekerjaan || '',
+      alasanKeluar: p.alasanKeluar || undefined,
+      masihBekerja: p.tanggalSelesai === 'Sekarang'
+    }));
+    
+    // Combine data into the complete profile
+    const completeProfile: ProfileData = {
+      id: profileData.id,
+      namaLengkap: profileData.namaLengkap,
+      email: profileData.email,
+      nomorTelepon: profileData.nomorTelepon,
+      tanggalLahir: profileData.tanggalLahir,
+      tempatLahir: profileData.tempatLahir,
+      jenisKelamin: profileData.jenisKelamin,
+      cvFileUrl: profileData.cvFileUrl,
+      cvUploadDate: cvUploadDate,
+      profilePhotoUrl: profileData.profilePhotoUrl,
+      levelPengalaman: profileData.levelPengalaman,
+      ekspektasiKerja: parsedEkspektasiKerja,
+      pendidikan: mappedPendidikan,
+      pengalamanKerja: mappedPengalamanKerja
+    };
+    
+    return completeProfile;
   } catch (error) {
     console.error('Error fetching profile data:', error);
     
