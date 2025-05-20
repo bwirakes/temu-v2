@@ -24,7 +24,8 @@ interface CustomSession {
 
 // Validate the request body using Zod
 const updateStatusSchema = z.object({
-  status: z.enum(applicationStatusEnum.enumValues)
+  status: z.enum(applicationStatusEnum.enumValues),
+  reason: z.string().optional(),
 });
 
 export async function PATCH(req: NextRequest, props: { params: Promise<{ id: string }> }) {
@@ -74,7 +75,7 @@ export async function PATCH(req: NextRequest, props: { params: Promise<{ id: str
       );
     }
     
-    const { status } = result.data;
+    const { status, reason } = result.data;
 
     // Get the application
     const application = await getJobApplicationById(applicationId);
@@ -105,7 +106,7 @@ export async function PATCH(req: NextRequest, props: { params: Promise<{ id: str
     }
 
     // Update the application status
-    const updatedApplication = await updateJobApplicationStatus(applicationId, status);
+    const updatedApplication = await updateJobApplicationStatus(applicationId, status, reason);
 
     // Revalidate the job detail page to update applicant count and status
     revalidatePath(`/employer/jobs/${job.id}`);

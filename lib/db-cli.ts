@@ -13,7 +13,8 @@ import {
   json,
   jsonb,
   primaryKey,
-  uniqueIndex
+  uniqueIndex,
+  date
 } from 'drizzle-orm/pg-core';
 import { count, eq, ilike, and } from 'drizzle-orm';
 import { createInsertSchema } from 'drizzle-zod';
@@ -287,8 +288,22 @@ export const jobApplications = pgTable('job_applications', {
     .notNull()
     .references(() => jobs.id, { onDelete: 'cascade' }),
   status: applicationStatusEnum('status').default('SUBMITTED').notNull(),
-  coverLetter: text('cover_letter'),
+  additionalNotes: text('additional_notes'),
+  education: lastEducationEnum('education'),
   resumeUrl: text('resume_url'),
+  cvFileUrl: text('cv_file_url'),
+  statusChangeReason: text('status_change_reason'),
+  tanggalLahir: date('tanggal_lahir'),
+  jenisKelamin: text('jenis_kelamin'),
+  kotaDomisili: text('kota_domisili'),
+  pendidikanFull: jsonb('pendidikan_full'),
+  pengalamanKerjaFull: jsonb('pengalaman_kerja_full'),
+  pengalamanKerjaTerakhir: jsonb('pengalaman_kerja_terakhir'),
+  gajiTerakhir: integer('gaji_terakhir'),
+  levelPengalaman: text('level_pengalaman'),
+  ekspektasiGaji: jsonb('ekspektasi_gaji'),
+  preferensiLokasiKerja: jsonb('preferensi_lokasi_kerja'),
+  preferensiJenisPekerjaan: jsonb('preferensi_jenis_pekerjaan'),
 }, (t) => {
   return {
     unqApplicantJob: uniqueIndex('unq_applicant_job').on(t.applicantProfileId, t.jobId),

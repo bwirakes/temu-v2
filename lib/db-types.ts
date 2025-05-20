@@ -16,7 +16,8 @@ import {
   json,
   jsonb,
   primaryKey,
-  uniqueIndex
+  uniqueIndex,
+  date
 } from 'drizzle-orm/pg-core';
 
 // Define onboarding steps
@@ -162,17 +163,46 @@ export const userPendidikan = pgTable('user_pendidikan', {
   updatedAt: timestamp('updated_at').defaultNow().notNull()
 });
 
+export const jobs = pgTable('jobs', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  jobId: text('job_id').unique().notNull(),
+  title: text('title').notNull(),
+  description: text('description').notNull(),
+  employerId: uuid('employer_id').notNull(),
+  status: text('status').default('DRAFT').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
 export const jobApplications = pgTable('job_applications', {
   id: uuid('id').defaultRandom().primaryKey(),
   applicantProfileId: uuid('applicant_profile_id')
     .notNull()
     .references(() => userProfiles.id, { onDelete: 'cascade' }),
-  jobId: uuid('job_id').notNull(),
+  jobId: uuid('job_id')
+    .notNull()
+    .references(() => jobs.id, { onDelete: 'cascade' }),
   status: applicationStatusEnum('status').default('SUBMITTED').notNull(),
   additionalNotes: text('additional_notes'),
   education: lastEducationEnum('education'),
   resumeUrl: text('resume_url'),
   cvFileUrl: text('cv_file_url'),
+  statusChangeReason: text('status_change_reason'),
+  tanggalLahir: date('tanggal_lahir'),
+  jenisKelamin: text('jenis_kelamin'),
+  kotaDomisili: text('kota_domisili'),
+  pendidikanFull: jsonb('pendidikan_full'),
+  pengalamanKerjaFull: jsonb('pengalaman_kerja_full'),
+  pengalamanKerjaTerakhir: jsonb('pengalaman_kerja_terakhir'),
+  gajiTerakhir: integer('gaji_terakhir'),
+  levelPengalaman: text('level_pengalaman'),
+  ekspektasiGaji: jsonb('ekspektasi_gaji'),
+  preferensiLokasiKerja: jsonb('preferensi_lokasi_kerja'),
+  preferensiJenisPekerjaan: jsonb('preferensi_jenis_pekerjaan'),
+}, (t) => {
+  return {
+    unqApplicantJob: uniqueIndex('unq_applicant_job').on(t.applicantProfileId, t.jobId),
+  };
 });
 
 // Type definitions

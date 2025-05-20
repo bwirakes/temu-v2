@@ -147,6 +147,19 @@ export default async function JobDetailPage(props: { params: Promise<{ id: strin
       additionalNotes: jobApplications.additionalNotes,
       education: jobApplications.education,
       resumeUrl: jobApplications.resumeUrl,
+      statusChangeReason: jobApplications.statusChangeReason,
+      // New fields from jobApplications table
+      tanggalLahir: jobApplications.tanggalLahir,
+      jenisKelamin: jobApplications.jenisKelamin,
+      kotaDomisili: jobApplications.kotaDomisili,
+      pendidikanFull: jobApplications.pendidikanFull,
+      pengalamanKerjaFull: jobApplications.pengalamanKerjaFull,
+      pengalamanKerjaTerakhir: jobApplications.pengalamanKerjaTerakhir,
+      gajiTerakhir: jobApplications.gajiTerakhir,
+      levelPengalaman: jobApplications.levelPengalaman,
+      ekspektasiGaji: jobApplications.ekspektasiGaji,
+      preferensiLokasiKerja: jobApplications.preferensiLokasiKerja,
+      preferensiJenisPekerjaan: jobApplications.preferensiJenisPekerjaan,
       cvFileUrl: userProfiles.cvFileUrl,
       name: userProfiles.namaLengkap,
       email: userProfiles.email,
@@ -169,7 +182,25 @@ export default async function JobDetailPage(props: { params: Promise<{ id: strin
     resumeUrl: application.resumeUrl,
     cvFileUrl: application.cvFileUrl,
     additionalNotes: application.additionalNotes,
-    education: application.education
+    education: application.education,
+    statusChangeReason: application.statusChangeReason,
+    profileId: application.profileId,
+    // Add the new fields
+    tanggalLahir: application.tanggalLahir ? new Date(application.tanggalLahir).toISOString() : null,
+    jenisKelamin: application.jenisKelamin,
+    kotaDomisili: application.kotaDomisili,
+    pendidikanFull: application.pendidikanFull as Applicant['pendidikanFull'],
+    pengalamanKerjaFull: application.pengalamanKerjaFull as Applicant['pengalamanKerjaFull'],
+    pengalamanKerjaTerakhir: application.pengalamanKerjaTerakhir as Applicant['pengalamanKerjaTerakhir'],
+    gajiTerakhir: application.gajiTerakhir,
+    levelPengalaman: application.levelPengalaman,
+    ekspektasiGaji: application.ekspektasiGaji as Applicant['ekspektasiGaji'],
+    preferensiLokasiKerja: application.preferensiLokasiKerja as Applicant['preferensiLokasiKerja'],
+    preferensiJenisPekerjaan: application.preferensiJenisPekerjaan as Applicant['preferensiJenisPekerjaan'],
+    // Calculate age if tanggalLahir is available
+    umur: application.tanggalLahir 
+      ? Math.floor((new Date().getTime() - new Date(application.tanggalLahir).getTime()) / (365.25 * 24 * 60 * 60 * 1000))
+      : null
   }));
 
   // Transform job data to match the expected format

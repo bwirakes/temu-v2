@@ -95,7 +95,10 @@ export default async function ApplicantDetailPage(props: { params: Promise<{ id:
       <div className="flex flex-col space-y-6">
         {/* Back button and header */}
         <div className="flex flex-col space-y-2">
-          <Link href="/employer/applicants" className="flex items-center text-blue-600 hover:text-blue-800">
+          <Link 
+            href={`/employer/jobs/${application.jobId}`} 
+            className="flex items-center text-blue-600 hover:text-blue-800"
+          >
             <ArrowLeft className="h-4 w-4 mr-1" />
             <span>Kembali ke Daftar Pelamar</span>
           </Link>
@@ -104,6 +107,7 @@ export default async function ApplicantDetailPage(props: { params: Promise<{ id:
             <ApplicantStatusUpdate 
               applicationId={application.id} 
               currentStatus={application.status} 
+              currentReason={application.statusChangeReason}
             />
           </div>
         </div>
@@ -164,6 +168,12 @@ export default async function ApplicantDetailPage(props: { params: Promise<{ id:
                     <h3 className="text-sm font-medium text-gray-500">Status</h3>
                     <div className="mt-1">{getStatusBadge(application.status)}</div>
                   </div>
+                  {application.statusChangeReason && (
+                    <div className="md:col-span-2">
+                      <h3 className="text-sm font-medium text-gray-500">Alasan Perubahan Status</h3>
+                      <p className="text-base mt-1">{application.statusChangeReason}</p>
+                    </div>
+                  )}
                   <div>
                     <h3 className="text-sm font-medium text-gray-500">Tanggal Lamaran</h3>
                     <p className="text-base">{formatDate(applicationDate)}</p>

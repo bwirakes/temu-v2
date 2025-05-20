@@ -87,7 +87,20 @@ export default async function JobSeekerApplicationPage({ params }: PageParams) {
       phone: profileData.nomorTelepon,
       cvFileUrl: profileData.cvFileUrl || undefined,
       // Convert education type correctly
-      education: profileData.pendidikanTerakhir as "SD" | "SMP" | "SMA/SMK" | "D1" | "D2" | "D3" | "D4" | "S1" | "S2" | "S3" | undefined
+      education: profileData.pendidikanTerakhir as "SD" | "SMP" | "SMA/SMK" | "D1" | "D2" | "D3" | "D4" | "S1" | "S2" | "S3" | undefined,
+      
+      // Add the new detailed fields
+      tanggalLahir: profileData.tanggalLahir || undefined,
+      jenisKelamin: profileData.jenisKelamin || undefined,
+      kotaDomisili: profileData.kotaDomisili || undefined,
+      pengalamanKerjaTerakhir: profileData.pengalamanKerjaTerakhir || undefined,
+      gajiTerakhir: profileData.gajiTerakhir === null ? undefined : profileData.gajiTerakhir,
+      levelPengalaman: profileData.levelPengalaman || undefined,
+      ekspektasiGaji: profileData.ekspektasiGaji || undefined,
+      preferensiLokasiKerja: profileData.preferensiLokasiKerja || undefined,
+      preferensiJenisPekerjaan: profileData.preferensiJenisPekerjaan || undefined,
+      pendidikanFull: profileData.pendidikan || undefined,
+      pengalamanKerjaFull: profileData.pengalamanKerja || undefined,
     } : undefined;
     
     // Render application form

@@ -41,6 +41,37 @@ export type JobApplicationData = {
   agreeToTerms: boolean;
   shareData?: boolean; // Whether to use saved CV data
   
+  // New profile fields
+  tanggalLahir?: string;
+  jenisKelamin?: string;
+  kotaDomisili?: string;
+  pengalamanKerjaTerakhir?: { 
+    posisi?: string; 
+    namaPerusahaan?: string; 
+  };
+  gajiTerakhir?: number;
+  levelPengalaman?: string;
+  ekspektasiGaji?: { 
+    min?: number; 
+    max?: number;
+    negotiable?: boolean;
+  };
+  preferensiLokasiKerja?: string[];
+  preferensiJenisPekerjaan?: string[];
+  pendidikanFull?: Array<{ 
+    jenjangPendidikan?: string; 
+    namaInstitusi?: string; 
+    bidangStudi?: string; 
+    tanggalLulus?: string | Date; 
+  }>;
+  pengalamanKerjaFull?: Array<{ 
+    posisi?: string; 
+    namaPerusahaan?: string; 
+    tanggalMulai?: string | Date; 
+    tanggalSelesai?: string | Date; 
+    deskripsiPekerjaan?: string; 
+  }>;
+  
   // Application status
   status?: "DRAFT" | "SUBMITTED" | "REVIEWING" | "INTERVIEW" | "OFFERED" | "ACCEPTED" | "REJECTED" | "WITHDRAWN";
   
@@ -65,6 +96,41 @@ export const jobApplicationSchema = z.object({
     message: "Anda harus menyetujui syarat dan ketentuan",
   }),
   shareData: z.boolean().optional(),
+
+  // Validation for new profile fields
+  tanggalLahir: z.string().optional(),
+  jenisKelamin: z.string().optional(),
+  kotaDomisili: z.string().optional(),
+  pengalamanKerjaTerakhir: z.object({
+    posisi: z.string().optional(),
+    namaPerusahaan: z.string().optional(),
+  }).optional(),
+  gajiTerakhir: z.number().optional(),
+  levelPengalaman: z.string().optional(),
+  ekspektasiGaji: z.object({
+    min: z.number().optional(),
+    max: z.number().optional(),
+    negotiable: z.boolean().optional(),
+  }).optional(),
+  preferensiLokasiKerja: z.array(z.string()).optional(),
+  preferensiJenisPekerjaan: z.array(z.string()).optional(),
+  pendidikanFull: z.array(
+    z.object({
+      jenjangPendidikan: z.string().optional(),
+      namaInstitusi: z.string().optional(),
+      bidangStudi: z.string().optional(),
+      tanggalLulus: z.union([z.string(), z.date()]).optional(),
+    })
+  ).optional(),
+  pengalamanKerjaFull: z.array(
+    z.object({
+      posisi: z.string().optional(),
+      namaPerusahaan: z.string().optional(),
+      tanggalMulai: z.union([z.string(), z.date()]).optional(),
+      tanggalSelesai: z.union([z.string(), z.date()]).optional(),
+      deskripsiPekerjaan: z.string().optional(),
+    })
+  ).optional(),
 });
 
 // Initial data structure
@@ -79,6 +145,19 @@ const initialData: JobApplicationData = {
   shareData: false,
   status: "DRAFT",
   cvFileUrl: "", // Initialize with empty string
+  
+  // Initialize new profile fields
+  tanggalLahir: undefined,
+  jenisKelamin: undefined,
+  kotaDomisili: undefined,
+  pengalamanKerjaTerakhir: undefined,
+  gajiTerakhir: undefined,
+  levelPengalaman: undefined,
+  ekspektasiGaji: undefined,
+  preferensiLokasiKerja: undefined,
+  preferensiJenisPekerjaan: undefined,
+  pendidikanFull: undefined,
+  pengalamanKerjaFull: undefined,
 };
 
 // Context type definition
@@ -109,6 +188,17 @@ export const JobApplicationProvider = ({
     phone?: string;
     cvFileUrl?: string;
     education?: "SD" | "SMP" | "SMA/SMK" | "D1" | "D2" | "D3" | "D4" | "S1" | "S2" | "S3";
+    tanggalLahir?: string;
+    jenisKelamin?: string;
+    kotaDomisili?: string;
+    pengalamanKerjaTerakhir?: { posisi?: string; namaPerusahaan?: string; };
+    gajiTerakhir?: number;
+    levelPengalaman?: string;
+    ekspektasiGaji?: { min?: number; max?: number; negotiable?: boolean; };
+    preferensiLokasiKerja?: string[];
+    preferensiJenisPekerjaan?: string[];
+    pendidikanFull?: Array<{ jenjangPendidikan?: string; namaInstitusi?: string; bidangStudi?: string; tanggalLulus?: string | Date; }>;
+    pengalamanKerjaFull?: Array<{ posisi?: string; namaPerusahaan?: string; tanggalMulai?: string | Date; tanggalSelesai?: string | Date; deskripsiPekerjaan?: string; }>;
   }
 }) => {
   const router = useRouter();
@@ -124,6 +214,18 @@ export const JobApplicationProvider = ({
       education: profileData.education,
       // If profile data is provided, default shareData to true
       shareData: profileData.cvFileUrl ? true : false,
+      // Add new profile fields
+      tanggalLahir: profileData.tanggalLahir,
+      jenisKelamin: profileData.jenisKelamin,
+      kotaDomisili: profileData.kotaDomisili,
+      pengalamanKerjaTerakhir: profileData.pengalamanKerjaTerakhir,
+      gajiTerakhir: profileData.gajiTerakhir,
+      levelPengalaman: profileData.levelPengalaman,
+      ekspektasiGaji: profileData.ekspektasiGaji,
+      preferensiLokasiKerja: profileData.preferensiLokasiKerja,
+      preferensiJenisPekerjaan: profileData.preferensiJenisPekerjaan,
+      pendidikanFull: profileData.pendidikanFull,
+      pengalamanKerjaFull: profileData.pengalamanKerjaFull,
     } : {})
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -164,8 +266,9 @@ export const JobApplicationProvider = ({
     }
 
     try {
-      // Use our JobApplicationService to save the application via API
-      const result = await jobApplicationService.saveApplicationViaAPI(data.jobId, {
+      // Extract only the fields that are supported by the current database schema
+      // The new profile fields are maintained in the local state but not sent to the API yet
+      const applicantData = {
         fullName: data.fullName,
         email: data.email,
         phone: data.phone,
@@ -173,7 +276,10 @@ export const JobApplicationProvider = ({
         education: data.education,
         resumeUrl: data.resumeUrl || "",
         cvFileUrl: data.cvFileUrl || "", // Explicitly include cvFileUrl
-      });
+      };
+      
+      // Use our JobApplicationService to save the application via API
+      const result = await jobApplicationService.saveApplicationViaAPI(data.jobId, applicantData);
       
       // Update local state with the response from the API
       setData(prev => ({

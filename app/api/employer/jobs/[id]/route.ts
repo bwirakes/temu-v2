@@ -11,6 +11,51 @@ import {
 } from '@/lib/db';
 import { and, eq, sql } from 'drizzle-orm';
 
+// Define the Applicant type inline instead of importing it
+type ApplicantType = {
+  id: string;
+  name: string;
+  email: string;
+  applicationDate: string;
+  status: 'SUBMITTED' | 'REVIEWING' | 'INTERVIEW' | 'OFFERED' | 'ACCEPTED' | 'REJECTED' | 'WITHDRAWN';
+  resumeUrl: string | null;
+  cvFileUrl: string | null;
+  additionalNotes: string | null;
+  statusChangeReason?: string | null;
+  education?: string | null;
+  profileId?: string;
+  tanggalLahir?: string | null;
+  umur?: number | null;
+  jenisKelamin?: string | null;
+  kotaDomisili?: string | null;
+  pendidikanFull?: Array<{
+    jenjangPendidikan?: string | null;
+    namaInstitusi?: string | null;
+    bidangStudi?: string | null;
+    tanggalLulus?: string | null;
+  }> | null;
+  pengalamanKerjaFull?: Array<{
+    posisi?: string | null;
+    namaPerusahaan?: string | null;
+    tanggalMulai?: string | null;
+    tanggalSelesai?: string | null;
+    deskripsiPekerjaan?: string | null;
+  }> | null;
+  pengalamanKerjaTerakhir?: {
+    posisi?: string | null;
+    namaPerusahaan?: string | null;
+  } | null;
+  gajiTerakhir?: number | null;
+  levelPengalaman?: string | null;
+  ekspektasiGaji?: {
+    min?: number;
+    max?: number;
+    negotiable?: boolean;
+  } | null;
+  preferensiLokasiKerja?: string[] | null;
+  preferensiJenisPekerjaan?: string[] | null;
+}
+
 // Define the custom session type to match what's in lib/auth.ts
 interface CustomSession {
   user?: {
@@ -97,6 +142,19 @@ export async function GET(req: NextRequest, props: { params: Promise<{ id: strin
         additionalNotes: jobApplications.additionalNotes,
         education: jobApplications.education,
         resumeUrl: jobApplications.resumeUrl,
+        statusChangeReason: jobApplications.statusChangeReason,
+        // New fields from jobApplications table
+        tanggalLahir: jobApplications.tanggalLahir,
+        jenisKelamin: jobApplications.jenisKelamin,
+        kotaDomisili: jobApplications.kotaDomisili,
+        pendidikanFull: jobApplications.pendidikanFull,
+        pengalamanKerjaFull: jobApplications.pengalamanKerjaFull,
+        pengalamanKerjaTerakhir: jobApplications.pengalamanKerjaTerakhir,
+        gajiTerakhir: jobApplications.gajiTerakhir,
+        levelPengalaman: jobApplications.levelPengalaman,
+        ekspektasiGaji: jobApplications.ekspektasiGaji,
+        preferensiLokasiKerja: jobApplications.preferensiLokasiKerja,
+        preferensiJenisPekerjaan: jobApplications.preferensiJenisPekerjaan,
         // Use current_timestamp as a placeholder
         applicationDate: sql<string>`CURRENT_TIMESTAMP`,
         // Join with user profile to get applicant information
@@ -124,7 +182,24 @@ export async function GET(req: NextRequest, props: { params: Promise<{ id: strin
       additionalNotes: application.additionalNotes,
       education: application.education,
       profileId: application.profileId,
-      cvFileUrl: application.cvFileUrl
+      cvFileUrl: application.cvFileUrl,
+      statusChangeReason: application.statusChangeReason,
+      // Include the new fields in the response
+      tanggalLahir: application.tanggalLahir ? new Date(application.tanggalLahir).toISOString() : null,
+      jenisKelamin: application.jenisKelamin,
+      kotaDomisili: application.kotaDomisili,
+      pendidikanFull: application.pendidikanFull as ApplicantType['pendidikanFull'],
+      pengalamanKerjaFull: application.pengalamanKerjaFull as ApplicantType['pengalamanKerjaFull'],
+      pengalamanKerjaTerakhir: application.pengalamanKerjaTerakhir as ApplicantType['pengalamanKerjaTerakhir'],
+      gajiTerakhir: application.gajiTerakhir,
+      levelPengalaman: application.levelPengalaman,
+      ekspektasiGaji: application.ekspektasiGaji as ApplicantType['ekspektasiGaji'],
+      preferensiLokasiKerja: application.preferensiLokasiKerja as ApplicantType['preferensiLokasiKerja'],
+      preferensiJenisPekerjaan: application.preferensiJenisPekerjaan as ApplicantType['preferensiJenisPekerjaan'],
+      // Calculate age if tanggalLahir is available
+      umur: application.tanggalLahir 
+        ? Math.floor((new Date().getTime() - new Date(application.tanggalLahir).getTime()) / (365.25 * 24 * 60 * 60 * 1000))
+        : null
     }));
 
     // Calculate the actual application count

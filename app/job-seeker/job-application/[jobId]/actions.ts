@@ -9,7 +9,9 @@ import {
   getJobWorkLocationsByJobId, 
   getEmployerById,
   db,
-  jobApplications
+  jobApplications,
+  userAddresses,
+  userPengalamanKerja
 } from "@/lib/db";
 import { eq, and } from "drizzle-orm";
 
@@ -45,6 +47,34 @@ export interface JobSeekerProfileData {
   cvFileUrl?: string | null;
   cvUploadDate?: string | Date | null;
   pendidikanTerakhir?: string;
+  tanggalLahir?: string | null;
+  jenisKelamin?: string | null; // e.g., "Laki-laki", "Perempuan"
+  kotaDomisili?: string | null; // derived from alamat.kota
+  pengalamanKerjaTerakhir?: { 
+    posisi?: string | null; 
+    namaPerusahaan?: string | null; 
+  } | null;
+  gajiTerakhir?: number | null;
+  levelPengalaman?: string | null;
+  ekspektasiGaji?: { 
+    min?: number; 
+    max?: number; 
+  } | null;
+  preferensiLokasiKerja?: string[] | null;
+  preferensiJenisPekerjaan?: string[] | null;
+  pendidikan?: Array<{
+    jenjangPendidikan?: string | null;
+    namaInstitusi?: string | null;
+    bidangStudi?: string | null;
+    tanggalLulus?: string | Date | null;
+  }>;
+  pengalamanKerja?: Array<{
+    posisi?: string | null;
+    namaPerusahaan?: string | null;
+    tanggalMulai?: string | Date | null;
+    tanggalSelesai?: string | Date | null;
+    deskripsiPekerjaan?: string | null;
+  }>;
 }
 
 // Application status interface
@@ -71,10 +101,12 @@ export async function getJobApplicationPageData(jobId: string) {
   if (!job) throw new Error("Job not found");
   
   // Get related data
-  const [workLocations, employer, pendidikan] = await Promise.all([
+  const [workLocations, employer, pendidikan, addresses, pengalamanKerja] = await Promise.all([
     getJobWorkLocationsByJobId(job.id),
     getEmployerById(job.employerId),
-    getUserPendidikanByProfileId(profileData.id)
+    getUserPendidikanByProfileId(profileData.id),
+    db.select().from(userAddresses).where(eq(userAddresses.userProfileId, profileData.id)),
+    db.select().from(userPengalamanKerja).where(eq(userPengalamanKerja.userProfileId, profileData.id))
   ]);
   
   if (!employer) throw new Error("Employer not found");
@@ -115,6 +147,57 @@ export async function getJobApplicationPageData(jobId: string) {
     referenceCode = `APP-${shortId}-${year}${month}${day}`;
   }
   
+  // Get the latest work experience (if any)
+  let latestExperience = null;
+  let gajiTerakhir = null;
+  if (pengalamanKerja?.length) {
+    const sorted = [...pengalamanKerja].sort((a, b) => 
+      new Date(b.tanggalSelesai || b.tanggalMulai || 0).getTime() - 
+      new Date(a.tanggalSelesai || a.tanggalMulai || 0).getTime()
+    );
+    latestExperience = {
+      posisi: sorted[0].posisi,
+      namaPerusahaan: sorted[0].namaPerusahaan
+    };
+    
+    // Handle salary information if available
+    // Note: gajiTerakhir might not exist in all implementations, so we check it dynamically
+    if (sorted[0] && 'gajiTerakhir' in sorted[0] && sorted[0].gajiTerakhir) {
+      try {
+        // Convert to number if it's a string
+        gajiTerakhir = typeof sorted[0].gajiTerakhir === 'string' 
+          ? parseFloat(String(sorted[0].gajiTerakhir).replace(/[^\d]/g, '')) 
+          : Number(sorted[0].gajiTerakhir);
+      } catch (e) {
+        console.error("Error parsing gajiTerakhir:", e);
+      }
+    }
+  }
+  
+  // Extract ekspektasi kerja data
+  const ekspektasiKerjaData = profileData.ekspektasiKerja 
+    ? (typeof profileData.ekspektasiKerja === 'string' 
+      ? JSON.parse(profileData.ekspektasiKerja) 
+      : profileData.ekspektasiKerja) 
+    : null;
+    
+  // Format pendidikan for the profile
+  const formattedPendidikan = pendidikan?.map(p => ({
+    jenjangPendidikan: p.jenjangPendidikan,
+    namaInstitusi: p.namaInstitusi,
+    bidangStudi: p.bidangStudi,
+    tanggalLulus: p.tanggalLulus
+  }));
+  
+  // Format pengalaman kerja for the profile
+  const formattedPengalamanKerja = pengalamanKerja?.map(p => ({
+    posisi: p.posisi,
+    namaPerusahaan: p.namaPerusahaan,
+    tanggalMulai: p.tanggalMulai,
+    tanggalSelesai: p.tanggalSelesai,
+    deskripsiPekerjaan: p.deskripsiPekerjaan
+  }));
+  
   // Return formatted data
   return {
     jobDetails: {
@@ -145,7 +228,30 @@ export async function getJobApplicationPageData(jobId: string) {
     },
     profileData: {
       ...profileData,
-      pendidikanTerakhir: highestEducation
+      pendidikanTerakhir: highestEducation,
+      tanggalLahir: profileData.tanggalLahir,
+      jenisKelamin: profileData.jenisKelamin,
+      kotaDomisili: addresses?.[0]?.kota || null,
+      pengalamanKerjaTerakhir: latestExperience,
+      gajiTerakhir,
+      levelPengalaman: profileData.levelPengalaman,
+      ekspektasiGaji: ekspektasiKerjaData?.idealSalary ? {
+        min: typeof ekspektasiKerjaData.idealSalary === 'number' 
+          ? ekspektasiKerjaData.idealSalary
+          : parseFloat(ekspektasiKerjaData.idealSalary)
+      } : null,
+      preferensiLokasiKerja: ekspektasiKerjaData?.preferensiLokasiKerja 
+        ? (Array.isArray(ekspektasiKerjaData.preferensiLokasiKerja) 
+          ? ekspektasiKerjaData.preferensiLokasiKerja 
+          : [ekspektasiKerjaData.preferensiLokasiKerja]) 
+        : null,
+      preferensiJenisPekerjaan: ekspektasiKerjaData?.jobTypes 
+        ? (Array.isArray(ekspektasiKerjaData.jobTypes) 
+          ? ekspektasiKerjaData.jobTypes 
+          : ekspektasiKerjaData.jobTypes.split(',').map((type: string) => type.trim())) 
+        : null,
+      pendidikan: formattedPendidikan,
+      pengalamanKerja: formattedPengalamanKerja
     },
     applicationStatus: {
       hasApplied,

@@ -8,6 +8,37 @@ export interface JobApplicant {
   education?: "SD" | "SMP" | "SMA/SMK" | "D1" | "D2" | "D3" | "D4" | "S1" | "S2" | "S3";
   resumeUrl?: string;
   cvFileUrl?: string; // URL to the job seeker's CV file
+  
+  // New profile fields
+  tanggalLahir?: string;
+  jenisKelamin?: string;
+  kotaDomisili?: string;
+  pengalamanKerjaTerakhir?: { 
+    posisi?: string; 
+    namaPerusahaan?: string; 
+  };
+  gajiTerakhir?: number;
+  levelPengalaman?: string;
+  ekspektasiGaji?: { 
+    min?: number; 
+    max?: number;
+    negotiable?: boolean;
+  };
+  preferensiLokasiKerja?: string[];
+  preferensiJenisPekerjaan?: string[];
+  pendidikanFull?: Array<{ 
+    jenjangPendidikan?: string; 
+    namaInstitusi?: string; 
+    bidangStudi?: string; 
+    tanggalLulus?: string | Date; 
+  }>;
+  pengalamanKerjaFull?: Array<{ 
+    posisi?: string; 
+    namaPerusahaan?: string; 
+    tanggalMulai?: string | Date; 
+    tanggalSelesai?: string | Date; 
+    deskripsiPekerjaan?: string; 
+  }>;
 }
 
 export interface JobApplication {

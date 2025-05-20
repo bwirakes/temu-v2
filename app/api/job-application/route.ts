@@ -28,6 +28,39 @@ const applicationSchema = z.object({
     .optional(),
   resumeUrl: z.string().optional(),
   cvFileUrl: z.string().optional(),
+  tanggalLahir: z.string().optional(),
+  jenisKelamin: z.string().optional(),
+  kotaDomisili: z.string().optional(),
+  pendidikanFull: z.array(
+    z.object({
+      jenjangPendidikan: z.string().optional(),
+      namaInstitusi: z.string().optional(),
+      bidangStudi: z.string().optional(),
+      tanggalLulus: z.string().optional()
+    })
+  ).optional(),
+  pengalamanKerjaFull: z.array(
+    z.object({
+      posisi: z.string().optional(),
+      namaPerusahaan: z.string().optional(),
+      tanggalMulai: z.string().optional(),
+      tanggalSelesai: z.string().optional(),
+      deskripsiPekerjaan: z.string().optional()
+    })
+  ).optional(),
+  pengalamanKerjaTerakhir: z.object({
+    posisi: z.string().optional(),
+    namaPerusahaan: z.string().optional()
+  }).optional(),
+  gajiTerakhir: z.number().optional(),
+  levelPengalaman: z.string().optional(),
+  ekspektasiGaji: z.object({
+    min: z.number().optional(),
+    max: z.number().optional(),
+    negotiable: z.boolean().optional()
+  }).optional(),
+  preferensiLokasiKerja: z.array(z.string()).optional(),
+  preferensiJenisPekerjaan: z.array(z.string()).optional(),
 });
 
 /**
@@ -116,6 +149,17 @@ export async function POST(request: NextRequest) {
         education: data.education || null,
         resumeUrl: data.resumeUrl || null,
         cvFileUrl: data.cvFileUrl || null,
+        tanggalLahir: data.tanggalLahir || null,
+        jenisKelamin: data.jenisKelamin || null,
+        kotaDomisili: data.kotaDomisili || null,
+        pendidikanFull: data.pendidikanFull || null,
+        pengalamanKerjaFull: data.pengalamanKerjaFull || null,
+        pengalamanKerjaTerakhir: data.pengalamanKerjaTerakhir || null,
+        gajiTerakhir: data.gajiTerakhir || null,
+        levelPengalaman: data.levelPengalaman || null,
+        ekspektasiGaji: data.ekspektasiGaji || null,
+        preferensiLokasiKerja: data.preferensiLokasiKerja || null,
+        preferensiJenisPekerjaan: data.preferensiJenisPekerjaan || null,
       })
       .returning();
     

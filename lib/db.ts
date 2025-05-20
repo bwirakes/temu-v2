@@ -20,7 +20,8 @@ import {
   json,
   jsonb,
   primaryKey,
-  uniqueIndex
+  uniqueIndex,
+  date
 } from 'drizzle-orm/pg-core';
 import { count, eq, ilike, and } from 'drizzle-orm';
 import { createInsertSchema } from 'drizzle-zod';
@@ -308,6 +309,18 @@ export const jobApplications = pgTable('job_applications', {
   education: lastEducationEnum('education'),
   resumeUrl: text('resume_url'),
   cvFileUrl: text('cv_file_url'),
+  statusChangeReason: text('status_change_reason'),
+  tanggalLahir: date('tanggal_lahir'),
+  jenisKelamin: text('jenis_kelamin'),
+  kotaDomisili: text('kota_domisili'),
+  pendidikanFull: jsonb('pendidikan_full'),
+  pengalamanKerjaFull: jsonb('pengalaman_kerja_full'),
+  pengalamanKerjaTerakhir: jsonb('pengalaman_kerja_terakhir'),
+  gajiTerakhir: integer('gaji_terakhir'),
+  levelPengalaman: text('level_pengalaman'),
+  ekspektasiGaji: jsonb('ekspektasi_gaji'),
+  preferensiLokasiKerja: jsonb('preferensi_lokasi_kerja'),
+  preferensiJenisPekerjaan: jsonb('preferensi_jenis_pekerjaan'),
 }, (t) => {
   return {
     unqApplicantJob: uniqueIndex('unq_applicant_job').on(t.applicantProfileId, t.jobId),
@@ -540,10 +553,22 @@ export async function getJobApplicationsByApplicantProfileId(profileId: string) 
     .where(eq(jobApplications.applicantProfileId, profileId));
 }
 
-export async function updateJobApplicationStatus(applicationId: string, status: typeof applicationStatusEnum.enumValues[number]) {
+export async function updateJobApplicationStatus(
+  applicationId: string, 
+  status: typeof applicationStatusEnum.enumValues[number],
+  reason?: string
+) {
+  const updateData: { status: typeof applicationStatusEnum.enumValues[number]; statusChangeReason?: string | null } = {
+    status,
+  };
+
+  if (reason !== undefined) {
+    updateData.statusChangeReason = reason === "" ? null : reason;
+  }
+
   const [updatedApplication] = await db
     .update(jobApplications)
-    .set({ status })
+    .set(updateData)
     .where(eq(jobApplications.id, applicationId))
     .returning();
   return updatedApplication;

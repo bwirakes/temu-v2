@@ -17,6 +17,7 @@
     "remove-address-details": "node scripts/remove-address-details.js",
     "migration:run": "node scripts/run-migration.js",
     "migration:add-columns": "tsx scripts/run-db-migration.ts",
+    "migration:custom": "tsx scripts/run-custom-migration.ts",
     "drop-tables": "node scripts/run-drop-tables.js",
     "lint": "next lint"
   },
