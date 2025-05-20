@@ -42,7 +42,8 @@ export default function NotionHeader() {
     if (status === 'authenticated' || status === 'unauthenticated') {
       // Optional: Force a refresh when authentication status changes
       // This helps with session state synchronization
-      router.refresh();
+      // router.refresh(); // Removed to prevent excessive refreshes
+      // The useSession hook already handles component re-rendering on status changes
     }
   }, [status, router]);
 
