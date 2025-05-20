@@ -128,7 +128,7 @@ export const jobApplicationSchema = z.object({
       namaPerusahaan: z.string().optional(),
       tanggalMulai: z.union([z.string(), z.date()]).optional(),
       tanggalSelesai: z.union([z.string(), z.date()]).optional(),
-      deskripsiPekerjaan: z.string().optional(),
+      deskripsiPekerjaan: z.union([z.string(), z.null()]).optional(),
     })
   ).optional(),
 });
@@ -266,8 +266,7 @@ export const JobApplicationProvider = ({
     }
 
     try {
-      // Extract only the fields that are supported by the current database schema
-      // The new profile fields are maintained in the local state but not sent to the API yet
+      // Extract all form fields including the enriched profile data
       const applicantData = {
         fullName: data.fullName,
         email: data.email,
@@ -276,6 +275,19 @@ export const JobApplicationProvider = ({
         education: data.education,
         resumeUrl: data.resumeUrl || "",
         cvFileUrl: data.cvFileUrl || "", // Explicitly include cvFileUrl
+
+        // Include the enriched profile data fields
+        tanggalLahir: data.tanggalLahir,
+        jenisKelamin: data.jenisKelamin,
+        kotaDomisili: data.kotaDomisili,
+        pengalamanKerjaTerakhir: data.pengalamanKerjaTerakhir,
+        gajiTerakhir: data.gajiTerakhir,
+        levelPengalaman: data.levelPengalaman,
+        ekspektasiGaji: data.ekspektasiGaji,
+        preferensiLokasiKerja: data.preferensiLokasiKerja,
+        preferensiJenisPekerjaan: data.preferensiJenisPekerjaan,
+        pendidikanFull: data.pendidikanFull,
+        pengalamanKerjaFull: data.pengalamanKerjaFull,
       };
       
       // Use our JobApplicationService to save the application via API

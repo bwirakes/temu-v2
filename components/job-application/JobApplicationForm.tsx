@@ -13,8 +13,25 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { LoaderCircle, FileText, Download, Upload, X } from "lucide-react";
+import { 
+  LoaderCircle, 
+  FileText, 
+  Download, 
+  Upload, 
+  X, 
+  Calendar, 
+  User, 
+  MapPin, 
+  Briefcase, 
+  GraduationCap,
+  Building,
+  Wallet
+} from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
+import { format, parseISO } from "date-fns";
+import { id } from "date-fns/locale";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
 
 // Import our JobApplication context
 import { useJobApplication, jobApplicationSchema } from "@/lib/context/JobApplicationContext";
@@ -25,6 +42,27 @@ type ApplicationFormValues = z.infer<typeof jobApplicationSchema>;
 interface JobApplicationFormProps {
   jobId: string;
 }
+
+// Helper function to format date
+const formatDate = (dateString: string | Date | undefined | null) => {
+  if (!dateString) return "N/A";
+  try {
+    const date = typeof dateString === 'string' ? parseISO(dateString) : dateString;
+    return format(date, 'dd MMMM yyyy', { locale: id });
+  } catch (e) {
+    return String(dateString);
+  }
+};
+
+// Helper function to format currency
+const formatCurrency = (amount: number | undefined | null) => {
+  if (amount === undefined || amount === null) return "N/A";
+  return new Intl.NumberFormat("id-ID", {
+    style: "currency",
+    currency: "IDR",
+    maximumFractionDigits: 0,
+  }).format(amount);
+};
 
 export default function JobApplicationForm({ jobId }: JobApplicationFormProps) {
   // Use our job application context
@@ -332,6 +370,221 @@ export default function JobApplicationForm({ jobId }: JobApplicationFormProps) {
                     </FormItem>
                   )}
                 />
+              )}
+              
+              {/* Enhanced Profile Data Display Section */}
+              {data.shareData && (
+                <div className="mb-6 space-y-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <User className="h-5 w-5 text-blue-600" />
+                    <h3 className="text-lg font-medium">Informasi Profil Anda</h3>
+                  </div>
+                  <Separator />
+                  
+                  <div className="rounded-md border p-4">
+                    <div className="space-y-6">
+                      {/* Personal Information Section */}
+                      <div>
+                        <div className="flex items-center gap-2 pb-2 border-b mb-3">
+                          <User className="h-4 w-4 text-blue-500" />
+                          <h4 className="text-base font-medium">Informasi Pribadi</h4>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {data.tanggalLahir && (
+                            <div className="flex flex-col space-y-1">
+                              <p className="text-sm font-medium text-muted-foreground">Tanggal Lahir</p>
+                              <div className="flex items-center gap-2">
+                                <Calendar className="h-4 w-4 text-muted-foreground" />
+                                <p>{formatDate(data.tanggalLahir)}</p>
+                              </div>
+                            </div>
+                          )}
+                          
+                          {data.jenisKelamin && (
+                            <div className="flex flex-col space-y-1">
+                              <p className="text-sm font-medium text-muted-foreground">Jenis Kelamin</p>
+                              <div className="flex items-center gap-2">
+                                <User className="h-4 w-4 text-muted-foreground" />
+                                <p>{data.jenisKelamin}</p>
+                              </div>
+                            </div>
+                          )}
+                          
+                          {data.kotaDomisili && (
+                            <div className="flex flex-col space-y-1">
+                              <p className="text-sm font-medium text-muted-foreground">Domisili</p>
+                              <div className="flex items-center gap-2">
+                                <MapPin className="h-4 w-4 text-muted-foreground" />
+                                <p>{data.kotaDomisili}</p>
+                              </div>
+                            </div>
+                          )}
+                          
+                          {data.education && (
+                            <div className="flex flex-col space-y-1">
+                              <p className="text-sm font-medium text-muted-foreground">Pendidikan Terakhir</p>
+                              <div className="flex items-center gap-2">
+                                <GraduationCap className="h-4 w-4 text-muted-foreground" />
+                                <Badge variant="outline" className="font-normal">{data.education}</Badge>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      
+                      {/* Work Experience Section */}
+                      {(data.pengalamanKerjaTerakhir || data.levelPengalaman || data.gajiTerakhir) && (
+                        <div>
+                          <div className="flex items-center gap-2 pb-2 border-b mb-3">
+                            <Briefcase className="h-4 w-4 text-blue-500" />
+                            <h4 className="text-base font-medium">Pengalaman Kerja</h4>
+                          </div>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {data.pengalamanKerjaTerakhir && (
+                              <div className="flex flex-col space-y-1 col-span-2">
+                                <p className="text-sm font-medium text-muted-foreground">Pengalaman Kerja Terakhir</p>
+                                <div className="border rounded-md p-3">
+                                  <p className="font-medium">{data.pengalamanKerjaTerakhir.posisi || 'N/A'}</p>
+                                  <p className="text-sm text-muted-foreground">{data.pengalamanKerjaTerakhir.namaPerusahaan || 'N/A'}</p>
+                                </div>
+                              </div>
+                            )}
+                            
+                            {data.levelPengalaman && (
+                              <div className="flex flex-col space-y-1">
+                                <p className="text-sm font-medium text-muted-foreground">Level Pengalaman</p>
+                                <div className="flex items-center gap-2">
+                                  <Briefcase className="h-4 w-4 text-muted-foreground" />
+                                  <Badge>{data.levelPengalaman}</Badge>
+                                </div>
+                              </div>
+                            )}
+                            
+                            {data.gajiTerakhir !== undefined && data.gajiTerakhir !== null && (
+                              <div className="flex flex-col space-y-1">
+                                <p className="text-sm font-medium text-muted-foreground">Gaji Terakhir</p>
+                                <div className="flex items-center gap-2">
+                                  <Wallet className="h-4 w-4 text-muted-foreground" />
+                                  <p>{formatCurrency(data.gajiTerakhir)}</p>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                          
+                          {data.pengalamanKerjaFull && data.pengalamanKerjaFull.length > 0 && (
+                            <div className="mt-4">
+                              <p className="text-sm font-medium text-muted-foreground mb-2">Riwayat Pekerjaan:</p>
+                              <div className="space-y-3">
+                                {data.pengalamanKerjaFull.map((pengalaman, index) => (
+                                  <div key={index} className="border rounded-md p-3">
+                                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+                                      <p className="font-medium">{pengalaman.posisi || 'N/A'}</p>
+                                      <p className="text-sm text-muted-foreground">
+                                        {formatDate(pengalaman.tanggalMulai)} - {pengalaman.tanggalSelesai ? formatDate(pengalaman.tanggalSelesai) : 'Sekarang'}
+                                      </p>
+                                    </div>
+                                    <p className="text-sm">{pengalaman.namaPerusahaan || 'N/A'}</p>
+                                    {pengalaman.deskripsiPekerjaan && (
+                                      <p className="text-sm text-muted-foreground mt-2">{pengalaman.deskripsiPekerjaan}</p>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      
+                      {/* Education History Section */}
+                      {data.pendidikanFull && data.pendidikanFull.length > 0 && (
+                        <div>
+                          <div className="flex items-center gap-2 pb-2 border-b mb-3">
+                            <GraduationCap className="h-4 w-4 text-blue-500" />
+                            <h4 className="text-base font-medium">Riwayat Pendidikan</h4>
+                          </div>
+                          <div className="space-y-3">
+                            {data.pendidikanFull.map((pendidikan, index) => (
+                              <div key={index} className="border rounded-md p-3">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                  <div>
+                                    <p className="text-sm font-medium">{pendidikan.jenjangPendidikan || 'N/A'}</p>
+                                    <p className="text-sm text-muted-foreground">{pendidikan.namaInstitusi || 'N/A'}</p>
+                                  </div>
+                                  <div className="text-right">
+                                    <p className="text-sm text-muted-foreground">
+                                      {pendidikan.bidangStudi && <span className="font-medium">{pendidikan.bidangStudi}</span>}
+                                    </p>
+                                    <p className="text-sm text-muted-foreground">Lulus: {formatDate(pendidikan.tanggalLulus)}</p>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Preferences Section */}
+                      {(data.ekspektasiGaji || data.preferensiLokasiKerja || data.preferensiJenisPekerjaan) && (
+                        <div>
+                          <div className="flex items-center gap-2 pb-2 border-b mb-3">
+                            <Building className="h-4 w-4 text-blue-500" />
+                            <h4 className="text-base font-medium">Preferensi Pekerjaan</h4>
+                          </div>
+                          <div className="grid grid-cols-1 gap-4">
+                            {data.ekspektasiGaji && (
+                              <div className="flex flex-col space-y-1">
+                                <p className="text-sm font-medium text-muted-foreground">Ekspektasi Gaji</p>
+                                <div className="flex items-center gap-2">
+                                  <Wallet className="h-4 w-4 text-muted-foreground" />
+                                  <p>
+                                    {formatCurrency(data.ekspektasiGaji.min)}
+                                    {data.ekspektasiGaji.max && ` - ${formatCurrency(data.ekspektasiGaji.max)}`}
+                                    {data.ekspektasiGaji.negotiable && " (Dapat dinegosiasi)"}
+                                  </p>
+                                </div>
+                              </div>
+                            )}
+                            
+                            {data.preferensiLokasiKerja && data.preferensiLokasiKerja.length > 0 && (
+                              <div className="flex flex-col space-y-1">
+                                <p className="text-sm font-medium text-muted-foreground">Preferensi Lokasi Kerja</p>
+                                <div className="flex flex-wrap gap-1">
+                                  {data.preferensiLokasiKerja.map((lokasi, index) => (
+                                    <Badge key={index} variant="secondary" className="flex items-center gap-1">
+                                      <MapPin className="h-3 w-3" />
+                                      {lokasi}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            
+                            {data.preferensiJenisPekerjaan && data.preferensiJenisPekerjaan.length > 0 && (
+                              <div className="flex flex-col space-y-1">
+                                <p className="text-sm font-medium text-muted-foreground">Jenis Pekerjaan yang Diinginkan</p>
+                                <div className="flex flex-wrap gap-1">
+                                  {data.preferensiJenisPekerjaan.map((jenis, index) => (
+                                    <Badge key={index} variant="secondary" className="flex items-center gap-1">
+                                      <Briefcase className="h-3 w-3" />
+                                      {jenis}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="mt-6 p-3 bg-blue-50 rounded-md">
+                      <p className="text-sm text-blue-700">
+                        Data profil di atas akan disertakan dalam lamaran Anda. Jika Anda ingin mengedit data profil, silakan kunjungi
+                        <Link href="/job-seeker/profile" className="font-medium underline ml-1">halaman profil</Link>.
+                      </p>
+                    </div>
+                  </div>
+                </div>
               )}
               
               <FormField

@@ -46,7 +46,7 @@ interface ApplicationProfileData {
     namaPerusahaan?: string;
     tanggalMulai?: string | Date;
     tanggalSelesai?: string | Date;
-    deskripsiPekerjaan?: string;
+    deskripsiPekerjaan?: string | null;
   }>;
 }
 

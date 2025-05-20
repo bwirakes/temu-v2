@@ -45,7 +45,7 @@ const applicationSchema = z.object({
       namaPerusahaan: z.string().optional(),
       tanggalMulai: z.string().optional(),
       tanggalSelesai: z.string().optional(),
-      deskripsiPekerjaan: z.string().optional()
+      deskripsiPekerjaan: z.union([z.string(), z.null()]).optional()
     })
   ).optional(),
   pengalamanKerjaTerakhir: z.object({
