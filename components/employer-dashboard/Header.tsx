@@ -88,7 +88,7 @@ export default function Header({ toggleSidebar, isSidebarOpen }: HeaderProps) {
               <DropdownMenuLabel>Akun Saya</DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem>
-                <Link href={isEmployerArea ? "/employer/profile" : "/job-seeker/profile"} className="w-full flex">
+                <Link href={isEmployerArea ? "/employer/settings" : "/job-seeker/profile"} className="w-full flex">
                   Profil
                 </Link>
               </DropdownMenuItem>

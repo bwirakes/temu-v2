@@ -116,33 +116,33 @@ export async function middleware(request: NextRequest) {
     const userType = user.userType;
     
     // ##########################################
-    // MINIMAL USER TYPE CHECK
+    // USER TYPE BASED REDIRECTIONS & ACCESS CONTROL
     // ##########################################
-    const userPrefix = userType === 'job_seeker' ? '/job-seeker' : '/employer';
+    const userDashboard = userType === 'job_seeker' ? '/job-seeker/dashboard' : '/employer/dashboard';
     const otherUserTypePrefix = userType === 'job_seeker' ? '/employer' : '/job-seeker';
     
-    // Only prevent accessing wrong user type routes
-    if (pathname.startsWith(otherUserTypePrefix)) {
-      return NextResponse.redirect(new URL('/', request.url));
+    // Prevent accessing the wrong user type's area
+    if (pathname.startsWith(otherUserTypePrefix) && !pathname.startsWith(`${otherUserTypePrefix}/onboarding/success`)) { // Allow success page for both
+      console.log(`Redirecting user with type ${userType} from ${pathname} to /`);
+      return NextResponse.redirect(new URL('/', request.url)); // Redirect to homepage, which will then redirect to correct dashboard
     }
 
-    // ##########################################
-    // ROOT REDIRECT
-    // ##########################################
-    // Only handle the root path - other paths are handled by client components
+    // Redirect root path to the appropriate dashboard
     if (pathname === '/') {
-      return NextResponse.redirect(new URL(`${userPrefix}/dashboard`, request.url));
+      return NextResponse.redirect(new URL(userDashboard, request.url));
     }
     
-    // Handle /job-seeker base route
+    // Redirect /job-seeker base route to its dashboard
     if (pathname === '/job-seeker') {
       return NextResponse.redirect(new URL(`/job-seeker/dashboard`, request.url));
     }
     
-    // Note: We no longer redirect /employer to /employer/dashboard
-    // This allows /employer to serve as the employer profile page
+    // Redirect /employer base route to its dashboard
+    if (pathname === '/employer') {
+      return NextResponse.redirect(new URL(`/employer/dashboard`, request.url));
+    }
 
-    // Allow access for all other paths - let the client handle navigation
+    // Allow access for all other paths if user type matches or it's a shared authenticated path
     return NextResponse.next();
   } catch (error) {
     console.error('Middleware error:', error);

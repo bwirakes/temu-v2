@@ -385,9 +385,6 @@ export default function EmployerSettingsClientPage({
                 </div>
                 <h3 className="text-lg font-medium">{userName}</h3>
                 <p className="text-sm text-muted-foreground">{userEmail}</p>
-                <Button variant="outline" className="mt-4 w-full">
-                  Ubah Kata Sandi
-                </Button>
               </div>
             </CardContent>
           </Card>

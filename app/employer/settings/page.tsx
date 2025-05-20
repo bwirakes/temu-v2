@@ -15,7 +15,9 @@ export default async function EmployerSettingsPage() {
 
   if (!user) {
     redirect(`/auth/signin?callbackUrl=${encodeURIComponent('/employer/settings')}`);
-    return null;
+    // Next.js redirect is an exception, so return null to satisfy TypeScript if needed,
+    // though redirect() will terminate rendering.
+    return null; 
   }
 
   if (user.userType !== 'employer') {
@@ -24,7 +26,6 @@ export default async function EmployerSettingsPage() {
   }
 
   const profileData = await getEmployerProfileData();
-  console.log("Server component profileData:", profileData);
 
   // If profileData is null (critical error in action), it will be handled by getEmployerProfileData's error handling (e.g. redirect)
   // or the client page can show a generic error.
@@ -35,21 +36,21 @@ export default async function EmployerSettingsPage() {
         <div className="p-4 md:p-6 max-w-2xl mx-auto">
             <Alert variant="destructive">
                 <Terminal className="h-4 w-4" />
-                <AlertTitle>Error</AlertTitle>
+                <AlertTitle>Kesalahan</AlertTitle>
                 <AlertDescription>
-                    Could not load profile data. Please try again later.
-                    If the issue persists, contact support.
+                    Tidak dapat memuat data profil. Silakan coba lagi nanti.
+                    Jika masalah berlanjut, hubungi dukungan.
                 </AlertDescription>
             </Alert>
         </div>
     );
   }
 
-  const userName = user.name || 'User';
-  const userEmail = user.email || 'No email provided';
+  const userName = user.name || 'Pengguna';
+  const userEmail = user.email || 'Email tidak tersedia';
 
   return (
-    <Suspense fallback={<div className="flex justify-center items-center h-screen"><Loader2 className="h-8 w-8 animate-spin" /> <span className="ml-2">Loading Settings...</span></div>}>
+    <Suspense fallback={<div className="flex justify-center items-center h-screen"><Loader2 className="h-8 w-8 animate-spin" /> <span className="ml-2">Memuat Pengaturan...</span></div>}>
       <EmployerSettingsClientPage
         initialProfileData={profileData}
         userName={userName}
