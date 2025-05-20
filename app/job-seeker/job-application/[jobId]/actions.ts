@@ -7,8 +7,53 @@ import {
   getJobByHumanId, 
   getUserPendidikanByProfileId, 
   getJobWorkLocationsByJobId, 
-  getEmployerById
+  getEmployerById,
+  db,
+  jobApplications
 } from "@/lib/db";
+import { eq, and } from "drizzle-orm";
+
+// Add back the required types
+export interface JobDetails {
+  id: string;
+  jobId: string;
+  jobTitle: string;
+  contractType: string;
+  minWorkExperience: number;
+  salaryRange: { min?: number; max?: number; isNegotiable?: boolean; };
+  lastEducation?: string;
+  requiredCompetencies?: string;
+  numberOfPositions?: number;
+  applicationDeadline?: Date;
+  workLocations: { city: string; province: string; isRemote: boolean; }[];
+  companyInfo: {
+    name: string;
+    industry: string;
+    address: string;
+    website?: string;
+    logoUrl?: string;
+    socialMedia?: any;
+    description?: string;
+  };
+}
+
+export interface JobSeekerProfileData {
+  id: string;
+  namaLengkap: string;
+  email: string;
+  nomorTelepon: string;
+  cvFileUrl?: string | null;
+  cvUploadDate?: string | Date | null;
+  pendidikanTerakhir?: string;
+}
+
+// Application status interface
+export interface ApplicationStatus {
+  hasApplied: boolean;
+  referenceCode?: string;
+  applicationDate?: Date;
+  status?: string;
+}
 
 // Minimal data fetcher for job application
 export async function getJobApplicationPageData(jobId: string) {
@@ -43,6 +88,33 @@ export async function getJobApplicationPageData(jobId: string) {
     highestEducation = sorted[0]?.jenjangPendidikan;
   }
   
+  // Check if the user has already applied for this job
+  const existingApplications = await db
+    .select()
+    .from(jobApplications)
+    .where(
+      and(
+        eq(jobApplications.applicantProfileId, profileData.id),
+        eq(jobApplications.jobId, job.id)
+      )
+    );
+  
+  const hasApplied = existingApplications.length > 0;
+  
+  // Generate reference code if the user has applied
+  let referenceCode = '';
+  if (hasApplied && existingApplications[0]) {
+    const applicationId = existingApplications[0].id;
+    
+    // Format: APP-{FIRST 5 CHARS OF UUID}-{YYMMDD}
+    const date = new Date();
+    const year = date.getFullYear().toString().slice(-2);
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const shortId = applicationId.substring(0, 5).toUpperCase();
+    referenceCode = `APP-${shortId}-${year}${month}${day}`;
+  }
+  
   // Return formatted data
   return {
     jobDetails: {
@@ -74,6 +146,13 @@ export async function getJobApplicationPageData(jobId: string) {
     profileData: {
       ...profileData,
       pendidikanTerakhir: highestEducation
+    },
+    applicationStatus: {
+      hasApplied,
+      referenceCode: hasApplied ? referenceCode : undefined,
+      applicationDate: hasApplied && 'createdAt' in existingApplications[0] ? 
+        existingApplications[0].createdAt as Date : undefined, 
+      status: hasApplied ? existingApplications[0].status : undefined
     }
   };
 } 

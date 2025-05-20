@@ -3,9 +3,10 @@ import { auth } from '@/lib/auth';
 import { CustomSession } from '@/lib/types';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, CheckCircle } from 'lucide-react';
 import JobApplicationClientShell from './components/job-application-client-shell';
-import { getJobApplicationPageData } from './actions';
+import { getJobApplicationPageData, JobDetails } from './actions';
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 
 // Define proper params interface
 interface PageParams {
@@ -42,15 +43,51 @@ export default async function JobSeekerApplicationPage({ params }: PageParams) {
   
   try {
     // Get application data
-    const { jobDetails, profileData } = await getJobApplicationPageData(jobId);
+    const { jobDetails, profileData, applicationStatus } = await getJobApplicationPageData(jobId);
     
-    // Format profile data
+    // Check if user has already applied - show success message if applied
+    if (applicationStatus?.hasApplied) {
+      return (
+        <div className="max-w-md mx-auto p-4 mt-8">
+          <Card>
+            <CardHeader className="text-center">
+              <div className="mx-auto bg-green-100 rounded-full p-3 w-16 h-16 flex items-center justify-center mb-4">
+                <CheckCircle className="h-8 w-8 text-green-600" />
+              </div>
+              <CardTitle>Anda Telah Melamar!</CardTitle>
+              <p className="text-gray-500 mt-2">
+                Kode Referensi: <span className="font-bold">{applicationStatus.referenceCode || 'APP-XXXXX'}</span>
+              </p>
+            </CardHeader>
+            
+            <CardContent>
+              <p className="text-sm text-gray-600">
+                Anda telah melamar untuk posisi <span className="font-medium">{jobDetails.jobTitle}</span> di
+                perusahaan <span className="font-medium">{jobDetails.companyInfo.name}</span>.
+                Tim rekrutmen akan meninjau lamaran Anda dalam 5-7 hari kerja.
+              </p>
+            </CardContent>
+            
+            <CardFooter className="flex justify-center">
+              <Button asChild>
+                <Link href="/job-seeker/jobs">
+                  <ArrowLeft className="mr-2" /> Kembali ke Lowongan
+                </Link>
+              </Button>
+            </CardFooter>
+          </Card>
+        </div>
+      );
+    }
+    
+    // Format profile data for the client component
     const applicationProfileData = profileData ? {
       fullName: profileData.namaLengkap,
       email: profileData.email,
       phone: profileData.nomorTelepon,
       cvFileUrl: profileData.cvFileUrl || undefined,
-      education: profileData.pendidikanTerakhir as any
+      // Convert education type correctly
+      education: profileData.pendidikanTerakhir as "SD" | "SMP" | "SMA/SMK" | "D1" | "D2" | "D3" | "D4" | "S1" | "S2" | "S3" | undefined
     } : undefined;
     
     // Render application form
@@ -66,7 +103,7 @@ export default async function JobSeekerApplicationPage({ params }: PageParams) {
         
         <JobApplicationClientShell 
           jobId={jobId}
-          jobDetails={jobDetails as any}
+          jobDetails={jobDetails}
           applicationProfileData={applicationProfileData}
         />
       </div>

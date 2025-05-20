@@ -328,7 +328,7 @@ async function JobDetail({ employerId, jobId }: { employerId: string; jobId: str
         {/* Apply button */}
         <CardFooter className="border-t pt-4">
           <Link
-            href={`/job-application/${jobId}`}
+            href={`/job-seeker/job-application/${jobId}`}
             className="w-full"
           >
             <Button className="w-full" size="lg">

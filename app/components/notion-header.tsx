@@ -3,12 +3,13 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { useState, useEffect } from 'react';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 
 export default function NotionHeader() {
   const [scrolled, setScrolled] = useState(false);
   const pathname = usePathname();
+  const router = useRouter();
   
   // Use the session with the { required: false } option to avoid multiple unnecessary API calls
   const { data: session, status } = useSession({ required: false });
@@ -34,6 +35,16 @@ export default function NotionHeader() {
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, [scrolled, isEmployerArea, isJobSeekerArea]);
+
+  // Force a router refresh when session status changes
+  useEffect(() => {
+    // This will help re-render the component when auth state changes
+    if (status === 'authenticated' || status === 'unauthenticated') {
+      // Optional: Force a refresh when authentication status changes
+      // This helps with session state synchronization
+      router.refresh();
+    }
+  }, [status, router]);
 
   // Determine dashboard link based on user type and onboarding status
   const userType = session?.user ? (session.user as any).userType : null;
