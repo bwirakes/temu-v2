@@ -38,4 +38,14 @@ next-env.d.ts
 
 # migration files
 migration.sh
-.migration.sh 
+.migration.sh
+
+# employer upload scripts
+/scripts/upload-employers.ts
+/scripts/upload-employers-ssl.ts
+/scripts/test-upload-employers.sh
+/scripts/test-upload-employers-ssl.sh
+/scripts/tsconfig.json
+/scripts/sample-employers.csv
+/scripts/README-upload-employers.md
+/created_employers_log.csv 

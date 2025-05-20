@@ -34,7 +34,7 @@ import {
 } from "@/lib/actions/employer/profile";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { EmployerProfileData } from "@/lib/actions/employer/profile";
+import { EmployerProfileData } from "@/lib/schemas/employer-profile";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 // Define form schema using Zod
