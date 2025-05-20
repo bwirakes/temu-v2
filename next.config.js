@@ -19,7 +19,7 @@ module.exports = {
       },
       {
         protocol: 'https',
-        hostname: 'via.placeholder.com',
+        hostname: 'placehold.co',
         search: ''
       },
       {
@@ -30,11 +30,6 @@ module.exports = {
       {
         protocol: 'http',
         hostname: 'localhost',
-        search: ''
-      },
-      {
-        protocol: 'https',
-        hostname: 'placehold.co',
         search: ''
       }
     ]

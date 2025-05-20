@@ -134,10 +134,13 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL(`${userPrefix}/dashboard`, request.url));
     }
     
-    // Handle /job-seeker or /employer base routes
-    if (pathname === userPrefix) {
-      return NextResponse.redirect(new URL(`${userPrefix}/dashboard`, request.url));
+    // Handle /job-seeker base route
+    if (pathname === '/job-seeker') {
+      return NextResponse.redirect(new URL(`/job-seeker/dashboard`, request.url));
     }
+    
+    // Note: We no longer redirect /employer to /employer/dashboard
+    // This allows /employer to serve as the employer profile page
 
     // Allow access for all other paths - let the client handle navigation
     return NextResponse.next();
