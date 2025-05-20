@@ -199,6 +199,7 @@ export const JobApplicationProvider = ({
 
   // Submit application with database save
   const submitApplication = useCallback(async () => {
+    // Validate form
     const errors = validate();
     if (Object.keys(errors).length > 0) {
       return Promise.reject(errors);
@@ -207,36 +208,33 @@ export const JobApplicationProvider = ({
     try {
       setIsSubmitting(true);
       
-      // Get the applicant profile ID
+      // Get profile ID
       const res = await fetch('/api/job-seeker/profile');
       if (!res.ok) {
-        const responseData = await res.json();
-        throw new Error(responseData.error || "Failed to get applicant profile");
+        throw new Error("Failed to get profile");
       }
       
       const { id: applicantProfileId } = await res.json();
       
-      // Save to database and get reference code
+      // Save application
       const { referenceCode } = await saveApplicationToDatabase(applicantProfileId);
       
-      // Navigate to the success page with the reference code
-      router.push(`/job-seeker/job-application/success?reference=${referenceCode}`);
+      // DIRECT NAVIGATION: Most reliable way to navigate without router interference
+      if (typeof window !== 'undefined') {
+        // Use location.replace to ensure no history entry is created
+        window.location.replace(`/job-seeker/job-application/success?reference=${referenceCode}`);
+      }
       
       return Promise.resolve();
     } catch (error) {
-      console.error("Error submitting application:", error);
-      
-      // Create a more helpful error object for the form component
-      if (error instanceof Error) {
-        const errorMessage = error.message || "Failed to submit application. Please try again.";
-        return Promise.reject({ form: errorMessage });
-      }
-      
-      return Promise.reject({ form: "Failed to submit application. Please try again." });
+      console.error("Error:", error);
+      return Promise.reject({ 
+        form: error instanceof Error ? error.message : "Failed to submit"
+      });
     } finally {
       setIsSubmitting(false);
     }
-  }, [validate, router, saveApplicationToDatabase]);
+  }, [validate, saveApplicationToDatabase]);
 
   // Clear form data
   const clearForm = useCallback(() => {

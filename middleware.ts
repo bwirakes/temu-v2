@@ -26,7 +26,9 @@ const PUBLIC_ROUTES = [
   '/auth/signup', 
   '/careers',
   '/about',
-  '/login'
+  '/login',
+  '/job-application',
+  '/job-seeker/job-application'  // Add the job-seeker path explicitly
 ];
 
 // Routes that should completely bypass middleware
@@ -38,6 +40,9 @@ const BYPASS_ROUTES = [
   '/favicon.ico',
   '.svg',
   '/images/',
+  // Completely bypass all job application routes to prevent redirect loops
+  '/job-application/',
+  '/job-seeker/job-application/',
 ];
 
 export async function middleware(request: NextRequest) {
@@ -50,6 +55,20 @@ export async function middleware(request: NextRequest) {
   // This ensures routes like /api/auth/apply are never redirected
   // ##########################################
   if (shouldBypassMiddleware(pathname)) {
+    return NextResponse.next();
+  }
+
+  // ##########################################
+  // SIMPLIFIED JOB APPLICATION FLOW:
+  // Don't interfere with the job application flow at all,
+  // let the pages handle their own auth checks
+  // ##########################################
+  if (
+    pathname.startsWith('/job-application/') || 
+    pathname.startsWith('/job-seeker/job-application/') ||
+    pathname === '/job-application' ||
+    pathname === '/job-seeker/job-application'
+  ) {
     return NextResponse.next();
   }
 
@@ -139,19 +158,27 @@ export async function middleware(request: NextRequest) {
 function shouldBypassMiddleware(pathname: string): boolean {
   // First check for API routes (most important for performance)
   if (pathname.startsWith('/api/')) {
-    // This ensures routes like /api/auth/apply are never redirected
     return true;
   }
   
-  // Check AUTH_ROUTES to ensure signin/signup pages are accessible
+  // MOST IMPORTANT: Job application routes bypass middleware
+  if (
+    pathname.startsWith('/job-application/') || 
+    pathname.startsWith('/job-seeker/job-application/') ||
+    pathname === '/job-application' ||
+    pathname === '/job-seeker/job-application'
+  ) {
+    return true;
+  }
+  
+  // Check AUTH_ROUTES
   for (const route of AUTH_ROUTES) {
     if (pathname === route || pathname.startsWith(`${route}/`)) {
-      // This ensures auth pages like /auth/signin with callbackUrl are not interrupted
       return true;
     }
   }
   
-  // Then check other bypass routes
+  // Check bypass routes
   for (const route of BYPASS_ROUTES) {
     if (
       pathname === route || 
@@ -190,11 +217,10 @@ function getSimpleRedirectPath(pathname: string): string | null {
 // Middleware matcher configuration
 export const config = {
   matcher: [
-    // Basic routes we want the middleware to handle
+    // Basic routes
     '/',
     '/job-seeker',
     '/employer',
-    '/job-seeker/:path*',
     '/employer/:path*',
     '/api/onboarding/:path*',
     '/onboarding/:path*',

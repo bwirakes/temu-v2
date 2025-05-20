@@ -1,17 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { jobApplicationService } from '@/lib/services/JobApplicationService';
-
-// Define the session type to match what's in lib/auth.ts
-interface CustomSession {
-  user?: {
-    id?: string;
-    name?: string | null;
-    email?: string | null;
-    image?: string | null;
-    userType?: 'job_seeker' | 'employer';
-  };
-}
+import { CustomSession } from '@/lib/types';
 
 // GET endpoint to fetch a specific application by ID
 export async function GET(request: NextRequest, props: { params: Promise<{ id: string }> }) {

@@ -1,57 +1,84 @@
-import { ArrowLeft } from 'lucide-react';
+import { redirect } from 'next/navigation';
+import { auth } from '@/lib/auth';
+import { CustomSession } from '@/lib/types';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { notFound } from 'next/navigation';
-
-// Import server action
-import { getJobApplicationPageData, JobDetails, JobSeekerProfileData } from './actions';
-
-// Import the client shell component
+import { ArrowLeft } from 'lucide-react';
 import JobApplicationClientShell from './components/job-application-client-shell';
+import { getJobApplicationPageData } from './actions';
 
-// Use proper type definition for the page component with Promise<params>
-export default async function JobSeekerApplicationPage({ 
-  params 
-}: { 
-  params: Promise<{ jobId: string }> 
-}) {
+// Define proper params interface
+interface PageParams {
+  params: Promise<{ jobId: string }>;
+}
+
+/**
+ * Job Application Page - Server Component
+ */
+export default async function JobSeekerApplicationPage({ params }: PageParams) {
+  // In Next.js 15, params must be awaited
   const resolvedParams = await params;
-  const { jobId } = resolvedParams;
+  const jobId = resolvedParams.jobId;
   
-  // Use the server action to fetch all necessary data
-  // This will handle authentication, profile checks, and redirects as needed
-  // If getJobApplicationPageData() calls notFound(), it will automatically propagate up
-  const { jobDetails, profileData } = await getJobApplicationPageData(jobId);
+  // Get authentication
+  const session = await auth() as CustomSession;
   
-  // Prepare profile data for the JobApplicationProvider
-  const applicationProfileData = profileData ? {
-    fullName: profileData.namaLengkap,
-    email: profileData.email,
-    phone: profileData.nomorTelepon,
-    cvFileUrl: profileData.cvFileUrl || undefined,
-    education: profileData.pendidikanTerakhir as "SD" | "SMP" | "SMA/SMK" | "D1" | "D2" | "D3" | "D4" | "S1" | "S2" | "S3" | undefined
-  } : undefined;
+  // If not authenticated, redirect to sign-in
+  if (!session?.user) {
+    const callbackUrl = `/job-seeker/job-application/${jobId}`;
+    return redirect(`/auth/signin?callbackUrl=${encodeURIComponent(callbackUrl)}`);
+  }
   
-  return (
-    <div className="min-h-screen w-full bg-white">
-      <div className="w-full">
-        {/* Back button in top-left */}
-        <div className="sticky top-0 z-10 bg-white p-4 border-b">
-          <Button variant="ghost" asChild className="p-2 -ml-2">
+  // If wrong user type, show error
+  if (session.user.userType !== 'job_seeker') {
+    return (
+      <div className="p-8 text-center">
+        <h1 className="text-xl font-bold text-red-600 mb-4">Akses Ditolak</h1>
+        <p className="mb-4">Anda harus masuk sebagai pencari kerja.</p>
+        <Button asChild><Link href="/careers">Kembali</Link></Button>
+      </div>
+    );
+  }
+  
+  try {
+    // Get application data
+    const { jobDetails, profileData } = await getJobApplicationPageData(jobId);
+    
+    // Format profile data
+    const applicationProfileData = profileData ? {
+      fullName: profileData.namaLengkap,
+      email: profileData.email,
+      phone: profileData.nomorTelepon,
+      cvFileUrl: profileData.cvFileUrl || undefined,
+      education: profileData.pendidikanTerakhir as any
+    } : undefined;
+    
+    // Render application form
+    return (
+      <div className="bg-white">
+        <div className="p-4 border-b">
+          <Button variant="ghost" asChild>
             <Link href="/job-seeker/jobs">
-              <ArrowLeft className="h-5 w-5" />
-              <span className="ml-1">Kembali</span>
+              <ArrowLeft className="mr-2" /> Kembali
             </Link>
           </Button>
         </div>
         
-        {/* Client-side component with all the necessary data */}
         <JobApplicationClientShell 
           jobId={jobId}
-          jobDetails={jobDetails}
+          jobDetails={jobDetails as any}
           applicationProfileData={applicationProfileData}
         />
       </div>
-    </div>
-  );
+    );
+  } catch (error) {
+    console.error("Error loading application:", error);
+    return (
+      <div className="p-8 text-center">
+        <h1 className="text-xl font-bold text-red-600 mb-4">Error</h1>
+        <p className="mb-4">Terjadi kesalahan saat memuat aplikasi.</p>
+        <Button asChild><Link href="/careers">Kembali</Link></Button>
+      </div>
+    );
+  }
 } 
