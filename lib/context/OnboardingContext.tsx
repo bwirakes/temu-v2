@@ -216,81 +216,83 @@ export const OnboardingProvider = ({ children }: { children: ReactNode }) => {
 
   // Submit all onboarding data to backend for final processing
   const submitOnboardingData = useCallback(async (): Promise<boolean> => {
+    if (!data) return false;
+
     try {
-      setSubmissionError(null);
       setIsSubmitting(true);
-      
-      console.log("Preparing onboarding data for submission...");
-      
-      // Create a copy of data to submit (excluding non-serializable fields)
-      const submissionData = { ...data };
-      delete submissionData.cvFile;
-      delete submissionData.profilePhotoFile;
-      
-      // Ensure undefined values are properly handled
-      // Normalize pendidikan data
-      if (submissionData.pendidikan) {
-        submissionData.pendidikan = submissionData.pendidikan.map(pendidikan => ({
-          ...pendidikan,
-          // Only include required fields and provided optional fields
-          jenjangPendidikan: pendidikan.jenjangPendidikan,
-          bidangStudi: pendidikan.bidangStudi,
-          namaInstitusi: pendidikan.namaInstitusi || undefined,
-          lokasi: pendidikan.lokasi || undefined,
-          tanggalLulus: pendidikan.tanggalLulus || undefined,
-          // Remove deskripsiTambahan field
-          // Remove nilaiAkhir as requested
-          nilaiAkhir: undefined
-        }));
-      }
-      
-      // Normalize pengalaman kerja data
-      if (submissionData.pengalamanKerja) {
-        submissionData.pengalamanKerja = submissionData.pengalamanKerja.map(pengalaman => ({
-          ...pengalaman,
-          // Only include required fields and provided optional fields
-          namaPerusahaan: pengalaman.namaPerusahaan,
-          posisi: pengalaman.posisi,
-          tanggalMulai: pengalaman.tanggalMulai,
-          tanggalSelesai: pengalaman.tanggalSelesai,
-          deskripsiPekerjaan: pengalaman.deskripsiPekerjaan || undefined,
-          alasanKeluar: pengalaman.alasanKeluar || undefined,
-          lokasiKerja: pengalaman.lokasiKerja || undefined,
-          lokasi: pengalaman.lokasi || undefined,
-          levelPengalaman: pengalaman.levelPengalaman || undefined
-        }));
-      }
+
+      // Normalize any null or undefined fields
+      // Note: Server-side validation will handle required fields
+      const normalizedPendidikan = data.pendidikan.map((pendidikan) => {
+        // Create a clean object with only the fields we need
+        const pendidikanObj = {
+          id: pendidikan.id || `temp-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+          namaInstitusi: pendidikan.namaInstitusi || '',
+          jenjangPendidikan: pendidikan.jenjangPendidikan || '',
+          bidangStudi: pendidikan.bidangStudi || '',
+          lokasi: pendidikan.lokasi || '',
+          tanggalLulus: pendidikan.tanggalLulus || null,
+          tidakLulus: pendidikan.tidakLulus || false,
+          // Explicitly exclude deskripsiTambahan and nilaiAkhir
+        };
+        
+        return pendidikanObj;
+      });
+
+      // Normalize pengalaman kerja data based on PengalamanKerja type from db-types.ts
+      const normalizedPengalamanKerja = data.pengalamanKerja.map(pengalaman => ({
+        id: pengalaman.id || `temp-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+        namaPerusahaan: pengalaman.namaPerusahaan || '',
+        posisi: pengalaman.posisi || '',
+        tanggalMulai: pengalaman.tanggalMulai || '',
+        tanggalSelesai: pengalaman.tanggalSelesai || '',
+        deskripsiPekerjaan: pengalaman.deskripsiPekerjaan || '',
+        lokasiKerja: pengalaman.lokasiKerja as LokasiKerja,
+        lokasi: pengalaman.lokasi || '',
+        gajiTerakhir: pengalaman.gajiTerakhir,
+        alasanKeluar: pengalaman.alasanKeluar,
+        levelPengalaman: pengalaman.levelPengalaman
+      }));
       
       // Normalize tempatLahir
-      submissionData.tempatLahir = submissionData.tempatLahir || null;
+      const normalizedTempatLahir = data.tempatLahir || null;
       
       // Normalize alamat data
-      if (submissionData.alamat) {
-        submissionData.alamat = {
-          kota: submissionData.alamat.kota || undefined,
-          provinsi: submissionData.alamat.provinsi || undefined,
-          kodePos: submissionData.alamat.kodePos || undefined,
-          jalan: submissionData.alamat.jalan || undefined
-        };
-      }
+      const normalizedAlamat = data.alamat ? {
+        kota: data.alamat.kota || undefined,
+        provinsi: data.alamat.provinsi || undefined,
+        kodePos: data.alamat.kodePos || undefined,
+        jalan: data.alamat.jalan || undefined
+      } : undefined;
       
-      // Before sending, convert the data to JSON and back to handle any remaining issues
-      const preparedData = JSON.parse(JSON.stringify(submissionData));
+      // Create the complete submission data
+      const submissionData = {
+        ...data,
+        pendidikan: normalizedPendidikan,
+        pengalamanKerja: normalizedPengalamanKerja,
+        tempatLahir: normalizedTempatLahir,
+        alamat: normalizedAlamat,
+      };
       
-      // Send the complete data to the backend
-      console.log("Submitting onboarding data to /api/job-seeker/onboarding/submit");
-      const response = await fetch("/api/job-seeker/onboarding/submit", {
-        method: "POST",
+      // Remove non-serializable fields that should be uploaded separately
+      delete submissionData.cvFile;
+      delete submissionData.profilePhotoFile;
+
+      console.log("Submitting onboarding data:", JSON.stringify(submissionData));
+      
+      // Send the data to the API
+      const res = await fetch('/api/job-seeker/onboarding/submit', {
+        method: 'POST',
         headers: {
-          "Content-Type": "application/json",
+          'Content-Type': 'application/json',
         },
-        body: JSON.stringify(preparedData),
+        body: JSON.stringify(submissionData),
       });
-      
+
       // Parse the response
       let responseData;
       try {
-        responseData = await response.json();
+        responseData = await res.json();
       } catch (parseError) {
         console.error("Error parsing API response:", parseError);
         setSubmissionError("Invalid response from server");
@@ -299,8 +301,8 @@ export const OnboardingProvider = ({ children }: { children: ReactNode }) => {
       }
       
       // Handle error responses
-      if (!response.ok) {
-        console.error(`API error (${response.status}):`, responseData);
+      if (!res.ok) {
+        console.error(`API error (${res.status}):`, responseData);
         
         // Format and display errors
         if (responseData.errors) {
@@ -310,9 +312,9 @@ export const OnboardingProvider = ({ children }: { children: ReactNode }) => {
           
           setSubmissionError(`Validasi gagal: ${errorMessages}`);
         } else if (responseData.error) {
-          setSubmissionError(`${responseData.error}: ${responseData.message || response.statusText}`);
+          setSubmissionError(`${responseData.error}: ${responseData.message || res.statusText}`);
         } else {
-          setSubmissionError(`Failed to submit data: ${response.statusText}`);
+          setSubmissionError(`Failed to submit data: ${res.statusText}`);
         }
         
         setIsSubmitting(false);

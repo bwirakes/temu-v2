@@ -6,13 +6,26 @@ import {
   userPengalamanKerja, 
   userPendidikan, 
   updateUserOnboardingStatus,
-  getJobSeekerByUserId
+  getJobSeekerByUserId,
+  levelPengalamanEnum,
+  lokasiKerjaEnum
 } from "@/lib/db";
 import { eq } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { CustomSession } from "@/lib/types";
 import * as z from "zod";
 import { invalidateOnboardingCache } from '@/lib/db-edge';
+import crypto from "crypto";
+import { OnboardingData } from "@/lib/db-types";
+
+/**
+ * Gets the current authenticated user from the session
+ * @returns The user object if authenticated, null otherwise
+ */
+async function getSessionUser() {
+  const session = await auth() as CustomSession;
+  return session?.user || null;
+}
 
 // Define validation schema for the complete onboarding data
 const requiredProfileSchema = z.object({
@@ -23,7 +36,7 @@ const requiredProfileSchema = z.object({
   
   // Step 2: Informasi Lanjutan (Required)
   tanggalLahir: z.string().min(1, "Tanggal lahir wajib diisi"),
-  tempatLahir: z.string().optional(),
+  tempatLahir: z.string().nullable().optional(),
   jenisKelamin: z.string().nullable().optional(),
   
   // Step 4: Level Pengalaman (Required)
@@ -48,14 +61,14 @@ const addressSchema = z.object({
 
 const pendidikanSchema = z.object({
   // Step 4: Pendidikan (Required)
-  namaInstitusi: z.string().optional(),
+  id: z.string(),  // Ensure this field is required to match the Pendidikan type
+  namaInstitusi: z.string().nullable().optional(), // Allow null values
   jenjangPendidikan: z.string().min(1, "Jenjang pendidikan wajib diisi"),
   bidangStudi: z.string().nullable().optional(),
-  tanggalLulus: z.string().optional(),
-  lokasi: z.string().optional(),
-  // Handle nullable optional fields
-  deskripsiTambahan: z.string().nullable().optional(),
-  id: z.string().nullable().optional(), // For existing records
+  tanggalLulus: z.string().nullable().optional(), // Allow null values
+  lokasi: z.string().nullable().optional(), // Allow null values
+  // Remove deskripsiTambahan field completely from validation
+  // Remove nilaiAkhir field
 });
 
 const pengalamanKerjaSchema = z.object({
@@ -77,8 +90,8 @@ const completeOnboardingSchema = z.object({
   // Basic profile data
   ...requiredProfileSchema.shape,
   
-  // Alamat - now optional object with optional fields
-  alamat: addressSchema.optional(),
+  // Alamat - now optional object with optional fields that can be null
+  alamat: addressSchema.nullable().optional(),
   
   // Arrays of related data
   pendidikan: z.array(pendidikanSchema).optional(),
@@ -99,7 +112,45 @@ async function validateCompleteOnboarding(data: any): Promise<{
       pengalamanKerjaCount: data.pengalamanKerja?.length,
       hasPendidikanDeskripsi: data.pendidikan?.some((p: any) => p.deskripsiTambahan !== undefined),
       hasPengalamanDeskripsi: data.pengalamanKerja?.some((p: any) => p.deskripsiPekerjaan !== undefined),
+      pendidikanFields: data.pendidikan?.[0] ? Object.keys(data.pendidikan[0]) : [],
+      pendidikanValues: data.pendidikan?.[0] ? {
+        namaInstitusi: typeof data.pendidikan[0].namaInstitusi,
+        lokasi: typeof data.pendidikan[0].lokasi,
+        tanggalLulus: typeof data.pendidikan[0].tanggalLulus,
+        bidangStudi: typeof data.pendidikan[0].bidangStudi,
+      } : {},
+      tempatLahir: data.tempatLahir === null ? "is null" : (data.tempatLahir === undefined ? "is undefined" : "has value"),
+      hasAlamat: !!data.alamat,
+      alamatFields: data.alamat ? Object.keys(data.alamat) : []
     }));
+    
+    // Check for and ensure pendidikan fields are properly formatted
+    if (data.pendidikan?.length > 0) {
+      data.pendidikan = data.pendidikan.map((item: any) => {
+        // Remove deskripsiTambahan and nilaiAkhir if they exist
+        const { deskripsiTambahan, nilaiAkhir, ...rest } = item;
+        
+        // Ensure string fields are either strings or null, not undefined
+        return {
+          ...rest,
+          namaInstitusi: rest.namaInstitusi ?? null,
+          lokasi: rest.lokasi ?? null,
+          tanggalLulus: rest.tanggalLulus ?? null,
+          bidangStudi: rest.bidangStudi || '',
+        };
+      });
+    }
+    
+    // Ensure alamat is properly formatted
+    if (data.alamat && typeof data.alamat === 'object') {
+      // Keep only the fields defined in addressSchema
+      data.alamat = {
+        kota: data.alamat.kota ?? null,
+        provinsi: data.alamat.provinsi ?? null,
+        kodePos: data.alamat.kodePos ?? null,
+        jalan: data.alamat.jalan ?? null
+      };
+    }
     
     // Validate against our schema
     completeOnboardingSchema.parse(data);
@@ -134,70 +185,99 @@ async function validateCompleteOnboarding(data: any): Promise<{
   }
 }
 
+/**
+ * Standardize onboarding data from client for storage
+ */
+function standardizeOnboardingData(data: any): OnboardingData {
+  // Sanitize and standardize the onboarding data
+  const standardized = {
+    ...data,
+    // Ensure pendidikan is correctly formatted
+    pendidikan: data.pendidikan?.map((p: any) => ({
+      id: p.id || crypto.randomUUID(),
+      namaInstitusi: p.namaInstitusi ?? null,
+      lokasi: p.lokasi ?? null,
+      jenjangPendidikan: p.jenjangPendidikan,
+      bidangStudi: p.bidangStudi || '',
+      tanggalLulus: p.tanggalLulus ?? null,
+      tidakLulus: p.tidakLulus || false,
+      // Explicitly setting these to null, ensuring they're removed
+      nilaiAkhir: null,
+      deskripsiTambahan: null
+    })) || [],
+    
+    // Ensure pengalamanKerja is correctly formatted
+    pengalamanKerja: data.pengalamanKerja?.map((p: any) => ({
+      id: p.id || crypto.randomUUID(),
+      namaPerusahaan: p.namaPerusahaan || '',
+      posisi: p.posisi || '',
+      tanggalMulai: p.tanggalMulai || '',
+      tanggalSelesai: p.tanggalSelesai || '',
+      deskripsiPekerjaan: p.deskripsiPekerjaan || null,
+      lokasiKerja: p.lokasiKerja || null,
+      lokasi: p.lokasi || null,
+      gajiTerakhir: p.gajiTerakhir || null,
+      alasanKeluar: p.alasanKeluar || null,
+      levelPengalaman: p.levelPengalaman || null
+    })) || [],
+    
+    // Normalize other fields
+    tempatLahir: data.tempatLahir || null,
+    
+    // Properly handle alamat object - can be null, undefined, or an object with nullable fields
+    alamat: data.alamat ? {
+      kota: data.alamat.kota || null,
+      provinsi: data.alamat.provinsi || null,
+      kodePos: data.alamat.kodePos || null,
+      jalan: data.alamat.jalan || null
+    } : null
+  };
+  
+  // Log standardized data for debugging
+  console.log("hasAlamat:", !!standardized.alamat);
+  
+  return standardized;
+}
+
 export async function POST(req: NextRequest) {
   try {
-    // Authenticate user
-    const session = await auth() as CustomSession;
-    if (!session?.user || session.user.userType !== 'job_seeker') {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const user = await getSessionUser();
+    if (!user || !user.id) {
+      return NextResponse.json(
+        { error: "Unauthorized", message: "You must be logged in to submit onboarding data" },
+        { status: 401 }
+      );
     }
 
-    // Parse request body
-    const data = await req.json();
-    console.log("Received data for validation:", JSON.stringify({
-      pendidikanCount: data.pendidikan?.length,
-      pengalamanKerjaCount: data.pengalamanKerja?.length,
-      hasAlamat: !!data.alamat,
+    // Parse and validate the request body
+    const rawData = await req.json();
+    
+    // Standardize data before validation
+    const standardizedData = standardizeOnboardingData(rawData);
+    
+    // Log the data for debugging
+    console.log("Validating standardized data:", JSON.stringify({
+      pendidikanCount: standardizedData.pendidikan?.length,
+      pengalamanKerjaCount: standardizedData.pengalamanKerja?.length,
+      pendidikanFields: standardizedData.pendidikan?.[0] ? Object.keys(standardizedData.pendidikan[0]) : [],
+      tempatLahir: standardizedData.tempatLahir === null ? "is null" : (standardizedData.tempatLahir === undefined ? "is undefined" : "has value"),
+      hasAlamat: !!standardizedData.alamat,
     }));
     
-    // Standardize data structure to ensure consistency between frontend and backend
-    // This helps handle both null and undefined values that might come from the client
-    
-    // Ensure all optional fields in pendidikan have consistent null values (not undefined)
-    if (data.pendidikan) {
-      data.pendidikan = data.pendidikan.map((item: any) => ({
-        ...item,
-        bidangStudi: item.bidangStudi || "", // Always use empty string for missing bidangStudi
-        deskripsiTambahan: item.deskripsiTambahan === undefined ? null : item.deskripsiTambahan,
-        // We explicitly set nilaiAkhir to null as requested
-        nilaiAkhir: null
-      }));
-    }
-    
-    // Ensure all optional fields in pengalamanKerja have consistent null values (not undefined)
-    if (data.pengalamanKerja) {
-      data.pengalamanKerja = data.pengalamanKerja.map((item: any) => ({
-        ...item,
-        deskripsiPekerjaan: item.deskripsiPekerjaan === undefined ? null : item.deskripsiPekerjaan,
-        alasanKeluar: item.alasanKeluar === undefined ? null : item.alasanKeluar,
-        lokasiKerja: item.lokasiKerja === undefined ? null : item.lokasiKerja,
-        lokasi: item.lokasi === undefined ? null : item.lokasi,
-        levelPengalaman: item.levelPengalaman === undefined ? null : item.levelPengalaman
-      }));
-    }
-    
-    // Ensure alamat fields have consistent null values (not undefined)
-    if (data.alamat) {
-      data.alamat = {
-        kota: data.alamat.kota === undefined ? null : data.alamat.kota,
-        provinsi: data.alamat.provinsi === undefined ? null : data.alamat.provinsi,
-        kodePos: data.alamat.kodePos === undefined ? null : data.alamat.kodePos,
-        jalan: data.alamat.jalan === undefined ? null : data.alamat.jalan
-      };
-    }
-    
-    // Validate complete onboarding data
-    const validationResult = await validateCompleteOnboarding(data);
+    // Validate the data against our schema
+    const validationResult = await validateCompleteOnboarding(standardizedData);
     if (!validationResult.isValid) {
-      return NextResponse.json({
-        success: false,
-        error: "Validation failed",
-        errors: validationResult.errors,
-        redirectTo: "/job-seeker/onboarding/ringkasan" // Return to summary step to fix issues
-      }, { status: 400 });
+      return NextResponse.json(
+        { 
+          error: "ValidationError", 
+          message: "Invalid onboarding data", 
+          validationErrors: validationResult.errors 
+        },
+        { status: 400 }
+      );
     }
 
-    const userId = session.user.id as string;
+    const userId = user.id as string;
 
     // Get or create user profile
     let userProfile = await getJobSeekerByUserId(userId);
@@ -210,15 +290,15 @@ export async function POST(req: NextRequest) {
         const [updatedProfile] = await tx
           .update(userProfiles)
           .set({
-            namaLengkap: data.namaLengkap,
-            email: data.email,
-            nomorTelepon: data.nomorTelepon,
-            tanggalLahir: data.tanggalLahir,
-            tempatLahir: data.tempatLahir,
-            jenisKelamin: data.jenisKelamin,
-            levelPengalaman: data.levelPengalaman,
-            cvFileUrl: data.cvFileUrl,
-            profilePhotoUrl: data.profilePhotoUrl,
+            namaLengkap: standardizedData.namaLengkap,
+            email: standardizedData.email,
+            nomorTelepon: standardizedData.nomorTelepon,
+            tanggalLahir: standardizedData.tanggalLahir,
+            tempatLahir: standardizedData.tempatLahir, // Can be null now
+            jenisKelamin: standardizedData.jenisKelamin,
+            levelPengalaman: standardizedData.levelPengalaman,
+            cvFileUrl: standardizedData.cvFileUrl,
+            profilePhotoUrl: standardizedData.profilePhotoUrl,
             updatedAt: new Date()
           })
           .where(eq(userProfiles.id, userProfile.id))
@@ -231,15 +311,15 @@ export async function POST(req: NextRequest) {
           .insert(userProfiles)
           .values({
             userId: userId,
-            namaLengkap: data.namaLengkap,
-            email: data.email,
-            nomorTelepon: data.nomorTelepon,
-            tanggalLahir: data.tanggalLahir,
-            tempatLahir: data.tempatLahir,
-            jenisKelamin: data.jenisKelamin,
-            levelPengalaman: data.levelPengalaman,
-            cvFileUrl: data.cvFileUrl,
-            profilePhotoUrl: data.profilePhotoUrl,
+            namaLengkap: standardizedData.namaLengkap,
+            email: standardizedData.email,
+            nomorTelepon: standardizedData.nomorTelepon,
+            tanggalLahir: standardizedData.tanggalLahir,
+            tempatLahir: standardizedData.tempatLahir, // Can be null now
+            jenisKelamin: standardizedData.jenisKelamin,
+            levelPengalaman: standardizedData.levelPengalaman,
+            cvFileUrl: standardizedData.cvFileUrl,
+            profilePhotoUrl: standardizedData.profilePhotoUrl,
             createdAt: new Date(),
             updatedAt: new Date()
           })
@@ -249,7 +329,7 @@ export async function POST(req: NextRequest) {
       }
 
       // 2. Handle address data - only process if alamat object exists
-      if (data.alamat) {
+      if (standardizedData.alamat) {
         // Delete existing addresses
         await tx
           .delete(userAddresses)
@@ -260,11 +340,11 @@ export async function POST(req: NextRequest) {
           .insert(userAddresses)
           .values({
             userProfileId: userProfile.id,
-            jalan: data.alamat.jalan || null,
-            kota: data.alamat.kota || null,
-            provinsi: data.alamat.provinsi || null,
-            kodePos: data.alamat.kodePos || null,
-            // Removed rt, rw, kelurahan, kecamatan that aren't in OnboardingContext
+            jalan: standardizedData.alamat.jalan || null,
+            kota: standardizedData.alamat.kota || null,
+            provinsi: standardizedData.alamat.provinsi || null,
+            kodePos: standardizedData.alamat.kodePos || null,
+            // Explicitly set these fields to null
             rt: null,
             rw: null,
             kelurahan: null,
@@ -273,51 +353,83 @@ export async function POST(req: NextRequest) {
       }
 
       // 3. Handle pendidikan data
-      if (Array.isArray(data.pendidikan) && data.pendidikan.length > 0) {
+      if (Array.isArray(standardizedData.pendidikan) && standardizedData.pendidikan.length > 0) {
         // Delete existing pendidikan records
         await tx
           .delete(userPendidikan)
           .where(eq(userPendidikan.userProfileId, userProfile.id));
         
         // Insert new pendidikan records
-        for (const pendidikan of data.pendidikan) {
+        for (const pendidikan of standardizedData.pendidikan) {
+          // Ensure no deskripsiTambahan or nilaiAkhir is passed
+          const { deskripsiTambahan, nilaiAkhir, ...cleanPendidikan } = pendidikan;
+          
           await tx
             .insert(userPendidikan)
             .values({
               userProfileId: userProfile.id,
-              namaInstitusi: pendidikan.namaInstitusi,
-              jenjangPendidikan: pendidikan.jenjangPendidikan,
-              bidangStudi: pendidikan.bidangStudi || "",
-              tanggalLulus: pendidikan.tanggalLulus,
-              lokasi: pendidikan.lokasi || null,
-              nilaiAkhir: null, // Removed nilaiAkhir as requested
-              deskripsiTambahan: null // Always set to null since the field is removed from the UI
+              namaInstitusi: cleanPendidikan.namaInstitusi ?? null,
+              jenjangPendidikan: cleanPendidikan.jenjangPendidikan,
+              bidangStudi: cleanPendidikan.bidangStudi || "",
+              tanggalLulus: cleanPendidikan.tanggalLulus ?? null,
+              lokasi: cleanPendidikan.lokasi ?? null,
+              nilaiAkhir: null,
+              deskripsiTambahan: null,
+              tidakLulus: cleanPendidikan.tidakLulus || false
             });
         }
       }
 
       // 4. Handle pengalaman kerja data (optional)
-      if (Array.isArray(data.pengalamanKerja) && data.pengalamanKerja.length > 0) {
+      if (Array.isArray(standardizedData.pengalamanKerja) && standardizedData.pengalamanKerja.length > 0) {
         // Delete existing pengalaman kerja records
         await tx
           .delete(userPengalamanKerja)
           .where(eq(userPengalamanKerja.userProfileId, userProfile.id));
         
         // Insert new pengalaman kerja records
-        for (const pengalaman of data.pengalamanKerja) {
+        for (const pengalaman of standardizedData.pengalamanKerja) {
+          // Map to a valid levelPengalamanEnum value
+          // Default to one of the valid enum values
+          let levelPengalamanValue: typeof levelPengalamanEnum.enumValues[number] = "Kurang dari 1 tahun";
+          
+          // Map from MinWorkExperienceEnum to levelPengalamanEnum if possible
+          if (pengalaman.levelPengalaman) {
+            switch(pengalaman.levelPengalaman) {
+              case "LULUSAN_BARU":
+                levelPengalamanValue = "Baru lulus";
+                break;
+              case "SATU_DUA_TAHUN":
+                levelPengalamanValue = "1-2 tahun";
+                break;
+              case "TIGA_LIMA_TAHUN":
+                levelPengalamanValue = "3-5 tahun";
+                break;
+              case "LIMA_SEPULUH_TAHUN":
+                levelPengalamanValue = "5-10 tahun";
+                break;
+              case "LEBIH_SEPULUH_TAHUN":
+                levelPengalamanValue = "10 tahun lebih";
+                break;
+            }
+          }
+          
+          // Convert lokasiKerja to a valid enum value if present
+          const lokasiKerjaValue = pengalaman.lokasiKerja as typeof lokasiKerjaEnum.enumValues[number] || null;
+
           await tx
             .insert(userPengalamanKerja)
             .values({
               userProfileId: userProfile.id,
-              levelPengalaman: pengalaman.levelPengalaman || null,
-              namaPerusahaan: pengalaman.namaPerusahaan || null,
-              posisi: pengalaman.posisi || null,
-              tanggalMulai: pengalaman.tanggalMulai || null,
-              tanggalSelesai: pengalaman.tanggalSelesai || null,
+              levelPengalaman: levelPengalamanValue,
+              namaPerusahaan: pengalaman.namaPerusahaan || "",
+              posisi: pengalaman.posisi || "",
+              tanggalMulai: pengalaman.tanggalMulai || "",
+              tanggalSelesai: pengalaman.tanggalSelesai || "",
               deskripsiPekerjaan: pengalaman.deskripsiPekerjaan || null,
-              lokasiKerja: pengalaman.lokasiKerja || null,
+              lokasiKerja: lokasiKerjaValue,
               lokasi: pengalaman.lokasi || null,
-              alasanKeluar: pengalaman.alasanKeluar || null
+              alasanKeluar: pengalaman.alasanKeluar || null,
             });
         }
       }
