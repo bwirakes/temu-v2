@@ -22,20 +22,12 @@ interface ApplicationProfileData {
   // Add new detailed fields
   tanggalLahir?: string;
   jenisKelamin?: string;
-  kotaDomisili?: string;
   pengalamanKerjaTerakhir?: { 
     posisi?: string; 
     namaPerusahaan?: string; 
   };
   gajiTerakhir?: number;
   levelPengalaman?: string;
-  ekspektasiGaji?: { 
-    min?: number; 
-    max?: number; 
-    negotiable?: boolean;
-  };
-  preferensiLokasiKerja?: string[];
-  preferensiJenisPekerjaan?: string[];
   pendidikanFull?: Array<{
     jenjangPendidikan?: string;
     namaInstitusi?: string;
@@ -72,7 +64,7 @@ import { Briefcase, Building, Globe, MapPin } from 'lucide-react';
 const convertToWorkExperienceEnum = (value: string | number | undefined): MinWorkExperienceEnum => {
   // If it's already a valid enum value, return it
   if (typeof value === 'string' && 
-      ['LULUSAN_BARU', 'SATU_DUA_TAHUN', 'TIGA_EMPAT_TAHUN', 'TIGA_LIMA_TAHUN', 'LEBIH_LIMA_TAHUN'].includes(value)) {
+      ['LULUSAN_BARU', 'SATU_DUA_TAHUN', 'TIGA_LIMA_TAHUN', 'LIMA_SEPULUH_TAHUN', 'LEBIH_SEPULUH_TAHUN'].includes(value)) {
     return value as MinWorkExperienceEnum;
   }
   
@@ -80,9 +72,9 @@ const convertToWorkExperienceEnum = (value: string | number | undefined): MinWor
   if (typeof value === 'number') {
     if (value === 0) return 'LULUSAN_BARU';
     if (value <= 2) return 'SATU_DUA_TAHUN';
-    if (value <= 4) return 'TIGA_EMPAT_TAHUN';
     if (value <= 5) return 'TIGA_LIMA_TAHUN';
-    return 'LEBIH_LIMA_TAHUN';
+    if (value <= 10) return 'LIMA_SEPULUH_TAHUN';
+    return 'LEBIH_SEPULUH_TAHUN';
   }
   
   // Default to entry level if value is undefined or invalid

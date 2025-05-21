@@ -23,18 +23,17 @@ const requiredProfileSchema = z.object({
   
   // Step 2: Informasi Lanjutan (Required)
   tanggalLahir: z.string().min(1, "Tanggal lahir wajib diisi"),
-  tempatLahir: z.string().min(1, "Tempat lahir wajib diisi"),
+  tempatLahir: z.string().optional(),
   jenisKelamin: z.string().nullable().optional(),
   
-  // Step 5: Level Pengalaman (Required)
-  levelPengalaman: z.string().min(1, "Level pengalaman wajib diisi"),
+  // Step 4: Level Pengalaman (Required)
+  levelPengalaman: z.enum(['LULUSAN_BARU', 'SATU_DUA_TAHUN', 'TIGA_LIMA_TAHUN', 'LIMA_SEPULUH_TAHUN', 'LEBIH_SEPULUH_TAHUN']),
   
-  // Step 8: CV Upload (Required)
+  // Step 7: CV Upload (Required)
   cvFileUrl: z.string().min(1, "CV/Resume wajib diunggah"),
   
   // Optional fields
   profilePhotoUrl: z.string().nullable().optional(),
-  ekspektasiKerja: z.any().optional(),
 });
 
 // Make all address fields optional based on new requirements
@@ -49,11 +48,11 @@ const addressSchema = z.object({
 
 const pendidikanSchema = z.object({
   // Step 4: Pendidikan (Required)
-  namaInstitusi: z.string().min(1, "Nama institusi wajib diisi"),
+  namaInstitusi: z.string().optional(),
   jenjangPendidikan: z.string().min(1, "Jenjang pendidikan wajib diisi"),
   bidangStudi: z.string().nullable().optional(),
-  tanggalLulus: z.string().min(1, "Tanggal lulus wajib diisi"),
-  lokasi: z.string().min(1, "Lokasi wajib diisi"),
+  tanggalLulus: z.string().optional(),
+  lokasi: z.string().optional(),
   // Handle nullable optional fields
   deskripsiTambahan: z.string().nullable().optional(),
   id: z.string().nullable().optional(), // For existing records
@@ -62,9 +61,9 @@ const pendidikanSchema = z.object({
 const pengalamanKerjaSchema = z.object({
   // Step 6: Pengalaman Kerja (Optional)
   levelPengalaman: z.string().nullable().optional(),
-  namaPerusahaan: z.string().nullable().optional(),
-  posisi: z.string().nullable().optional(),
-  tanggalMulai: z.string().nullable().optional(),
+  namaPerusahaan: z.string().min(1, "Nama perusahaan wajib diisi"),
+  posisi: z.string().min(1, "Posisi wajib diisi"),
+  tanggalMulai: z.string().min(1, "Tanggal mulai kerja wajib diisi"),
   tanggalSelesai: z.string().nullable().optional(),
   deskripsiPekerjaan: z.string().nullable().optional(),
   lokasiKerja: z.string().nullable().optional(),
@@ -82,7 +81,7 @@ const completeOnboardingSchema = z.object({
   alamat: addressSchema.optional(),
   
   // Arrays of related data
-  pendidikan: z.array(pendidikanSchema).min(1, "Minimal satu pendidikan wajib diisi"),
+  pendidikan: z.array(pendidikanSchema).optional(),
   pengalamanKerja: z.array(pengalamanKerjaSchema).optional(),
 });
 
@@ -220,7 +219,6 @@ export async function POST(req: NextRequest) {
             levelPengalaman: data.levelPengalaman,
             cvFileUrl: data.cvFileUrl,
             profilePhotoUrl: data.profilePhotoUrl,
-            ekspektasiKerja: data.ekspektasiKerja,
             updatedAt: new Date()
           })
           .where(eq(userProfiles.id, userProfile.id))
@@ -242,7 +240,6 @@ export async function POST(req: NextRequest) {
             levelPengalaman: data.levelPengalaman,
             cvFileUrl: data.cvFileUrl,
             profilePhotoUrl: data.profilePhotoUrl,
-            ekspektasiKerja: data.ekspektasiKerja,
             createdAt: new Date(),
             updatedAt: new Date()
           })
@@ -294,7 +291,7 @@ export async function POST(req: NextRequest) {
               tanggalLulus: pendidikan.tanggalLulus,
               lokasi: pendidikan.lokasi || null,
               nilaiAkhir: null, // Removed nilaiAkhir as requested
-              deskripsiTambahan: pendidikan.deskripsiTambahan || null
+              deskripsiTambahan: null // Always set to null since the field is removed from the UI
             });
         }
       }

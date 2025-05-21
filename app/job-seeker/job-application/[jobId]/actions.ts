@@ -49,19 +49,12 @@ export interface JobSeekerProfileData {
   pendidikanTerakhir?: string;
   tanggalLahir?: string | null;
   jenisKelamin?: string | null; // e.g., "Laki-laki", "Perempuan"
-  kotaDomisili?: string | null; // derived from alamat.kota
   pengalamanKerjaTerakhir?: { 
     posisi?: string | null; 
     namaPerusahaan?: string | null; 
   } | null;
   gajiTerakhir?: number | null;
   levelPengalaman?: string | null;
-  ekspektasiGaji?: { 
-    min?: number; 
-    max?: number; 
-  } | null;
-  preferensiLokasiKerja?: string[] | null;
-  preferensiJenisPekerjaan?: string[] | null;
   pendidikan?: Array<{
     jenjangPendidikan?: string | null;
     namaInstitusi?: string | null;
@@ -174,13 +167,6 @@ export async function getJobApplicationPageData(jobId: string) {
     }
   }
   
-  // Extract ekspektasi kerja data
-  const ekspektasiKerjaData = profileData.ekspektasiKerja 
-    ? (typeof profileData.ekspektasiKerja === 'string' 
-      ? JSON.parse(profileData.ekspektasiKerja) 
-      : profileData.ekspektasiKerja) 
-    : null;
-    
   // Format pendidikan for the profile
   const formattedPendidikan = pendidikan?.map(p => ({
     jenjangPendidikan: p.jenjangPendidikan,
@@ -231,25 +217,9 @@ export async function getJobApplicationPageData(jobId: string) {
       pendidikanTerakhir: highestEducation,
       tanggalLahir: profileData.tanggalLahir,
       jenisKelamin: profileData.jenisKelamin,
-      kotaDomisili: addresses?.[0]?.kota || null,
       pengalamanKerjaTerakhir: latestExperience,
       gajiTerakhir,
       levelPengalaman: profileData.levelPengalaman,
-      ekspektasiGaji: ekspektasiKerjaData?.idealSalary ? {
-        min: typeof ekspektasiKerjaData.idealSalary === 'number' 
-          ? ekspektasiKerjaData.idealSalary
-          : parseFloat(ekspektasiKerjaData.idealSalary)
-      } : null,
-      preferensiLokasiKerja: ekspektasiKerjaData?.preferensiLokasiKerja 
-        ? (Array.isArray(ekspektasiKerjaData.preferensiLokasiKerja) 
-          ? ekspektasiKerjaData.preferensiLokasiKerja 
-          : [ekspektasiKerjaData.preferensiLokasiKerja]) 
-        : null,
-      preferensiJenisPekerjaan: ekspektasiKerjaData?.jobTypes 
-        ? (Array.isArray(ekspektasiKerjaData.jobTypes) 
-          ? ekspektasiKerjaData.jobTypes 
-          : ekspektasiKerjaData.jobTypes.split(',').map((type: string) => type.trim())) 
-        : null,
       pendidikan: formattedPendidikan,
       pengalamanKerja: formattedPengalamanKerja
     },

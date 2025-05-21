@@ -19,7 +19,7 @@ export const metadata: Metadata = {
 // Jobs list content component
 async function JobsContent() {
   // Fetch jobs with their employers
-  const jobsWithEmployers = await db
+  const dbJobsWithEmployers = await db
     .select({
       id: jobs.id,
       jobId: jobs.jobId,
@@ -46,7 +46,9 @@ async function JobsContent() {
     .where(eq(jobs.isConfirmed, true))
     .orderBy(desc(jobs.postedDate));
 
-  return <JobsList jobsData={jobsWithEmployers} />;
+  // We don't need to manually map the jobs as the JobsList component will handle that
+  // The JobsList component has the mapDbJobToFrontendJob function to correctly map enum values
+  return <JobsList jobsData={dbJobsWithEmployers} />;
 }
 
 // Main page component

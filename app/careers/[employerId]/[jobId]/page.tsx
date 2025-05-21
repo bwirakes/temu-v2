@@ -10,7 +10,8 @@ import {
   getEmployerById, 
   getJobById,
   getJobByHumanId,
-  getJobWorkLocationsByJobId 
+  getJobWorkLocationsByJobId,
+  minWorkExperienceEnum
 } from '@/lib/db';
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -19,9 +20,38 @@ import { Suspense } from 'react';
 import JobDetailLoader from '../../components/job-detail-loader';
 import { MapPinIcon, BriefcaseIcon } from '@heroicons/react/24/outline';
 import { MinWorkExperienceEnum, getMinWorkExperienceLabel } from '@/lib/constants';
+import { mapDbWorkExperienceToFrontend, DbWorkExperienceEnum } from '@/lib/utils/enum-mappers';
 
 // Add export config for ISR
 export const revalidate = 3600; // Revalidate every hour
+
+// Type that matches the actual database job schema
+interface DbJob {
+  id: string;
+  jobId: string;
+  jobTitle: string;
+  postedDate: Date | string;
+  numberOfPositions?: number | null;
+  isConfirmed: boolean;
+  createdAt: Date | string;
+  updatedAt: Date | string;
+  employerId: string;
+  minWorkExperience: DbWorkExperienceEnum;
+  lokasiKerja?: string | null;
+  lastEducation?: "SD" | "SMP" | "SMA/SMK" | "D1" | "D2" | "D3" | "D4" | "S1" | "S2" | "S3" | null;
+  requiredCompetencies?: string | null;
+  expectations?: {
+    ageRange?: {
+      min: number;
+      max: number;
+    };
+  } | null;
+  additionalRequirements?: {
+    gender?: "MALE" | "FEMALE" | "ANY" | "ALL";
+    acceptedDisabilityTypes?: string[];
+    numberOfDisabilityPositions?: number;
+  } | null;
+}
 
 // Types
 interface JobLocation {
@@ -40,7 +70,7 @@ interface Job {
   jobId: string; // Human-readable job ID (e.g., job-12345)
   jobTitle: string;
   postedDate: Date | string;
-  numberOfPositions?: number;
+  numberOfPositions?: number | null;
   isConfirmed: boolean;
   createdAt: Date | string;
   updatedAt: Date | string;
@@ -48,17 +78,25 @@ interface Job {
   minWorkExperience: MinWorkExperienceEnum;
   lokasiKerja?: string | null;
   lastEducation?: "SD" | "SMP" | "SMA/SMK" | "D1" | "D2" | "D3" | "D4" | "S1" | "S2" | "S3" | null;
-  requiredCompetencies?: string;
+  requiredCompetencies?: string | null;
   expectations?: {
     ageRange?: {
       min: number;
       max: number;
     };
-  };
+  } | null;
   additionalRequirements?: {
     gender?: "MALE" | "FEMALE" | "ANY" | "ALL";
     acceptedDisabilityTypes?: string[];
     numberOfDisabilityPositions?: number;
+  } | null;
+}
+
+// Convert database job to frontend job by mapping the enum
+function mapDbJobToFrontendJob(dbJob: DbJob): Job {
+  return {
+    ...dbJob,
+    minWorkExperience: mapDbWorkExperienceToFrontend(dbJob.minWorkExperience) as MinWorkExperienceEnum
   };
 }
 
@@ -98,10 +136,13 @@ export async function generateMetadata(
   const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(params.jobId);
   
   // Use the appropriate function based on the ID format
-  const job = isUuid 
+  const dbJob = isUuid 
     ? await getJobById(params.jobId)
     : await getJobByHumanId(params.jobId);
     
+  // Convert database job to frontend job if it exists
+  const job = dbJob ? mapDbJobToFrontendJob(dbJob) : null;
+  
   const employer = job ? await getEmployerById(job.employerId) : null;
 
   if (!job || !employer) {
@@ -244,14 +285,17 @@ async function JobDetail({ employerId, jobId }: { employerId: string; jobId: str
   const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(jobId);
   
   // Use the appropriate function based on the ID format
-  const job = isUuid 
+  const dbJob = isUuid 
     ? await getJobById(jobId)
     : await getJobByHumanId(jobId);
 
   // If job doesn't exist or isn't confirmed, or doesn't belong to this employer, return 404
-  if (!job || !job.isConfirmed || job.employerId !== employerId) {
+  if (!dbJob || !dbJob.isConfirmed || dbJob.employerId !== employerId) {
     notFound();
   }
+
+  // Convert database job to frontend job
+  const job = mapDbJobToFrontendJob(dbJob);
 
   // Get employer details
   const employer = await getEmployerById(employerId);

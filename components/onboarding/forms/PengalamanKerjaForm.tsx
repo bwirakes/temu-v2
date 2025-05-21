@@ -9,17 +9,10 @@ import { Checkbox } from "@/components/ui/checkbox";
 import PengalamanKerjaItem from "./PengalamanKerjaItem";
 import { FormLabel } from "@/components/ui/form-label";
 import { toast } from "sonner";
+import { MIN_WORK_EXPERIENCE_OPTIONS } from "@/lib/constants";
 
-// Updated to match exact database enum values
-const levelPengalamanOptions = [
-  "Baru lulus",
-  "Pengalaman magang",
-  "Kurang dari 1 tahun", 
-  "1-2 tahun",
-  "3-5 tahun",
-  "5-10 tahun",
-  "10 tahun lebih",
-] as const;
+// Use consistent options from constants
+const levelPengalamanOptions = MIN_WORK_EXPERIENCE_OPTIONS;
 
 export default function PengalamanKerjaForm() {
   const { 
@@ -59,7 +52,7 @@ export default function PengalamanKerjaForm() {
         // If we had entries but none were valid, add a new empty one
         const newItem: PengalamanKerja = {
           id: Date.now().toString(),
-          levelPengalaman: "Baru lulus",
+          levelPengalaman: "LULUSAN_BARU",
           namaPerusahaan: "",
           posisi: "",
           tanggalMulai: "",
@@ -78,7 +71,7 @@ export default function PengalamanKerjaForm() {
       // Default state - add one empty form
       const newItem: PengalamanKerja = {
         id: Date.now().toString(),
-        levelPengalaman: "Baru lulus",
+        levelPengalaman: "LULUSAN_BARU",
         namaPerusahaan: "",
         posisi: "",
         tanggalMulai: "",
@@ -122,7 +115,7 @@ export default function PengalamanKerjaForm() {
     console.log("[PengalamanKerjaForm] Adding new pengalaman entry");
     const newItem: PengalamanKerja = {
       id: Date.now().toString(),
-      levelPengalaman: "Baru lulus",
+      levelPengalaman: "LULUSAN_BARU",
       namaPerusahaan: "",
       posisi: "",
       tanggalMulai: "",

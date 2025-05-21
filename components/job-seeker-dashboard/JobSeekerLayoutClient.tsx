@@ -36,7 +36,7 @@ const JobSeekerLayoutContent = memo(function JobSeekerLayoutContent({
         />
         
         {/* Sidebar - controlled by state */}
-        <JobSeekerSidebar isOpen={isSidebarOpen} onClose={closeSidebar} />
+        <JobSeekerSidebar isOpen={isSidebarOpen} onClose={closeSidebar} isMobile={isMobile} />
         
         {/* Main content - full width on mobile, adjusted on desktop */}
         <div className="pt-16 transition-all duration-300 md:ml-0 lg:ml-64">
@@ -54,7 +54,7 @@ const JobSeekerLayoutContent = memo(function JobSeekerLayoutContent({
         isSidebarOpen={isSidebarOpen} 
         userName={userName}
       />
-      <JobSeekerSidebar isOpen={isSidebarOpen} onClose={closeSidebar} />
+      <JobSeekerSidebar isOpen={isSidebarOpen} onClose={closeSidebar} isMobile={isMobile} />
       
       <main className={`pt-16 transition-all duration-300 ${isSidebarOpen && !isMobile ? "md:ml-64" : ""}`}>
         <div className="p-4 md:p-6">

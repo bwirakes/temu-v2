@@ -26,11 +26,10 @@ const REQUIRED_FIELDS = {
   3: ['alamat.kota'],
   4: ['pendidikan'],
   5: ['levelPengalaman'],
-  6: [], // Optional
-  7: [], // Optional
-  8: ['cvFileUrl'], // Now required
-  9: [], // Optional
-  10: []  // Summary
+  6: [], // Pengalaman Kerja - Optional
+  7: ['cvFileUrl'], // CV Upload - Now required
+  8: [], // Profile Photo - Optional
+  9: []  // Summary
 };
 
 // Check if the data has all required fields for a specific step
@@ -78,12 +77,12 @@ function determineNextStep(allData: Record<string, any>, currentStep: number): n
   }
   
   // If we're at the final step, stay there
-  if (currentStep >= 10) {
-    return 10;
+  if (currentStep >= 9) {
+    return 9;
   }
   
   // Standard progression: move to the next step
-  if (currentStep < 10) {
+  if (currentStep < 9) {
     return currentStep + 1;
   }
   
@@ -172,8 +171,7 @@ async function fetchAndFormatJobSeekerData(userProfile: any) {
       levelPengalaman: "",
       alamat: {},
       pengalamanKerja: [],
-      pendidikan: [],
-      ekspektasiKerja: {}
+      pendidikan: []
     };
   }
 
@@ -233,8 +231,6 @@ async function fetchAndFormatJobSeekerData(userProfile: any) {
       lokasi: p.lokasi || null,
       nilaiAkhir: p.nilaiAkhir || null,
       deskripsiTambahan: p.deskripsiTambahan || null,
-    })),
-    
-    ekspektasiKerja: userProfile.ekspektasiKerja || {}
+    }))
   };
 } 

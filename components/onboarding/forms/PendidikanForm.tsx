@@ -86,12 +86,7 @@ export default function PendidikanForm() {
   };
   
   const hasInvalidEntries = pendidikanList.length === 0 || 
-    pendidikanList.some(p => 
-      !p.namaInstitusi || 
-      !p.lokasi || 
-      !p.jenjangPendidikan || 
-      (!p.tanggalLulus && p.tanggalLulus !== "Masih Kuliah")
-    );
+    pendidikanList.some(p => !p.jenjangPendidikan);
   
   return (
     <div className="space-y-6">

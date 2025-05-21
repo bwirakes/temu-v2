@@ -130,11 +130,13 @@ export default async function JobsPage() {
         } else if (job.minWorkExperience <= 2) {
           minWorkExperienceValue = "SATU_DUA_TAHUN";
         } else if (job.minWorkExperience <= 4) {
-          minWorkExperienceValue = "TIGA_EMPAT_TAHUN";
+          minWorkExperienceValue = "TIGA_LIMA_TAHUN";
         } else if (job.minWorkExperience <= 5) {
           minWorkExperienceValue = "TIGA_LIMA_TAHUN";
+        } else if (job.minWorkExperience <= 10) {
+          minWorkExperienceValue = "LIMA_SEPULUH_TAHUN";
         } else {
-          minWorkExperienceValue = "LEBIH_LIMA_TAHUN";
+          minWorkExperienceValue = "LEBIH_SEPULUH_TAHUN";
         }
       }
       

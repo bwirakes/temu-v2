@@ -4,12 +4,19 @@ import Image from 'next/image';
 import { notFound } from 'next/navigation';
 import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
-import { getAllEmployerIds, getEmployerById, getJobsByEmployerId } from '@/lib/db';
+import { 
+  getAllEmployerIds, 
+  getConfirmedJobIdsByEmployerId, 
+  getEmployerById, 
+  getJobsByEmployerId,
+  minWorkExperienceEnum
+} from '@/lib/db';
 import EmployerLogo from '../components/employer-logo';
 import { Suspense } from 'react';
 import EmployerDetailLoader from '../components/employer-detail-loader';
 import { MinWorkExperienceEnum, getMinWorkExperienceLabel } from '@/lib/constants';
 import { MapPinIcon, BriefcaseIcon, CalendarIcon } from '@heroicons/react/24/outline';
+import { mapDbWorkExperienceToFrontend, DbWorkExperienceEnum } from '@/lib/utils/enum-mappers';
 
 // Add export config for ISR
 export const revalidate = 3600; // Revalidate every hour
@@ -26,11 +33,41 @@ interface JobLocation {
   updatedAt: Date | string;
 }
 
+// Type that matches the actual database job schema
+interface DbJob {
+  id: string;
+  jobId: string;
+  jobTitle: string;
+  contractType?: string;
+  postedDate: Date | string;
+  numberOfPositions?: number | null;
+  isConfirmed: boolean;
+  createdAt: Date | string;
+  updatedAt: Date | string;
+  employerId: string;
+  minWorkExperience: DbWorkExperienceEnum;
+  lokasiKerja?: string | null;
+  lastEducation?: "SD" | "SMP" | "SMA/SMK" | "D1" | "D2" | "D3" | "D4" | "S1" | "S2" | "S3" | null;
+  requiredCompetencies?: string | null;
+  expectations?: {
+    ageRange?: {
+      min: number;
+      max: number;
+    };
+  } | null;
+  additionalRequirements?: {
+    gender?: "MALE" | "FEMALE" | "ANY" | "ALL";
+    acceptedDisabilityTypes?: string[];
+    numberOfDisabilityPositions?: number;
+  } | null;
+}
+
+// Frontend Job type with correct enum value
 interface Job {
   id: string;
-  jobId: string; // Human-readable job ID (e.g., job-12345)
+  jobId: string;
   jobTitle: string;
-  contractType?: string; // Add contractType property to fix the type error
+  contractType?: string;
   postedDate: Date | string;
   numberOfPositions?: number | null;
   isConfirmed: boolean;
@@ -52,6 +89,14 @@ interface Job {
     acceptedDisabilityTypes?: string[];
     numberOfDisabilityPositions?: number;
   } | null;
+}
+
+// Convert database job to frontend job by mapping the enum
+function mapDbJobToFrontendJob(dbJob: DbJob): Job {
+  return {
+    ...dbJob,
+    minWorkExperience: mapDbWorkExperienceToFrontend(dbJob.minWorkExperience) as MinWorkExperienceEnum
+  };
 }
 
 interface Employer {
@@ -271,7 +316,10 @@ function SocialMediaLinks({ socialMedia }: { socialMedia?: Employer['socialMedia
 // Job listings component
 async function JobListings({ employerId }: { employerId: string }) {
   // Get all jobs for this employer
-  const allJobs = await getJobsByEmployerId(employerId);
+  const allDbJobs = await getJobsByEmployerId(employerId);
+
+  // Convert DB jobs to frontend jobs
+  const allJobs = allDbJobs.map(mapDbJobToFrontendJob);
 
   // Filter for confirmed jobs only and sort by posted date (newest first)
   const jobs = allJobs
@@ -321,7 +369,8 @@ async function EmployerInfo({ employerId }: { employerId: string }) {
   }
   
   // Fetch all jobs for this employer to display count
-  const allJobs = await getJobsByEmployerId(employerId);
+  const allDbJobs = await getJobsByEmployerId(employerId);
+  const allJobs = allDbJobs.map(mapDbJobToFrontendJob);
   const jobs = allJobs.filter(job => job.isConfirmed);
 
   return (

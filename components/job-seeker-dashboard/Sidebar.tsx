@@ -16,6 +16,7 @@ import {
 
 interface SidebarProps {
   isOpen: boolean;
+  isMobile: boolean; // Add isMobile as a required prop
   onClose?: () => void; // Add close handler for mobile
 }
 
@@ -25,27 +26,9 @@ interface NavItem {
   icon: React.ReactElement;
 }
 
-export default function JobSeekerSidebar({ isOpen, onClose }: SidebarProps) {
+export default function JobSeekerSidebar({ isOpen, isMobile, onClose }: SidebarProps) {
   const pathname = usePathname();
-  const [isMobile, setIsMobile] = useState(false);
   
-  // Check if we're on mobile on client side
-  useEffect(() => {
-    const checkIsMobile = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
-    
-    // Initial check
-    checkIsMobile();
-    
-    // Add event listener for window resize
-    window.addEventListener("resize", checkIsMobile);
-    
-    return () => {
-      window.removeEventListener("resize", checkIsMobile);
-    };
-  }, []);
-
   const navItems: NavItem[] = [
     {
       label: "Dasbor",

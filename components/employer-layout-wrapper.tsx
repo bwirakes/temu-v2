@@ -49,6 +49,12 @@ export default function EmployerLayoutWrapper({
     setIsSidebarOpen(prev => !prev);
   }, []);
 
+  const closeSidebar = useCallback(() => {
+    if (isMobile) {
+      setIsSidebarOpen(false);
+    }
+  }, [isMobile]);
+
   // While session is loading (initial auth check), show a minimal loading state
   if (status === 'loading') {
     return (
@@ -64,8 +70,8 @@ export default function EmployerLayoutWrapper({
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
       <Header toggleSidebar={toggleSidebar} isSidebarOpen={isSidebarOpen} />
-      <Sidebar isOpen={isSidebarOpen} />
-      <main className={`pt-16 min-h-screen transition-all duration-300 ${isSidebarOpen ? 'md:ml-64' : ''}`}>
+      <Sidebar isOpen={isSidebarOpen} isMobile={isMobile} onClose={closeSidebar} />
+      <main className={`pt-16 min-h-screen transition-all duration-300 ${isSidebarOpen && !isMobile ? 'md:ml-64' : ''}`}>
         <div className="h-full">
           {children}
         </div>

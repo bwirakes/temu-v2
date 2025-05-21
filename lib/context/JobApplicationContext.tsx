@@ -44,20 +44,12 @@ export type JobApplicationData = {
   // New profile fields
   tanggalLahir?: string;
   jenisKelamin?: string;
-  kotaDomisili?: string;
   pengalamanKerjaTerakhir?: { 
     posisi?: string; 
     namaPerusahaan?: string; 
   };
   gajiTerakhir?: number;
   levelPengalaman?: string;
-  ekspektasiGaji?: { 
-    min?: number; 
-    max?: number;
-    negotiable?: boolean;
-  };
-  preferensiLokasiKerja?: string[];
-  preferensiJenisPekerjaan?: string[];
   pendidikanFull?: Array<{ 
     jenjangPendidikan?: string; 
     namaInstitusi?: string; 
@@ -100,20 +92,12 @@ export const jobApplicationSchema = z.object({
   // Validation for new profile fields
   tanggalLahir: z.string().optional(),
   jenisKelamin: z.string().optional(),
-  kotaDomisili: z.string().optional(),
   pengalamanKerjaTerakhir: z.object({
     posisi: z.string().optional(),
     namaPerusahaan: z.string().optional(),
   }).optional(),
   gajiTerakhir: z.number().optional(),
   levelPengalaman: z.string().optional(),
-  ekspektasiGaji: z.object({
-    min: z.number().optional(),
-    max: z.number().optional(),
-    negotiable: z.boolean().optional(),
-  }).optional(),
-  preferensiLokasiKerja: z.array(z.string()).optional(),
-  preferensiJenisPekerjaan: z.array(z.string()).optional(),
   pendidikanFull: z.array(
     z.object({
       jenjangPendidikan: z.string().optional(),
@@ -149,13 +133,9 @@ const initialData: JobApplicationData = {
   // Initialize new profile fields
   tanggalLahir: undefined,
   jenisKelamin: undefined,
-  kotaDomisili: undefined,
   pengalamanKerjaTerakhir: undefined,
   gajiTerakhir: undefined,
   levelPengalaman: undefined,
-  ekspektasiGaji: undefined,
-  preferensiLokasiKerja: undefined,
-  preferensiJenisPekerjaan: undefined,
   pendidikanFull: undefined,
   pengalamanKerjaFull: undefined,
 };
@@ -190,13 +170,9 @@ export const JobApplicationProvider = ({
     education?: "SD" | "SMP" | "SMA/SMK" | "D1" | "D2" | "D3" | "D4" | "S1" | "S2" | "S3";
     tanggalLahir?: string;
     jenisKelamin?: string;
-    kotaDomisili?: string;
     pengalamanKerjaTerakhir?: { posisi?: string; namaPerusahaan?: string; };
     gajiTerakhir?: number;
     levelPengalaman?: string;
-    ekspektasiGaji?: { min?: number; max?: number; negotiable?: boolean; };
-    preferensiLokasiKerja?: string[];
-    preferensiJenisPekerjaan?: string[];
     pendidikanFull?: Array<{ jenjangPendidikan?: string; namaInstitusi?: string; bidangStudi?: string; tanggalLulus?: string | Date; }>;
     pengalamanKerjaFull?: Array<{ posisi?: string; namaPerusahaan?: string; tanggalMulai?: string | Date; tanggalSelesai?: string | Date; deskripsiPekerjaan?: string; }>;
   }
@@ -217,13 +193,9 @@ export const JobApplicationProvider = ({
       // Add new profile fields
       tanggalLahir: profileData.tanggalLahir,
       jenisKelamin: profileData.jenisKelamin,
-      kotaDomisili: profileData.kotaDomisili,
       pengalamanKerjaTerakhir: profileData.pengalamanKerjaTerakhir,
       gajiTerakhir: profileData.gajiTerakhir,
       levelPengalaman: profileData.levelPengalaman,
-      ekspektasiGaji: profileData.ekspektasiGaji,
-      preferensiLokasiKerja: profileData.preferensiLokasiKerja,
-      preferensiJenisPekerjaan: profileData.preferensiJenisPekerjaan,
       pendidikanFull: profileData.pendidikanFull,
       pengalamanKerjaFull: profileData.pengalamanKerjaFull,
     } : {})
@@ -279,13 +251,9 @@ export const JobApplicationProvider = ({
         // Include the enriched profile data fields
         tanggalLahir: data.tanggalLahir,
         jenisKelamin: data.jenisKelamin,
-        kotaDomisili: data.kotaDomisili,
         pengalamanKerjaTerakhir: data.pengalamanKerjaTerakhir,
         gajiTerakhir: data.gajiTerakhir,
         levelPengalaman: data.levelPengalaman,
-        ekspektasiGaji: data.ekspektasiGaji,
-        preferensiLokasiKerja: data.preferensiLokasiKerja,
-        preferensiJenisPekerjaan: data.preferensiJenisPekerjaan,
         pendidikanFull: data.pendidikanFull,
         pengalamanKerjaFull: data.pengalamanKerjaFull,
       };

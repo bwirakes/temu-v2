@@ -77,7 +77,6 @@ export default function JobSeekerHeader({ toggleSidebar, isSidebarOpen, userName
               />
               <div className="flex flex-col ml-2">
                 <span className="font-bold text-black">TEMU</span>
-                <span className="text-[10px] text-notion-text-light">untuk Kemnaker</span>
               </div>
             </div>
           </Link>

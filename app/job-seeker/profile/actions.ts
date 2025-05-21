@@ -43,7 +43,6 @@ export interface ProfileData {
   cvUploadDate?: string | Date | null;
   profilePhotoUrl?: string | null;
   levelPengalaman?: string | null;
-  ekspektasiKerja?: any;
   alamat?: any;
   pendidikan?: Pendidikan[];
   pengalamanKerja?: PengalamanKerja[];
@@ -74,17 +73,6 @@ export async function getProfileData(): Promise<ProfileData | null> {
     const pendidikanFromDb = await getUserPendidikanByProfileId(profileData.id);
     const pengalamanKerjaFromDb = await getUserPengalamanKerjaByProfileId(profileData.id);
     
-    // Process any JSON fields that might be returned as strings
-    let parsedEkspektasiKerja = profileData.ekspektasiKerja;
-    if (parsedEkspektasiKerja && typeof parsedEkspektasiKerja === 'string') {
-      try {
-        parsedEkspektasiKerja = JSON.parse(parsedEkspektasiKerja);
-      } catch (error) {
-        console.error('Error parsing ekspektasiKerja JSON:', error);
-        parsedEkspektasiKerja = null;
-      }
-    }
-    
     // Format dates if needed (cvUploadDate is sometimes returned in different formats)
     let cvUploadDate = profileData.cvUploadDate;
     if (cvUploadDate && !(cvUploadDate instanceof Date)) {
@@ -94,11 +82,11 @@ export async function getProfileData(): Promise<ProfileData | null> {
     // Map the database pendidikan to the expected Pendidikan type
     const mappedPendidikan: Pendidikan[] = pendidikanFromDb.map(p => ({
       id: p.id,
-      namaInstitusi: p.namaInstitusi,
+      namaInstitusi: p.namaInstitusi ?? '',
       lokasi: p.lokasi || '',
       jenjangPendidikan: p.jenjangPendidikan,
-      bidangStudi: p.bidangStudi,
-      tanggalLulus: p.tanggalLulus,
+      bidangStudi: p.bidangStudi ?? '',
+      tanggalLulus: p.tanggalLulus ?? '',
       deskripsiTambahan: p.deskripsiTambahan || undefined,
       masihBelajar: p.tidakLulus || false
     }));
@@ -112,7 +100,7 @@ export async function getProfileData(): Promise<ProfileData | null> {
       tanggalSelesai: p.tanggalSelesai,
       lokasi: p.lokasi || '',
       lokasiKerja: p.lokasiKerja === 'WFH' ? 'Work From Home (WFH)' :
-                    p.lokasiKerja === 'WFO' ? 'Work From Office (WFO)' : 'Hybrid',
+                  p.lokasiKerja === 'WFO' ? 'Work From Office (WFO)' : 'Hybrid',
       deskripsiPekerjaan: p.deskripsiPekerjaan || '',
       alasanKeluar: p.alasanKeluar || undefined,
       masihBekerja: p.tanggalSelesai === 'Sekarang'
@@ -131,7 +119,6 @@ export async function getProfileData(): Promise<ProfileData | null> {
       cvUploadDate: cvUploadDate,
       profilePhotoUrl: profileData.profilePhotoUrl,
       levelPengalaman: profileData.levelPengalaman,
-      ekspektasiKerja: parsedEkspektasiKerja,
       pendidikan: mappedPendidikan,
       pengalamanKerja: mappedPengalamanKerja
     };

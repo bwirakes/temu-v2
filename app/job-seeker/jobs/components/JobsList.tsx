@@ -3,7 +3,41 @@ import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
 import EmployerLogo from './employer-logo';
 import { MinWorkExperienceEnum, getMinWorkExperienceLabel } from '@/lib/constants';
+import { minWorkExperienceEnum } from '@/lib/db';
 import { MapPinIcon, BriefcaseIcon, CalendarIcon } from '@heroicons/react/24/outline';
+import { mapDbWorkExperienceToFrontend, DbWorkExperienceEnum } from '@/lib/utils/enum-mappers';
+
+// Database job type
+interface DbJob {
+  id: string;
+  jobId: string;
+  jobTitle: string;
+  postedDate: Date | string;
+  numberOfPositions?: number | null;
+  isConfirmed: boolean;
+  createdAt: Date | string;
+  updatedAt: Date | string;
+  employerId: string;
+  minWorkExperience: DbWorkExperienceEnum;
+  lokasiKerja?: string | null;
+  lastEducation?: "SD" | "SMP" | "SMA/SMK" | "D1" | "D2" | "D3" | "D4" | "S1" | "S2" | "S3" | null;
+  requiredCompetencies?: string | null;
+  expectations?: {
+    ageRange?: {
+      min: number;
+      max: number;
+    };
+  } | null;
+  additionalRequirements?: {
+    gender?: "MALE" | "FEMALE" | "ANY" | "ALL";
+    acceptedDisabilityTypes?: string[];
+    numberOfDisabilityPositions?: number;
+  } | null;
+  employer: {
+    namaPerusahaan: string;
+    logoUrl: string | null;
+  } | null;
+}
 
 // Types
 interface Job {
@@ -35,6 +69,14 @@ interface Job {
     namaPerusahaan: string;
     logoUrl: string | null;
   } | null;
+}
+
+// Convert database job to frontend job
+function mapDbJobToFrontendJob(dbJob: DbJob): Job {
+  return {
+    ...dbJob,
+    minWorkExperience: mapDbWorkExperienceToFrontend(dbJob.minWorkExperience) as MinWorkExperienceEnum
+  };
 }
 
 // Job card component
@@ -120,11 +162,14 @@ function JobCard({ job, index }: { job: Job; index: number }) {
 }
 
 // Jobs list component that accepts jobsData as prop
-export default function JobsList({ jobsData }: { jobsData: Job[] }) {
-  if (jobsData.length > 0) {
+export default function JobsList({ jobsData }: { jobsData: DbJob[] }) {
+  // Map database jobs to frontend jobs
+  const frontendJobs = jobsData.map(mapDbJobToFrontendJob);
+  
+  if (frontendJobs.length > 0) {
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {jobsData.map((job, index) => (
+        {frontendJobs.map((job, index) => (
           <JobCard key={job.id} job={job} index={index} />
         ))}
       </div>

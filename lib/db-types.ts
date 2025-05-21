@@ -24,18 +24,16 @@ import {
 export const onboardingSteps = [
   { id: 1, path: "/job-seeker/onboarding/informasi-dasar", title: "Informasi Dasar" },
   { id: 2, path: "/job-seeker/onboarding/informasi-lanjutan", title: "Informasi Lanjutan" },
-  { id: 3, path: "/job-seeker/onboarding/alamat", title: "Alamat" },
-  { id: 4, path: "/job-seeker/onboarding/pendidikan", title: "Pendidikan" },
-  { id: 5, path: "/job-seeker/onboarding/level-pengalaman", title: "Level Pengalaman" },
-  { id: 6, path: "/job-seeker/onboarding/pengalaman-kerja", title: "Pengalaman Kerja" },
-  { id: 7, path: "/job-seeker/onboarding/ekspektasi-kerja", title: "Ekspektasi Kerja" },
-  { id: 8, path: "/job-seeker/onboarding/cv-upload", title: "CV Upload" },
-  { id: 9, path: "/job-seeker/onboarding/foto-profile", title: "Foto Profil" },
-  { id: 10, path: "/job-seeker/onboarding/ringkasan", title: "Ringkasan" },
+  { id: 3, path: "/job-seeker/onboarding/pendidikan", title: "Pendidikan" },
+  { id: 4, path: "/job-seeker/onboarding/level-pengalaman", title: "Level Pengalaman" },
+  { id: 5, path: "/job-seeker/onboarding/pengalaman-kerja", title: "Pengalaman Kerja" },
+  { id: 6, path: "/job-seeker/onboarding/cv-upload", title: "CV Upload" },
+  { id: 7, path: "/job-seeker/onboarding/foto-profile", title: "Foto Profil" },
+  { id: 8, path: "/job-seeker/onboarding/ringkasan", title: "Ringkasan" },
 ];
 
 // Define which steps are optional
-export const optionalSteps = [6, 7, 9]; // Pengalaman Kerja, Ekspektasi Kerja, and Foto Profile are optional
+export const optionalSteps = [5, 7]; // Pengalaman Kerja and Foto Profile are optional
 
 // Enum definitions - these are safe to use in client components
 export const statusEnum = pgEnum('status', ['active', 'inactive', 'archived']);
@@ -209,7 +207,7 @@ export const jobApplications = pgTable('job_applications', {
 
 export type PengalamanKerja = {
   id: string;
-  levelPengalaman: "Baru lulus" | "Pengalaman magang" | "Kurang dari 1 tahun" | "1-2 tahun" | "3-5 tahun" | "5-10 tahun" | "10 tahun lebih";
+  levelPengalaman?: string;
   namaPerusahaan: string;
   posisi: string;
   tanggalMulai: string;
@@ -224,11 +222,11 @@ export type PengalamanKerja = {
 
 export type Pendidikan = {
   id: string;
-  namaInstitusi: string;
-  lokasi: string;
+  namaInstitusi?: string;
+  lokasi?: string;
   jenjangPendidikan: string;
   bidangStudi: string;
-  tanggalLulus: string; // "Masih Kuliah" | "Tidak Lulus" | actual date
+  tanggalLulus?: string; // "Masih Kuliah" | "Tidak Lulus" | actual date
   deskripsiTambahan?: string;
   nilaiAkhir?: string;
   tidakLulus?: boolean;
@@ -252,10 +250,10 @@ export type OnboardingData = {
   
   // Step 2: Informasi Lanjutan
   tanggalLahir: string;
-  tempatLahir: string;
+  tempatLahir?: string | null;
   jenisKelamin?: "Laki-laki" | "Perempuan" | "Lainnya";
   
-  // Step 3: Alamat
+  // Step 3: Alamat (now optional and moved out of the main flow)
   alamat?: {
     kota?: string;
     provinsi?: string;
@@ -263,23 +261,20 @@ export type OnboardingData = {
     jalan?: string;
   };
   
-  // Step 4: Pendidikan
+  // Step 3: Pendidikan
   pendidikan: Pendidikan[];
   
-  // Step 5: Level Pengalaman
-  levelPengalaman?: string;
+  // Step 4: Level Pengalaman
+  levelPengalaman?: "LULUSAN_BARU" | "SATU_DUA_TAHUN" | "TIGA_LIMA_TAHUN" | "LIMA_SEPULUH_TAHUN" | "LEBIH_SEPULUH_TAHUN";
   
-  // Step 6: Pengalaman Kerja
+  // Step 5: Pengalaman Kerja
   pengalamanKerja: PengalamanKerja[];
   
-  // Step 7: Ekspektasi Kerja
-  ekspektasiKerja?: EkspektasiKerja;
-  
-  // Step 8: CV Upload
+  // Step 6: CV Upload
   cvFile?: File;
   cvFileUrl?: string;
   
-  // Step 9: Profile Photo
+  // Step 7: Profile Photo
   profilePhotoFile?: File;
   profilePhotoUrl?: string;
 }; 

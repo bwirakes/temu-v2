@@ -123,28 +123,12 @@ export function useOnboardingApi() {
           pengalamanKerja: fullData.pengalamanKerja
         };
       
-      case 7: // Ekspektasi Kerja
-        if (fullData.ekspektasiKerja) {
-          const ekspektasiData = fullData.ekspektasiKerja;
-          
-          // Ensure we have the proper data structure and types
-          return {
-            ekspektasiKerja: {
-              jobTypes: ekspektasiData.jobTypes || null,
-              idealSalary: ekspektasiData.idealSalary ? Number(ekspektasiData.idealSalary) : null,
-              willingToTravel: ekspektasiData.willingToTravel || null,
-              preferensiLokasiKerja: ekspektasiData.preferensiLokasiKerja || null
-            }
-          };
-        }
-        return { ekspektasiKerja: {} };
-      
-      case 8: // CV Upload
+      case 7: // CV Upload
         return {
           cvFileUrl: fullData.cvFileUrl
         };
 
-      case 9: // Profile Photo Upload
+      case 8: // Profile Photo Upload
         return {
           profilePhotoUrl: fullData.profilePhotoUrl
         };

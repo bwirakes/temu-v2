@@ -72,9 +72,9 @@ const jobSchema = z.object({
   minWorkExperience: z.enum([
     "LULUSAN_BARU",
     "SATU_DUA_TAHUN",
-    "TIGA_EMPAT_TAHUN",
     "TIGA_LIMA_TAHUN",
-    "LEBIH_LIMA_TAHUN"
+    "LIMA_SEPULUH_TAHUN",
+    "LEBIH_SEPULUH_TAHUN"
   ]),
   // Retained fields
   lastEducation: z.string().optional(),
@@ -192,11 +192,13 @@ export default function JobEditForm({ jobId, onSave, onCancel }: JobEditFormProp
           } else if (job.minWorkExperience <= 2) {
             minWorkExperience = "SATU_DUA_TAHUN";
           } else if (job.minWorkExperience <= 4) {
-            minWorkExperience = "TIGA_EMPAT_TAHUN";
+            minWorkExperience = "TIGA_LIMA_TAHUN";
           } else if (job.minWorkExperience <= 5) {
             minWorkExperience = "TIGA_LIMA_TAHUN";
+          } else if (job.minWorkExperience <= 10) {
+            minWorkExperience = "LIMA_SEPULUH_TAHUN";
           } else {
-            minWorkExperience = "LEBIH_LIMA_TAHUN";
+            minWorkExperience = "LEBIH_SEPULUH_TAHUN";
           }
         }
         

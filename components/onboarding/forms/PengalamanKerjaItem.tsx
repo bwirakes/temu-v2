@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Calendar as CalendarIcon, Trash2 } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import { format, parse, isValid } from "date-fns";
 import { id } from "date-fns/locale";
 import { z } from "zod";
@@ -11,27 +11,14 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Calendar } from "@/components/ui/calendar";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { 
-  Popover, 
-  PopoverContent, 
-  PopoverTrigger 
-} from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { PengalamanKerja } from "@/lib/db-types";
 import { FormLabel } from "@/components/ui/form-label";
+import { MIN_WORK_EXPERIENCE_OPTIONS } from "@/lib/constants";
 
-const levelPengalamanOptions = [
-  "Baru lulus",
-  "Pengalaman magang",
-  "Kurang dari 1 tahun", 
-  "1-2 tahun",
-  "3-5 tahun",
-  "5-10 tahun",
-  "10 tahun lebih",
-] as const;
+const levelPengalamanOptions = MIN_WORK_EXPERIENCE_OPTIONS;
 
 const pengalamanKerjaSchema = z.object({
   namaPerusahaan: z.string().min(1, "Nama perusahaan wajib diisi"),
@@ -99,8 +86,6 @@ export default function PengalamanKerjaItem({
   );
   const [tanggalMulaiError, setTanggalMulaiError] = useState<string | null>(null);
   const [tanggalSelesaiError, setTanggalSelesaiError] = useState<string | null>(null);
-  const [isMulaiCalendarOpen, setIsMulaiCalendarOpen] = useState(false);
-  const [isSelesaiCalendarOpen, setIsSelesaiCalendarOpen] = useState(false);
 
   // Effect to ensure expanded state reflects prop changes
   useEffect(() => {
@@ -281,7 +266,7 @@ export default function PengalamanKerjaItem({
     
     const formattedData: PengalamanKerja = {
       id: pengalaman?.id || Date.now().toString(),
-      levelPengalaman: pengalaman?.levelPengalaman || "Baru lulus",
+      levelPengalaman: pengalaman?.levelPengalaman || "LULUSAN_BARU",
       namaPerusahaan: values.namaPerusahaan,
       posisi: values.posisi,
       tanggalMulai: values.tanggalMulai ? values.tanggalMulai.toISOString().split("T")[0] : "",
@@ -361,81 +346,30 @@ export default function PengalamanKerjaItem({
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <FormLabel htmlFor="lokasi">Lokasi</FormLabel>
-              <Input
-                id="lokasi"
-                placeholder="Jakarta, Indonesia"
-                {...register("lokasi")}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <FormLabel htmlFor="gajiTerakhir">Gaji Terakhir (Opsional)</FormLabel>
-              <Input
-                id="gajiTerakhir"
-                placeholder="Rp 5.000.000"
-                {...register("gajiTerakhir")}
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-2">
               <div className="flex items-center">
                 <FormLabel htmlFor="tanggalMulai" required>Tanggal Mulai</FormLabel>
               </div>
               
-              <div className="flex space-x-2">
-                <div className="relative flex-1">
-                  <Input
-                    id="tanggalMulaiText"
-                    placeholder="MM/YYYY"
-                    value={watchTanggalMulaiText}
-                    onChange={handleTanggalMulaiChange}
-                    inputMode="numeric"
-                    className={cn(
-                      tanggalMulaiError || errors.tanggalMulai ? "border-red-500" : ""
-                    )}
-                  />
-                  <div className="text-xs text-gray-500 mt-1">
-                    Format: MM/YYYY (contoh: 06/2020)
-                  </div>
-                  {tanggalMulaiError && (
-                    <p className="text-red-500 text-sm mt-1">{tanggalMulaiError}</p>
+              <div className="w-full">
+                <Input
+                  id="tanggalMulaiText"
+                  placeholder="MM/YYYY"
+                  value={watchTanggalMulaiText}
+                  onChange={handleTanggalMulaiChange}
+                  inputMode="numeric"
+                  className={cn(
+                    tanggalMulaiError || errors.tanggalMulai ? "border-red-500" : ""
                   )}
-                  {errors.tanggalMulai && !tanggalMulaiError && (
-                    <p className="text-red-500 text-sm mt-1">{errors.tanggalMulai.message as string}</p>
-                  )}
+                />
+                <div className="text-xs text-gray-500 mt-1">
+                  Format: MM/YYYY (contoh: 06/2020)
                 </div>
-                
-                <Popover open={isMulaiCalendarOpen} onOpenChange={setIsMulaiCalendarOpen}>
-                  <PopoverTrigger asChild>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="px-3"
-                      aria-label="Pilih tanggal menggunakan kalender"
-                    >
-                      <CalendarIcon className="h-5 w-5" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="end">
-                    <Calendar
-                      mode="single"
-                      selected={tanggalMulaiDate}
-                      onSelect={(date) => {
-                        if (date) {
-                          setTanggalMulaiDate(date);
-                          setIsMulaiCalendarOpen(false);
-                        }
-                      }}
-                      disabled={(date) =>
-                        date > new Date() || date < new Date("1900-01-01")
-                      }
-                      initialFocus
-                    />
-                  </PopoverContent>
-                </Popover>
+                {tanggalMulaiError && (
+                  <p className="text-red-500 text-sm mt-1">{tanggalMulaiError}</p>
+                )}
+                {errors.tanggalMulai && !tanggalMulaiError && (
+                  <p className="text-red-500 text-sm mt-1">{errors.tanggalMulai.message as string}</p>
+                )}
               </div>
             </div>
 
@@ -446,60 +380,26 @@ export default function PengalamanKerjaItem({
               </div>
               
               {!watchMasihBekerja && (
-                <div className="flex space-x-2">
-                  <div className="relative flex-1">
-                    <Input
-                      id="tanggalSelesaiText"
-                      placeholder="MM/YYYY"
-                      value={watchTanggalSelesaiText}
-                      onChange={handleTanggalSelesaiChange}
-                      inputMode="numeric"
-                      className={cn(
-                        tanggalSelesaiError || errors.tanggalSelesai ? "border-red-500" : ""
-                      )}
-                    />
-                    <div className="text-xs text-gray-500 mt-1">
-                      Format: MM/YYYY (contoh: 06/2022)
-                    </div>
-                    {tanggalSelesaiError && (
-                      <p className="text-red-500 text-sm mt-1">{tanggalSelesaiError}</p>
+                <div className="w-full">
+                  <Input
+                    id="tanggalSelesaiText"
+                    placeholder="MM/YYYY"
+                    value={watchTanggalSelesaiText}
+                    onChange={handleTanggalSelesaiChange}
+                    inputMode="numeric"
+                    className={cn(
+                      tanggalSelesaiError || errors.tanggalSelesai ? "border-red-500" : ""
                     )}
-                    {errors.tanggalSelesai && !tanggalSelesaiError && !watchMasihBekerja && (
-                      <p className="text-red-500 text-sm mt-1">{errors.tanggalSelesai.message as string}</p>
-                    )}
+                  />
+                  <div className="text-xs text-gray-500 mt-1">
+                    Format: MM/YYYY (contoh: 06/2022)
                   </div>
-                  
-                  <Popover open={isSelesaiCalendarOpen} onOpenChange={setIsSelesaiCalendarOpen}>
-                    <PopoverTrigger asChild>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className="px-3"
-                        aria-label="Pilih tanggal menggunakan kalender"
-                      >
-                        <CalendarIcon className="h-5 w-5" />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="end">
-                      <Calendar
-                        mode="single"
-                        selected={tanggalSelesaiDate}
-                        onSelect={(date) => {
-                          if (date) {
-                            setTanggalSelesaiDate(date);
-                            setIsSelesaiCalendarOpen(false);
-                          }
-                        }}
-                        disabled={(date) => {
-                          if (date > new Date()) return true;
-                          if (tanggalMulaiDate && date < tanggalMulaiDate) return true;
-                          if (date < new Date("1900-01-01")) return true;
-                          return false;
-                        }}
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
+                  {tanggalSelesaiError && (
+                    <p className="text-red-500 text-sm mt-1">{tanggalSelesaiError}</p>
+                  )}
+                  {errors.tanggalSelesai && !tanggalSelesaiError && !watchMasihBekerja && (
+                    <p className="text-red-500 text-sm mt-1">{errors.tanggalSelesai.message as string}</p>
+                  )}
                 </div>
               )}
               
@@ -521,46 +421,6 @@ export default function PengalamanKerjaItem({
               </div>
             </div>
           </div>
-
-          <div className="space-y-2">
-            <FormLabel htmlFor="deskripsiPekerjaan">Deskripsi Pekerjaan</FormLabel>
-            <Textarea
-              id="deskripsiPekerjaan"
-              placeholder="Jelaskan tugas dan tanggung jawab Anda di perusahaan ini..."
-              rows={4}
-              {...register("deskripsiPekerjaan")}
-            />
-          </div>
-
-          {!watchMasihBekerja && (
-            <div className="space-y-2">
-              <FormLabel htmlFor="alasanKeluar">Alasan Keluar</FormLabel>
-              <Select
-                value={watchAlasanKeluar}
-                onValueChange={(value) => setValue("alasanKeluar", value as any)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Pilih alasan keluar" />
-                </SelectTrigger>
-                <SelectContent>
-                  {alasanKeluarOptions.map((option) => (
-                    <SelectItem key={option} value={option}>
-                      {option}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              {watchAlasanKeluar === "Lainnya" && (
-                <div className="mt-2">
-                  <Input
-                    placeholder="Sebutkan alasan keluar..."
-                    {...register("alasanKeluarLainnya")}
-                  />
-                </div>
-              )}
-            </div>
-          )}
 
           <div className="flex justify-between pt-4">
             <Button

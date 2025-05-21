@@ -18,19 +18,21 @@ import {
   getEmployerByUserId, 
   db,
   jobApplications,
-  userProfiles
+  userProfiles,
+  minWorkExperienceEnum
 } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { ApplicantsClientWrapper } from "./applicants-client";
 import { eq, and, sql } from 'drizzle-orm';
 import { Suspense } from "react";
-import { EXPERIENCE_LEVEL_CATEGORIES } from "@/lib/constants";
+import { EXPERIENCE_LEVEL_CATEGORIES, MinWorkExperienceEnum } from "@/lib/constants";
+import { useCallback, useState } from "react";
+import { SWRConfig } from "swr";
+import { ApplicantsTab, Applicant } from "./applicants";
+import { mapDbWorkExperienceToFrontend } from "@/lib/utils/enum-mappers";
 
 // Import type definitions only
-import type { Job } from "./job-details";
-import type { Applicant } from "./applicants";
-import { JobDetailsCard } from "./job-details";
-import { ApplicantsTab } from "./applicants";
+import { JobDetailsCard, Job } from "./job-details";
 
 // Configure ISR - revalidate job pages every 1 hour (3600 seconds)
 export const revalidate = 3600;
@@ -274,13 +276,12 @@ export default async function JobDetailPage(props: { params: Promise<{ id: strin
   };
 
   // Transform job data to match the expected format
-  const jobData = {
+  const jobData: Job = {
     id: job.id,
     jobId: job.jobId,
     employerId: job.employerId,
     jobTitle: job.jobTitle,
-    contractType: 'FULL_TIME', // Provide a default value since contractType was removed from the schema
-    minWorkExperience: job.minWorkExperience,
+    minWorkExperience: mapDbWorkExperienceToFrontend(job.minWorkExperience), // Now always returns a valid enum
     postedDate: job.postedDate.toISOString(),
     numberOfPositions: job.numberOfPositions || undefined,
     isConfirmed: job.isConfirmed,

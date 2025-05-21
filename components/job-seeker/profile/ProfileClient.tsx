@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { 
   FileText, 
   Phone, 
@@ -17,6 +19,8 @@ import {
   User, 
   Plus,
   X,
+  Save,
+  Trash2
 } from "lucide-react";
 import {
   Select,
@@ -32,6 +36,7 @@ import { useRouter } from "next/navigation";
 import ProfilePhotoUploader from "./ProfilePhotoUploader";
 import { SectionCard, InfoItem } from "./ProfileComponents";
 import { CV } from "./CV";
+import { v4 as uuidv4 } from 'uuid';
 
 // Constants for form options
 const levelPengalamanOptions = [
@@ -47,8 +52,8 @@ const levelPengalamanOptions = [
 // Define types locally to avoid import issues
 type Pendidikan = {
   id: string;
-  namaInstitusi: string;
-  lokasi: string;
+  namaInstitusi?: string;
+  lokasi?: string;
   jenjangPendidikan: string;
   bidangStudi: string;
   tanggalLulus: string;
@@ -64,8 +69,8 @@ type PengalamanKerja = {
   posisi: string;
   tanggalMulai: string;
   tanggalSelesai: string;
-  lokasi: string;
-  lokasiKerja: LokasiKerjaType;
+  lokasi?: string;
+  lokasiKerja?: LokasiKerjaType;
   deskripsiPekerjaan: string;
   alasanKeluar?: string;
   masihBekerja: boolean;
@@ -84,7 +89,6 @@ interface ProfileData {
   cvUploadDate?: string | Date | null;
   profilePhotoUrl?: string | null;
   levelPengalaman?: string | null;
-  ekspektasiKerja?: any;
   alamat?: any;
   pendidikan?: Pendidikan[];
   pengalamanKerja?: PengalamanKerja[];
@@ -111,6 +115,8 @@ export default function ProfileClient({ initialProfileData }: ProfileClientProps
       ? initialProfileData.pendidikan 
       : []
   );
+  const [currentPendidikan, setCurrentPendidikan] = useState<Pendidikan | null>(null);
+  const [pendidikanFormMode, setPendidikanFormMode] = useState<'add' | 'edit' | null>(null);
   
   // State for work experience editing
   const [editingPengalaman, setEditingPengalaman] = useState<boolean>(false);
@@ -120,6 +126,8 @@ export default function ProfileClient({ initialProfileData }: ProfileClientProps
       ? initialProfileData.pengalamanKerja 
       : []
   );
+  const [currentPengalaman, setCurrentPengalaman] = useState<PengalamanKerja | null>(null);
+  const [pengalamanFormMode, setPengalamanFormMode] = useState<'add' | 'edit' | null>(null);
   const [tidakAdaPengalaman, setTidakAdaPengalaman] = useState<boolean>(
     !(initialProfileData?.pengalamanKerja && Array.isArray(initialProfileData.pengalamanKerja) && initialProfileData.pengalamanKerja.length > 0)
   );
@@ -145,7 +153,6 @@ export default function ProfileClient({ initialProfileData }: ProfileClientProps
         namaLengkap: profileData?.namaLengkap,
         nomorTelepon: profileData?.nomorTelepon,
         tanggalLahir: profileData?.tanggalLahir,
-        tempatLahir: profileData?.tempatLahir,
         jenisKelamin: profileData?.jenisKelamin,
         levelPengalaman: profileData?.levelPengalaman,
       });
@@ -226,6 +233,237 @@ export default function ProfileClient({ initialProfileData }: ProfileClientProps
       return format(date, "MM/yyyy");
     } catch (e) {
       return dateString;
+    }
+  };
+
+  // New handlers for education
+  const handleAddEducation = () => {
+    setCurrentPendidikan({
+      id: uuidv4(),
+      jenjangPendidikan: '',
+      bidangStudi: '',
+      tanggalLulus: '',
+      masihBelajar: false
+    });
+    setPendidikanFormMode('add');
+  };
+
+  const handleEditEducation = (pendidikan: Pendidikan) => {
+    setCurrentPendidikan(pendidikan);
+    setPendidikanFormMode('edit');
+  };
+
+  const handleDeleteEducation = async (id: string) => {
+    try {
+      setIsLoading(true);
+      
+      const response = await fetch(`/api/job-seeker/profile/pendidikan/${id}`, {
+        method: "DELETE",
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to delete education");
+      }
+      
+      // Update local state
+      setPendidikanList(prevList => prevList.filter(item => item.id !== id));
+      
+      // Update profile data
+      if (profileData) {
+        setProfileData({
+          ...profileData,
+          pendidikan: pendidikanList.filter(item => item.id !== id)
+        });
+      }
+      
+      toast.success("Data pendidikan berhasil dihapus");
+    } catch (error) {
+      console.error("Error deleting education:", error);
+      toast.error(error instanceof Error ? error.message : "Gagal menghapus data pendidikan");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSaveEducation = async (educationData: Pendidikan) => {
+    try {
+      setIsLoading(true);
+      
+      const method = pendidikanFormMode === 'add' ? 'POST' : 'PUT';
+      const url = pendidikanFormMode === 'add' 
+        ? '/api/job-seeker/profile/pendidikan' 
+        : `/api/job-seeker/profile/pendidikan/${educationData.id}`;
+      
+      const response = await fetch(url, {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(educationData),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to save education data");
+      }
+      
+      const savedEducation = await response.json();
+      
+      // Update local state
+      if (pendidikanFormMode === 'add') {
+        setPendidikanList(prevList => [...prevList, savedEducation]);
+      } else {
+        setPendidikanList(prevList => 
+          prevList.map(item => item.id === savedEducation.id ? savedEducation : item)
+        );
+      }
+      
+      // Update profile data
+      if (profileData) {
+        const updatedPendidikan = pendidikanFormMode === 'add'
+          ? [...(profileData.pendidikan || []), savedEducation]
+          : (profileData.pendidikan || []).map(item => 
+              item.id === savedEducation.id ? savedEducation : item
+            );
+            
+        setProfileData({
+          ...profileData,
+          pendidikan: updatedPendidikan
+        });
+      }
+      
+      // Reset form
+      setCurrentPendidikan(null);
+      setPendidikanFormMode(null);
+      
+      toast.success(
+        pendidikanFormMode === 'add' 
+          ? "Data pendidikan berhasil ditambahkan" 
+          : "Data pendidikan berhasil diperbarui"
+      );
+    } catch (error) {
+      console.error("Error saving education data:", error);
+      toast.error(error instanceof Error ? error.message : "Gagal menyimpan data pendidikan");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // New handlers for work experience
+  const handleAddWorkExperience = () => {
+    setCurrentPengalaman({
+      id: uuidv4(),
+      namaPerusahaan: '',
+      posisi: '',
+      tanggalMulai: '',
+      tanggalSelesai: '',
+      deskripsiPekerjaan: '',
+      masihBekerja: false
+    });
+    setPengalamanFormMode('add');
+  };
+
+  const handleEditWorkExperience = (pengalaman: PengalamanKerja) => {
+    setCurrentPengalaman(pengalaman);
+    setPengalamanFormMode('edit');
+  };
+
+  const handleDeleteWorkExperience = async (id: string) => {
+    try {
+      setIsLoading(true);
+      
+      const response = await fetch(`/api/job-seeker/profile/pengalaman/${id}`, {
+        method: "DELETE",
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to delete work experience");
+      }
+      
+      // Update local state
+      setPengalamanList(prevList => prevList.filter(item => item.id !== id));
+      
+      // Update profile data
+      if (profileData) {
+        setProfileData({
+          ...profileData,
+          pengalamanKerja: pengalamanList.filter(item => item.id !== id)
+        });
+      }
+      
+      toast.success("Data pengalaman kerja berhasil dihapus");
+    } catch (error) {
+      console.error("Error deleting work experience:", error);
+      toast.error(error instanceof Error ? error.message : "Gagal menghapus data pengalaman kerja");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSaveWorkExperience = async (workExperienceData: PengalamanKerja) => {
+    try {
+      setIsLoading(true);
+      
+      const method = pengalamanFormMode === 'add' ? 'POST' : 'PUT';
+      const url = pengalamanFormMode === 'add' 
+        ? '/api/job-seeker/profile/pengalaman' 
+        : `/api/job-seeker/profile/pengalaman/${workExperienceData.id}`;
+      
+      const response = await fetch(url, {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(workExperienceData),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to save work experience data");
+      }
+      
+      const savedExperience = await response.json();
+      
+      // Update local state
+      if (pengalamanFormMode === 'add') {
+        setPengalamanList(prevList => [...prevList, savedExperience]);
+      } else {
+        setPengalamanList(prevList => 
+          prevList.map(item => item.id === savedExperience.id ? savedExperience : item)
+        );
+      }
+      
+      // Update profile data
+      if (profileData) {
+        const updatedPengalaman = pengalamanFormMode === 'add'
+          ? [...(profileData.pengalamanKerja || []), savedExperience]
+          : (profileData.pengalamanKerja || []).map(item => 
+              item.id === savedExperience.id ? savedExperience : item
+            );
+            
+        setProfileData({
+          ...profileData,
+          pengalamanKerja: updatedPengalaman
+        });
+      }
+      
+      // Reset form
+      setCurrentPengalaman(null);
+      setPengalamanFormMode(null);
+      setTidakAdaPengalaman(false);
+      
+      toast.success(
+        pengalamanFormMode === 'add' 
+          ? "Data pengalaman kerja berhasil ditambahkan" 
+          : "Data pengalaman kerja berhasil diperbarui"
+      );
+    } catch (error) {
+      console.error("Error saving work experience data:", error);
+      toast.error(error instanceof Error ? error.message : "Gagal menyimpan data pengalaman kerja");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -359,10 +597,19 @@ export default function ProfileClient({ initialProfileData }: ProfileClientProps
                   <InfoItem 
                     label="Nomor Telepon" 
                     value={
-                      <div className="flex items-center">
-                        <Phone className="h-4 w-4 mr-2 text-gray-500" />
-                        <span>{profileData.nomorTelepon}</span>
-                      </div>
+                      isEditing ? (
+                        <Input 
+                          name="nomorTelepon" 
+                          value={editData.nomorTelepon || ""} 
+                          onChange={handleInputChange}
+                          className="text-sm h-8"
+                        />
+                      ) : (
+                        <div className="flex items-center">
+                          <Phone className="h-4 w-4 mr-2 text-gray-500" />
+                          <span>{profileData.nomorTelepon}</span>
+                        </div>
+                      )
                     }
                   />
                   {profileData.alamat?.kota && (
@@ -415,18 +662,6 @@ export default function ProfileClient({ initialProfileData }: ProfileClientProps
                           />
                         </div>
                         
-                        <div className="space-y-2">
-                          <Label htmlFor="tempatLahir" className="text-sm">Tempat Lahir</Label>
-                          <Input
-                            id="tempatLahir"
-                            name="tempatLahir"
-                            value={editData.tempatLahir || ""}
-                            onChange={handleInputChange}
-                            placeholder="Contoh: Jakarta"
-                            className="text-sm h-9"
-                          />
-                        </div>
-                        
                         <div className="space-y-2 col-span-1 md:col-span-2">
                           <Label htmlFor="jenisKelamin" className="text-sm">Jenis Kelamin</Label>
                           <Select
@@ -464,13 +699,6 @@ export default function ProfileClient({ initialProfileData }: ProfileClientProps
                         </div>
                         
                         <div className="px-4 py-3 flex justify-between items-center">
-                          <span className="text-sm text-gray-500">Tempat Lahir</span>
-                          <span className="text-sm font-medium">
-                            {profileData.tempatLahir || 'Tidak diisi'}
-                          </span>
-                        </div>
-                        
-                        <div className="px-4 py-3 flex justify-between items-center">
                           <span className="text-sm text-gray-500">Jenis Kelamin</span>
                           <span className="text-sm font-medium">
                             {profileData.jenisKelamin || 'Tidak diisi'}
@@ -492,45 +720,405 @@ export default function ProfileClient({ initialProfileData }: ProfileClientProps
                   {/* Education tab content - simplified */}
                   <div className="flex justify-between items-center">
                     <h3 className="text-sm font-medium">Riwayat Pendidikan</h3>
-                    <Button variant="ghost" size="sm" onClick={() => setEditingPendidikan(!editingPendidikan)}>
-                      {editingPendidikan ? <X className="h-3 w-3 mr-1" /> : <Edit className="h-3 w-3 mr-1" />}
-                      {editingPendidikan ? "Batal" : "Edit"}
-                    </Button>
+                    {!pendidikanFormMode && (
+                      <div className="flex space-x-2">
+                        <Button variant="outline" size="sm" onClick={handleAddEducation}>
+                          <Plus className="h-3 w-3 mr-1" />
+                          Tambah
+                        </Button>
+                      </div>
+                    )}
                   </div>
                   
-                  {pendidikanList.length > 0 ? (
+                  {/* Education form */}
+                  {pendidikanFormMode && currentPendidikan && (
+                    <Card className="border-blue-200">
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm">
+                          {pendidikanFormMode === 'add' ? 'Tambah Pendidikan' : 'Edit Pendidikan'}
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="jenjangPendidikan" className="text-xs">Jenjang Pendidikan</Label>
+                            <Select
+                              value={currentPendidikan.jenjangPendidikan}
+                              onValueChange={(value) => setCurrentPendidikan({
+                                ...currentPendidikan,
+                                jenjangPendidikan: value
+                              })}
+                            >
+                              <SelectTrigger id="jenjangPendidikan" className="text-sm h-9">
+                                <SelectValue placeholder="Pilih jenjang pendidikan" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="SMA/SMK">SMA/SMK</SelectItem>
+                                <SelectItem value="D3">D3</SelectItem>
+                                <SelectItem value="S1">S1</SelectItem>
+                                <SelectItem value="S2">S2</SelectItem>
+                                <SelectItem value="S3">S3</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          
+                          <div className="space-y-2">
+                            <Label htmlFor="bidangStudi" className="text-xs">Bidang Studi</Label>
+                            <Input
+                              id="bidangStudi"
+                              value={currentPendidikan.bidangStudi}
+                              onChange={(e) => setCurrentPendidikan({
+                                ...currentPendidikan,
+                                bidangStudi: e.target.value
+                              })}
+                              className="text-sm h-9"
+                            />
+                          </div>
+                          
+                          <div className="space-y-2">
+                            <Label htmlFor="namaInstitusi" className="text-xs">Nama Institusi</Label>
+                            <Input
+                              id="namaInstitusi"
+                              value={currentPendidikan.namaInstitusi || ''}
+                              onChange={(e) => setCurrentPendidikan({
+                                ...currentPendidikan,
+                                namaInstitusi: e.target.value
+                              })}
+                              className="text-sm h-9"
+                            />
+                          </div>
+                          
+                          <div className="space-y-2">
+                            <Label htmlFor="lokasi" className="text-xs">Lokasi</Label>
+                            <Input
+                              id="lokasi"
+                              value={currentPendidikan.lokasi || ''}
+                              onChange={(e) => setCurrentPendidikan({
+                                ...currentPendidikan,
+                                lokasi: e.target.value
+                              })}
+                              className="text-sm h-9"
+                              placeholder="Contoh: Jakarta, Indonesia"
+                            />
+                          </div>
+                          
+                          <div className="space-y-2">
+                            <Label htmlFor="tanggalLulus" className="text-xs">Tanggal Lulus</Label>
+                            <Input
+                              id="tanggalLulus"
+                              type="date"
+                              value={currentPendidikan.tanggalLulus}
+                              onChange={(e) => setCurrentPendidikan({
+                                ...currentPendidikan,
+                                tanggalLulus: e.target.value
+                              })}
+                              className="text-sm h-9"
+                              disabled={currentPendidikan.masihBelajar}
+                            />
+                          </div>
+                          
+                          <div className="flex items-center space-x-2 pt-6">
+                            <input
+                              type="checkbox"
+                              id="masihBelajar"
+                              checked={currentPendidikan.masihBelajar}
+                              onChange={(e) => setCurrentPendidikan({
+                                ...currentPendidikan,
+                                masihBelajar: e.target.checked,
+                                tanggalLulus: e.target.checked ? '' : currentPendidikan.tanggalLulus
+                              })}
+                              className="h-4 w-4 text-blue-600"
+                            />
+                            <Label htmlFor="masihBelajar" className="text-xs">Masih dalam pendidikan</Label>
+                          </div>
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <Label htmlFor="deskripsiTambahan" className="text-xs">Deskripsi Tambahan (Opsional)</Label>
+                          <textarea
+                            id="deskripsiTambahan"
+                            value={currentPendidikan.deskripsiTambahan || ''}
+                            onChange={(e) => setCurrentPendidikan({
+                              ...currentPendidikan,
+                              deskripsiTambahan: e.target.value
+                            })}
+                            className="w-full min-h-[100px] text-sm p-2 border rounded-md"
+                            placeholder="Tambahkan informasi relevan seperti prestasi, kegiatan, atau detail lainnya"
+                          />
+                        </div>
+                        
+                        <div className="flex justify-end space-x-2 pt-2">
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => {
+                              setCurrentPendidikan(null);
+                              setPendidikanFormMode(null);
+                            }}
+                          >
+                            Batal
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            onClick={() => handleSaveEducation(currentPendidikan)}
+                            disabled={isLoading || !currentPendidikan.jenjangPendidikan || !currentPendidikan.bidangStudi || (!currentPendidikan.masihBelajar && !currentPendidikan.tanggalLulus)}
+                          >
+                            {isLoading ? 'Menyimpan...' : 'Simpan'}
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+                  
+                  {/* Education list */}
+                  {!pendidikanFormMode && pendidikanList.length > 0 ? (
                     <div className="space-y-3">
                       {pendidikanList.map((pendidikan, index) => (
                         <Card key={pendidikan.id || index} className="transition-shadow duration-200 hover:shadow-sm">
-                          <CardHeader className="p-3">
-                            <CardTitle className="text-sm font-medium">{pendidikan.namaInstitusi}</CardTitle>
-                            <CardDescription className="text-xs">
-                              {pendidikan.jenjangPendidikan}, {pendidikan.bidangStudi}
-                            </CardDescription>
+                          <CardHeader className="p-3 pb-2">
+                            <div className="flex justify-between">
+                              <CardTitle className="text-sm font-medium">
+                                {pendidikan.jenjangPendidikan}{pendidikan.bidangStudi ? `: ${pendidikan.bidangStudi}` : ''}
+                              </CardTitle>
+                              <div className="flex space-x-1">
+                                <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => handleEditEducation(pendidikan)}>
+                                  <Edit className="h-3 w-3" />
+                                </Button>
+                                <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-red-500" onClick={() => handleDeleteEducation(pendidikan.id)}>
+                                  <X className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            </div>
                           </CardHeader>
+                          <CardContent className="px-3 pt-0 pb-3">
+                            {pendidikan.namaInstitusi && (
+                              <p className="text-xs text-gray-600">
+                                {pendidikan.namaInstitusi}{pendidikan.lokasi ? `, ${pendidikan.lokasi}` : ''}
+                              </p>
+                            )}
+                            <p className="text-xs text-gray-500 mt-1">
+                              {pendidikan.masihBelajar 
+                                ? 'Masih dalam pendidikan' 
+                                : pendidikan.tanggalLulus 
+                                  ? `Lulus: ${new Date(pendidikan.tanggalLulus).toLocaleDateString('id-ID', {month: 'long', year: 'numeric'})}` 
+                                  : ''}
+                            </p>
+                            {pendidikan.deskripsiTambahan && (
+                              <p className="text-xs text-gray-600 mt-2 italic">
+                                {pendidikan.deskripsiTambahan}
+                              </p>
+                            )}
+                          </CardContent>
                         </Card>
                       ))}
                     </div>
                   ) : (
-                    <div className="text-center py-6 bg-gray-50 rounded-md border border-dashed">
-                      <p className="text-xs text-muted-foreground">Belum ada data pendidikan</p>
-                    </div>
+                    !pendidikanFormMode && (
+                      <div className="text-center py-6 bg-gray-50 rounded-md border border-dashed">
+                        <p className="text-xs text-muted-foreground">Belum ada data pendidikan</p>
+                        <Button variant="link" size="sm" onClick={handleAddEducation} className="mt-2 h-7 text-xs">
+                          <Plus className="h-3 w-3 mr-1" />
+                          Tambah Pendidikan
+                        </Button>
+                      </div>
+                    )
                   )}
                 </div>
               </TabsContent>
               
               <TabsContent value="pengalaman">
                 <div className="space-y-3">
-                  {/* Work experience tab content - simplified */}
+                  {/* Work experience tab content */}
                   <div className="flex justify-between items-center">
                     <h3 className="text-sm font-medium">Pengalaman Kerja</h3>
-                    <Button variant="ghost" size="sm" onClick={() => setEditingPengalaman(!editingPengalaman)}>
-                      {editingPengalaman ? <X className="h-3 w-3 mr-1" /> : <Edit className="h-3 w-3 mr-1" />}
-                      {editingPengalaman ? "Batal" : "Edit"}
-                    </Button>
+                    {!pengalamanFormMode && (
+                      <div className="flex space-x-2">
+                        <Button variant="outline" size="sm" onClick={handleAddWorkExperience}>
+                          <Plus className="h-3 w-3 mr-1" />
+                          Tambah
+                        </Button>
+                      </div>
+                    )}
                   </div>
                   
-                  {pengalamanList.length > 0 ? (
+                  {/* Work experience form */}
+                  {pengalamanFormMode && currentPengalaman && (
+                    <Card className="border-blue-200">
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm">
+                          {pengalamanFormMode === 'add' ? 'Tambah Pengalaman' : 'Edit Pengalaman'}
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-2 col-span-1 md:col-span-2">
+                            <Label htmlFor="posisi" className="text-xs">Posisi</Label>
+                            <Input
+                              id="posisi"
+                              value={currentPengalaman.posisi}
+                              onChange={(e) => setCurrentPengalaman({
+                                ...currentPengalaman,
+                                posisi: e.target.value
+                              })}
+                              className="text-sm h-9"
+                              placeholder="Contoh: Software Engineer"
+                            />
+                          </div>
+                          
+                          <div className="space-y-2 col-span-1 md:col-span-2">
+                            <Label htmlFor="namaPerusahaan" className="text-xs">Nama Perusahaan</Label>
+                            <Input
+                              id="namaPerusahaan"
+                              value={currentPengalaman.namaPerusahaan}
+                              onChange={(e) => setCurrentPengalaman({
+                                ...currentPengalaman,
+                                namaPerusahaan: e.target.value
+                              })}
+                              className="text-sm h-9"
+                            />
+                          </div>
+                          
+                          <div className="space-y-2">
+                            <Label htmlFor="lokasi" className="text-xs">Lokasi</Label>
+                            <Input
+                              id="lokasi"
+                              value={currentPengalaman.lokasi || ''}
+                              onChange={(e) => setCurrentPengalaman({
+                                ...currentPengalaman,
+                                lokasi: e.target.value
+                              })}
+                              className="text-sm h-9"
+                              placeholder="Contoh: Jakarta, Indonesia"
+                            />
+                          </div>
+                          
+                          <div className="space-y-2">
+                            <Label htmlFor="lokasiKerja" className="text-xs">Jenis Lokasi Kerja</Label>
+                            <Select
+                              value={currentPengalaman.lokasiKerja || ''}
+                              onValueChange={(value) => setCurrentPengalaman({
+                                ...currentPengalaman,
+                                lokasiKerja: value as LokasiKerjaType
+                              })}
+                            >
+                              <SelectTrigger id="lokasiKerja" className="text-sm h-9">
+                                <SelectValue placeholder="Pilih jenis lokasi kerja" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="Work From Office (WFO)">Work From Office (WFO)</SelectItem>
+                                <SelectItem value="Work From Home (WFH)">Work From Home (WFH)</SelectItem>
+                                <SelectItem value="Hybrid">Hybrid</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          
+                          <div className="space-y-2">
+                            <Label htmlFor="tanggalMulai" className="text-xs">Tanggal Mulai</Label>
+                            <Input
+                              id="tanggalMulai"
+                              type="date"
+                              value={currentPengalaman.tanggalMulai}
+                              onChange={(e) => setCurrentPengalaman({
+                                ...currentPengalaman,
+                                tanggalMulai: e.target.value
+                              })}
+                              className="text-sm h-9"
+                            />
+                          </div>
+                          
+                          <div className="space-y-2">
+                            <Label htmlFor="tanggalSelesai" className="text-xs">Tanggal Selesai</Label>
+                            <Input
+                              id="tanggalSelesai"
+                              type="date"
+                              value={currentPengalaman.tanggalSelesai !== "Sekarang" ? currentPengalaman.tanggalSelesai : ''}
+                              onChange={(e) => setCurrentPengalaman({
+                                ...currentPengalaman,
+                                tanggalSelesai: e.target.value
+                              })}
+                              className="text-sm h-9"
+                              disabled={currentPengalaman.masihBekerja}
+                            />
+                          </div>
+                          
+                          <div className="flex items-center space-x-2 pt-6 col-span-1 md:col-span-2">
+                            <input
+                              type="checkbox"
+                              id="masihBekerja"
+                              checked={currentPengalaman.masihBekerja}
+                              onChange={(e) => setCurrentPengalaman({
+                                ...currentPengalaman,
+                                masihBekerja: e.target.checked,
+                                tanggalSelesai: e.target.checked ? "Sekarang" : currentPengalaman.tanggalSelesai === "Sekarang" ? '' : currentPengalaman.tanggalSelesai
+                              })}
+                              className="h-4 w-4 text-blue-600"
+                            />
+                            <Label htmlFor="masihBekerja" className="text-xs">Saya masih bekerja di sini</Label>
+                          </div>
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <Label htmlFor="deskripsiPekerjaan" className="text-xs">Deskripsi Pekerjaan</Label>
+                          <textarea
+                            id="deskripsiPekerjaan"
+                            value={currentPengalaman.deskripsiPekerjaan}
+                            onChange={(e) => setCurrentPengalaman({
+                              ...currentPengalaman,
+                              deskripsiPekerjaan: e.target.value
+                            })}
+                            className="w-full min-h-[100px] text-sm p-2 border rounded-md"
+                            placeholder="Jelaskan tanggung jawab dan pencapaian Anda"
+                          />
+                        </div>
+                        
+                        {!currentPengalaman.masihBekerja && (
+                          <div className="space-y-2">
+                            <Label htmlFor="alasanKeluar" className="text-xs">Alasan Keluar (Opsional)</Label>
+                            <textarea
+                              id="alasanKeluar"
+                              value={currentPengalaman.alasanKeluar || ''}
+                              onChange={(e) => setCurrentPengalaman({
+                                ...currentPengalaman,
+                                alasanKeluar: e.target.value
+                              })}
+                              className="w-full min-h-[80px] text-sm p-2 border rounded-md"
+                              placeholder="Jelaskan alasan Anda pindah atau keluar dari perusahaan ini"
+                            />
+                          </div>
+                        )}
+                        
+                        <div className="flex justify-end space-x-2 pt-2">
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => {
+                              setCurrentPengalaman(null);
+                              setPengalamanFormMode(null);
+                            }}
+                          >
+                            Batal
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            onClick={() => handleSaveWorkExperience(currentPengalaman)}
+                            disabled={
+                              isLoading || 
+                              !currentPengalaman.posisi || 
+                              !currentPengalaman.namaPerusahaan || 
+                              !currentPengalaman.tanggalMulai || 
+                              (!currentPengalaman.masihBekerja && !currentPengalaman.tanggalSelesai) ||
+                              !currentPengalaman.deskripsiPekerjaan
+                            }
+                          >
+                            {isLoading ? 'Menyimpan...' : 'Simpan'}
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+                  
+                  {/* Work experience list */}
+                  {!pengalamanFormMode && pengalamanList.length > 0 ? (
                     <div className="space-y-3">
                       {pengalamanList.map((pengalaman, index) => (
                         <Card key={pengalaman.id || index} className="transition-shadow duration-200 hover:shadow-sm">
@@ -539,24 +1127,55 @@ export default function ProfileClient({ initialProfileData }: ProfileClientProps
                               <div>
                                 <CardTitle className="text-sm font-medium">{pengalaman.posisi}</CardTitle>
                                 <CardDescription className="text-xs">
-                                  {pengalaman.namaPerusahaan} • {pengalaman.lokasiKerja}
+                                  {pengalaman.namaPerusahaan}
                                 </CardDescription>
                               </div>
-                              <div className="text-right">
+                              <div className="flex flex-col items-end">
+                                <div className="flex space-x-1">
+                                  <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => handleEditWorkExperience(pengalaman)}>
+                                    <Edit className="h-3 w-3" />
+                                  </Button>
+                                  <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-red-500" onClick={() => handleDeleteWorkExperience(pengalaman.id)}>
+                                    <X className="h-3 w-3" />
+                                  </Button>
+                                </div>
                                 <p className="text-xs font-medium">
                                   {formatDisplayDate(pengalaman.tanggalMulai)} - {pengalaman.tanggalSelesai === "Sekarang" ? "Sekarang" : formatDisplayDate(pengalaman.tanggalSelesai)}
                                 </p>
-                                <p className="text-[10px] text-muted-foreground">{pengalaman.lokasi}</p>
                               </div>
                             </div>
                           </CardHeader>
+                          <CardContent className="px-3 pt-0 pb-3">
+                            {pengalaman.lokasi && (
+                              <p className="text-xs text-gray-600 flex items-center">
+                                <MapPin className="h-3 w-3 mr-1" />
+                                {pengalaman.lokasi}
+                                {pengalaman.lokasiKerja && (
+                                  <span className="ml-2 bg-gray-100 text-gray-700 rounded-full px-2 py-0.5 text-[10px]">
+                                    {pengalaman.lokasiKerja}
+                                  </span>
+                                )}
+                              </p>
+                            )}
+                            {pengalaman.deskripsiPekerjaan && (
+                              <p className="text-xs text-gray-600 mt-2">
+                                {pengalaman.deskripsiPekerjaan}
+                              </p>
+                            )}
+                          </CardContent>
                         </Card>
                       ))}
                     </div>
                   ) : (
-                    <div className="text-center py-6 bg-gray-50 rounded-md border border-dashed">
-                      <p className="text-xs text-muted-foreground">Belum ada data pengalaman kerja</p>
-                    </div>
+                    !pengalamanFormMode && (
+                      <div className="text-center py-6 bg-gray-50 rounded-md border border-dashed">
+                        <p className="text-xs text-muted-foreground">{tidakAdaPengalaman ? "Belum ada pengalaman kerja" : "Belum ada data pengalaman kerja"}</p>
+                        <Button variant="link" size="sm" onClick={handleAddWorkExperience} className="mt-2 h-7 text-xs">
+                          <Plus className="h-3 w-3 mr-1" />
+                          Tambah Pengalaman
+                        </Button>
+                      </div>
+                    )
                   )}
                 </div>
               </TabsContent>

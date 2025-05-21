@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getJobById, updateJob, getEmployerByUserId } from "@/lib/db";
+import { getJobById, updateJob, getEmployerByUserId, db, jobs, jobWorkLocations, minWorkExperienceEnum } from "@/lib/db";
+import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { auth } from '@/lib/auth';
 import { revalidatePath } from "next/cache";
 import { EDUCATION_LEVELS, MIN_WORK_EXPERIENCE_OPTIONS, MinWorkExperienceEnum } from "@/lib/constants";
+import { mapFrontendWorkExperienceToDb } from "@/lib/utils/enum-mappers";
 
 // Mark this API route as dynamic to prevent static generation errors with headers()
 export const dynamic = 'force-dynamic';
@@ -129,7 +131,8 @@ export async function PUT(req: NextRequest, props: { params: Promise<{ id: strin
     // Prepare data for update
     const jobData = {
       ...validationResult.data,
-      minWorkExperience: validationResult.data.minWorkExperience as MinWorkExperienceEnum,
+      // Map the frontend enum value to database-compatible enum value using the shared mapper
+      minWorkExperience: mapFrontendWorkExperienceToDb(validationResult.data.minWorkExperience as MinWorkExperienceEnum) || 'LULUSAN_BARU',
       lokasiKerja: validationResult.data.lokasiKerja,
       // Ensure new fields are properly included
       lastEducation: validationResult.data.lastEducation as any,

@@ -6,18 +6,11 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { format, parse, isValid } from "date-fns";
 import { id } from "date-fns/locale";
-import { Calendar as CalendarIcon } from "lucide-react";
 
 import { useOnboarding } from "@/lib/context/OnboardingContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Calendar } from "@/components/ui/calendar";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import FormNav from "@/components/FormNav";
 import { cn } from "@/lib/utils";
 import { FormLabel } from "@/components/ui/form-label";
@@ -28,7 +21,7 @@ const informasiLanjutanSchema = z.object({
     required_error: "Tanggal lahir wajib diisi",
   }),
   tanggalLahirText: z.string().optional(),
-  tempatLahir: z.string().min(1, "Tempat lahir wajib diisi"),
+  tempatLahir: z.string().optional(),
   jenisKelamin: z
     .enum(["Laki-laki", "Perempuan"])
     .optional(),
@@ -43,7 +36,6 @@ export default function InformasiLanjutanForm() {
     data.tanggalLahir ? new Date(data.tanggalLahir) : undefined
   );
   const [dateInputError, setDateInputError] = useState<string | null>(null);
-  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
 
   const defaultValues: Partial<InformasiLanjutanValues> = {
     tanggalLahir: data.tanggalLahir ? new Date(data.tanggalLahir) : undefined,
@@ -174,21 +166,7 @@ export default function InformasiLanjutanForm() {
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
       <div className="space-y-4">
-        {/* Tempat Lahir */}
-        <div className="space-y-2">
-          <FormLabel htmlFor="tempatLahir" required>
-            Tempat Lahir
-          </FormLabel>
-          <Input
-            id="tempatLahir"
-            placeholder="Masukkan kota kelahiran Anda"
-            {...register("tempatLahir")}
-            className={errors.tempatLahir ? "border-red-500" : ""}
-          />
-          {errors.tempatLahir && (
-            <p className="text-red-500 text-sm">{errors.tempatLahir.message}</p>
-          )}
-        </div>
+        {/* Tempat Lahir field is removed */}
         
         {/* Tanggal Lahir */}
         <div className="space-y-2">
@@ -196,55 +174,26 @@ export default function InformasiLanjutanForm() {
             Tanggal Lahir
           </FormLabel>
           
-          <div className="flex space-x-2">
-            <div className="relative flex-1">
-              <Input
-                id="tanggalLahirText"
-                placeholder="DD/MM/YYYY"
-                value={dateText}
-                onChange={handleDateInputChange}
-                inputMode="numeric"
-                className={cn(
-                  dateInputError || errors.tanggalLahir ? "border-red-500" : ""
-                )}
-              />
-              <div className="text-xs text-gray-500 mt-1">
-                Format: DD/MM/YYYY (contoh: 15/06/1987)
-              </div>
-              {dateInputError && (
-                <p className="text-red-500 text-sm mt-1">{dateInputError}</p>
+          <div className="relative">
+            <Input
+              id="tanggalLahirText"
+              placeholder="DD/MM/YYYY"
+              value={dateText}
+              onChange={handleDateInputChange}
+              inputMode="numeric"
+              className={cn(
+                dateInputError || errors.tanggalLahir ? "border-red-500" : ""
               )}
-              {errors.tanggalLahir && !dateInputError && (
-                <p className="text-red-500 text-sm mt-1">{errors.tanggalLahir.message as string}</p>
-              )}
+            />
+            <div className="text-xs text-gray-500 mt-1">
+              Format: DD/MM/YYYY (contoh: 15/06/1987)
             </div>
-            
-            <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
-              <PopoverTrigger asChild>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="px-3"
-                  aria-label="Pilih tanggal menggunakan kalender"
-                >
-                  <CalendarIcon className="h-5 w-5" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="end">
-                <Calendar
-                  mode="single"
-                  selected={selectedDate}
-                  onSelect={(date) => {
-                    setDate(date);
-                    setIsCalendarOpen(false);
-                  }}
-                  disabled={(date) =>
-                    date > new Date() || date < new Date("1900-01-01")
-                  }
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
+            {dateInputError && (
+              <p className="text-red-500 text-sm mt-1">{dateInputError}</p>
+            )}
+            {errors.tanggalLahir && !dateInputError && (
+              <p className="text-red-500 text-sm mt-1">{errors.tanggalLahir.message as string}</p>
+            )}
           </div>
         </div>
 

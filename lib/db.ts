@@ -104,9 +104,9 @@ export const lastEducationEnum = pgEnum('last_education', [
 export const minWorkExperienceEnum = pgEnum('min_work_experience_enum', [
   'LULUSAN_BARU',
   'SATU_DUA_TAHUN',
-  'TIGA_EMPAT_TAHUN',
   'TIGA_LIMA_TAHUN',
-  'LEBIH_LIMA_TAHUN'
+  'LIMA_SEPULUH_TAHUN',
+  'LEBIH_SEPULUH_TAHUN'
 ]);
 
 export const users = pgTable('users', {
@@ -224,10 +224,10 @@ export const userPendidikan = pgTable('user_pendidikan', {
   userProfileId: uuid('user_profile_id')
     .notNull()
     .references(() => userProfiles.id, { onDelete: 'cascade' }),
-  namaInstitusi: text('nama_institusi').notNull(),
+  namaInstitusi: text('nama_institusi'),
   jenjangPendidikan: text('jenjang_pendidikan').notNull(),
   bidangStudi: text('bidang_studi').notNull(),
-  tanggalLulus: text('tanggal_lulus').notNull(),
+  tanggalLulus: text('tanggal_lulus'),
   nilaiAkhir: text('nilai_akhir'),
   lokasi: text('lokasi'),
   deskripsiTambahan: text('deskripsi_tambahan'),

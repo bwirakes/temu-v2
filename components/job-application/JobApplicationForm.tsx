@@ -410,16 +410,6 @@ export default function JobApplicationForm({ jobId }: JobApplicationFormProps) {
                             </div>
                           )}
                           
-                          {data.kotaDomisili && (
-                            <div className="flex flex-col space-y-1">
-                              <p className="text-sm font-medium text-muted-foreground">Domisili</p>
-                              <div className="flex items-center gap-2">
-                                <MapPin className="h-4 w-4 text-muted-foreground" />
-                                <p>{data.kotaDomisili}</p>
-                              </div>
-                            </div>
-                          )}
-                          
                           {data.education && (
                             <div className="flex flex-col space-y-1">
                               <p className="text-sm font-medium text-muted-foreground">Pendidikan Terakhir</p>
@@ -520,59 +510,6 @@ export default function JobApplicationForm({ jobId }: JobApplicationFormProps) {
                                 </div>
                               </div>
                             ))}
-                          </div>
-                        </div>
-                      )}
-                      
-                      {/* Preferences Section */}
-                      {(data.ekspektasiGaji || data.preferensiLokasiKerja || data.preferensiJenisPekerjaan) && (
-                        <div>
-                          <div className="flex items-center gap-2 pb-2 border-b mb-3">
-                            <Building className="h-4 w-4 text-blue-500" />
-                            <h4 className="text-base font-medium">Preferensi Pekerjaan</h4>
-                          </div>
-                          <div className="grid grid-cols-1 gap-4">
-                            {data.ekspektasiGaji && (
-                              <div className="flex flex-col space-y-1">
-                                <p className="text-sm font-medium text-muted-foreground">Ekspektasi Gaji</p>
-                                <div className="flex items-center gap-2">
-                                  <Wallet className="h-4 w-4 text-muted-foreground" />
-                                  <p>
-                                    {formatCurrency(data.ekspektasiGaji.min)}
-                                    {data.ekspektasiGaji.max && ` - ${formatCurrency(data.ekspektasiGaji.max)}`}
-                                    {data.ekspektasiGaji.negotiable && " (Dapat dinegosiasi)"}
-                                  </p>
-                                </div>
-                              </div>
-                            )}
-                            
-                            {data.preferensiLokasiKerja && data.preferensiLokasiKerja.length > 0 && (
-                              <div className="flex flex-col space-y-1">
-                                <p className="text-sm font-medium text-muted-foreground">Preferensi Lokasi Kerja</p>
-                                <div className="flex flex-wrap gap-1">
-                                  {data.preferensiLokasiKerja.map((lokasi, index) => (
-                                    <Badge key={index} variant="secondary" className="flex items-center gap-1">
-                                      <MapPin className="h-3 w-3" />
-                                      {lokasi}
-                                    </Badge>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-                            
-                            {data.preferensiJenisPekerjaan && data.preferensiJenisPekerjaan.length > 0 && (
-                              <div className="flex flex-col space-y-1">
-                                <p className="text-sm font-medium text-muted-foreground">Jenis Pekerjaan yang Diinginkan</p>
-                                <div className="flex flex-wrap gap-1">
-                                  {data.preferensiJenisPekerjaan.map((jenis, index) => (
-                                    <Badge key={index} variant="secondary" className="flex items-center gap-1">
-                                      <Briefcase className="h-3 w-3" />
-                                      {jenis}
-                                    </Badge>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
                           </div>
                         </div>
                       )}

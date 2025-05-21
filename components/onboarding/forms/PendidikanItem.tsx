@@ -18,14 +18,13 @@ import { Pendidikan } from "@/lib/db-types";
 import { FormLabel } from "@/components/ui/form-label";
 
 const pendidikanSchema = z.object({
-  namaInstitusi: z.string().min(1, "Nama instansi pendidikan wajib diisi"),
-  lokasi: z.string().min(1, "Lokasi wajib diisi"),
+  namaInstitusi: z.string().optional(),
+  lokasi: z.string().optional(),
   jenjangPendidikan: z.string().min(1, "Jenjang pendidikan wajib diisi"),
   bidangStudi: z.string().optional(),
   tahunLulus: z.string().optional(),
   masihKuliah: z.boolean().optional(),
   tidakLulus: z.boolean().optional(),
-  prestasi: z.string().optional(),
 });
 
 type PendidikanValues = z.infer<typeof pendidikanSchema>;
@@ -91,7 +90,6 @@ export default function PendidikanItem({
       : "",
     masihKuliah: masihKuliah,
     tidakLulus: tidakLulus,
-    prestasi: pendidikan?.deskripsiTambahan || "",
   };
 
   const {
@@ -111,8 +109,8 @@ export default function PendidikanItem({
     // Format the data for saving
     const formattedData: Pendidikan = {
       id: pendidikan?.id || Date.now().toString(),
-      namaInstitusi: values.namaInstitusi,
-      lokasi: values.lokasi,
+      namaInstitusi: values.namaInstitusi || "",
+      lokasi: values.lokasi || "",
       jenjangPendidikan: values.jenjangPendidikan,
       bidangStudi: values.bidangStudi || "",
       tanggalLulus: values.masihKuliah 
@@ -120,7 +118,6 @@ export default function PendidikanItem({
         : values.tidakLulus
           ? values.tahunLulus || "Tidak Lulus" // Use the year if selected, otherwise just "Tidak Lulus"
           : values.tahunLulus || "",
-      deskripsiTambahan: values.prestasi,
       tidakLulus: values.tidakLulus,
     };
 
@@ -140,36 +137,6 @@ export default function PendidikanItem({
     <div className={`border rounded-md mb-4 ${isEditing ? "border-blue-300 bg-blue-50" : "border-gray-200"}`}>
       {isEditing ? (
         <form onSubmit={handleSubmit(onSubmit)} className="p-4 space-y-4">
-          <div className="space-y-2">
-            <FormLabel htmlFor="namaInstitusi" required>
-              Nama instansi pendidikan (sekolah)
-            </FormLabel>
-            <Input
-              id="namaInstitusi"
-              placeholder="Universitas Indonesia"
-              {...register("namaInstitusi")}
-              className={errors.namaInstitusi ? "border-red-500" : ""}
-            />
-            {errors.namaInstitusi && (
-              <p className="text-red-500 text-sm">{errors.namaInstitusi.message}</p>
-            )}
-          </div>
-
-          <div className="space-y-2">
-            <FormLabel htmlFor="lokasi" required>
-              Lokasi
-            </FormLabel>
-            <Input
-              id="lokasi"
-              placeholder="Jakarta"
-              {...register("lokasi")}
-              className={errors.lokasi ? "border-red-500" : ""}
-            />
-            {errors.lokasi && (
-              <p className="text-red-500 text-sm">{errors.lokasi.message}</p>
-            )}
-          </div>
-
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <FormLabel htmlFor="jenjangPendidikan" required>
@@ -281,18 +248,6 @@ export default function PendidikanItem({
             </div>
           </div>
 
-          <div className="space-y-2">
-            <FormLabel htmlFor="prestasi">
-              Prestasi/Aktivitas <span className="text-gray-500 text-sm font-normal">(Opsional)</span>
-            </FormLabel>
-            <Textarea
-              id="prestasi"
-              placeholder="Contoh: nilai tertinggi, pengurus OSIS, dst."
-              rows={4}
-              {...register("prestasi")}
-            />
-          </div>
-
           <div className="flex justify-between">
             <Button
               type="button"
@@ -342,27 +297,22 @@ export default function PendidikanItem({
                   </span>
                 )}
               </div>
-              <span className="text-sm text-gray-500">
-                {pendidikan?.namaInstitusi}, {pendidikan?.lokasi}
-              </span>
+              {pendidikan?.namaInstitusi && (
+                <span className="text-sm text-gray-500">
+                  {pendidikan?.namaInstitusi}{pendidikan?.lokasi ? `, ${pendidikan?.lokasi}` : ''}
+                </span>
+              )}
             </div>
           </summary>
           <div className="px-4 pb-4">
             <div className="space-y-2 mb-4">
-              <div className="text-sm text-gray-500">
-                Tahun Kelulusan: {pendidikan?.tanggalLulus === "Masih Kuliah" 
-                  ? "Saat ini masih sekolah/kuliah"
-                  : pendidikan?.tidakLulus
-                    ? `Tidak Lulus (Berhenti tahun ${pendidikan?.tanggalLulus})`
-                    : pendidikan?.tanggalLulus}
-              </div>
-              
-              {pendidikan?.deskripsiTambahan && (
-                <div className="mt-2">
-                  <span className="font-medium text-sm">Prestasi/Aktivitas:</span>
-                  <p className="text-gray-700 whitespace-pre-wrap text-sm mt-1">
-                    {pendidikan.deskripsiTambahan}
-                  </p>
+              {pendidikan?.tanggalLulus && (
+                <div className="text-sm text-gray-500">
+                  Tahun Kelulusan: {pendidikan?.tanggalLulus === "Masih Kuliah" 
+                    ? "Saat ini masih sekolah/kuliah"
+                    : pendidikan?.tidakLulus
+                      ? `Tidak Lulus (Berhenti tahun ${pendidikan?.tanggalLulus})`
+                      : pendidikan?.tanggalLulus}
                 </div>
               )}
             </div>

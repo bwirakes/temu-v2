@@ -12,16 +12,20 @@ import { signIn } from 'next-auth/react';
 export type UserType = 'job_seeker' | 'employer';
 
 const signupSchema = z.object({
-  name: z.string().min(2, 'Nama harus minimal 2 karakter'),
+  name: z.string().min(3, 'Nama lengkap minimal 3 karakter'),
   email: z.string().email('Masukkan alamat email yang valid'),
-  password: z.string().min(8, 'Minimal 8 karakter diperlukan'),
-  confirmPassword: z.string().min(8, 'Minimal 8 karakter diperlukan'),
+  password: z.string().min(8, 'Kata sandi minimal 8 karakter'),
+  confirmPassword: z.string().min(8, 'Konfirmasi kata sandi minimal 8 karakter'),
   userType: z.enum(['job_seeker', 'employer'], {
     required_error: 'Pilih jenis pengguna',
+    invalid_type_error: 'Pilih jenis pengguna yang valid',
+  }),
+  agreeToTerms: z.boolean().refine(value => value === true, {
+    message: 'Anda harus menyetujui Syarat & Ketentuan serta Kebijakan Privasi.'
   }),
 }).refine(data => data.password === data.confirmPassword, {
-  message: "Kata sandi tidak cocok",
-  path: ['confirmPassword']
+  message: 'Konfirmasi kata sandi tidak cocok',
+  path: ['confirmPassword'],
 });
 
 type SignupForm = z.infer<typeof signupSchema>;
@@ -37,12 +41,13 @@ export default function SignUpPage() {
     watch
   } = useForm<SignupForm>({
     resolver: zodResolver(signupSchema),
-    defaultValues: { 
-      name: '', 
-      email: '', 
-      password: '', 
+    defaultValues: {
+      name: '',
+      email: '',
+      password: '',
       confirmPassword: '',
-      userType: undefined
+      userType: undefined,
+      agreeToTerms: false,
     }
   });
 
@@ -245,6 +250,33 @@ export default function SignUpPage() {
                 {errors.userType && (
                   <p className="text-xs text-red-600 mt-2">
                     {errors.userType.message}
+                  </p>
+                )}
+              </div>
+
+              <div className="mt-4">
+                <div className="flex items-start space-x-3">
+                  <input
+                    type="checkbox"
+                    id="agreeToTerms"
+                    {...register('agreeToTerms')}
+                    className={`shrink-0 mt-1 h-4 w-4 border-gray-300 rounded text-blue-600 focus:ring-blue-500 dark:bg-neutral-800 dark:border-neutral-600 dark:checked:bg-blue-500 dark:checked:border-blue-500 ${errors.agreeToTerms ? 'border-red-500 focus:ring-red-500' : 'border-gray-200'}`}
+                  />
+                  <label htmlFor="agreeToTerms" className="text-sm text-gray-600 dark:text-neutral-400">
+                    Saya telah membaca dan menyetujui{' '}
+                    <Link href="/terms" className="font-medium text-blue-600 hover:underline dark:text-blue-500" target="_blank" rel="noopener noreferrer">
+                      Syarat & Ketentuan
+                    </Link>{' '}
+                    dan{' '}
+                    <Link href="/privacy" className="font-medium text-blue-600 hover:underline dark:text-blue-500" target="_blank" rel="noopener noreferrer">
+                      Kebijakan Privasi
+                    </Link>
+                    .
+                  </label>
+                </div>
+                {errors.agreeToTerms && (
+                  <p className="text-xs text-red-600 mt-2" id="terms-error">
+                    {errors.agreeToTerms.message}
                   </p>
                 )}
               </div>

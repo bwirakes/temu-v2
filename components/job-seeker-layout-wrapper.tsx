@@ -84,7 +84,7 @@ export default function JobSeekerLayoutWrapper({
         isSidebarOpen={isSidebarOpen} 
         userName={userName}
       />
-      <JobSeekerSidebar isOpen={isSidebarOpen} onClose={closeSidebar} />
+      <JobSeekerSidebar isOpen={isSidebarOpen} onClose={closeSidebar} isMobile={isMobile} />
       
       <main className={`pt-16 transition-all duration-300 ${isSidebarOpen && !isMobile ? "md:ml-64" : ""}`}>
         <div className="p-4 md:p-6">

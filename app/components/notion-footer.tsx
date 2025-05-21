@@ -29,27 +29,41 @@ export default function NotionFooter() {
               />
               <div className="flex flex-col ml-2">
                 <span className="font-bold text-black text-lg">TEMU</span>
-                <span className="text-[10px] text-notion-text-light">untuk Kemnaker</span>
               </div>
             </div>
-            <p className="text-sm text-notion-text-light mb-6">
-              Talent Empowerment Platform connecting talented individuals with opportunities that matter.
-            </p>
-            <div className="flex items-center space-x-4">
-              <Image 
-                src="/naker.png" 
-                alt="Kementerian Ketenagakerjaan" 
-                width={100} 
-                height={40} 
-                className="h-auto"
-              />
-              <Image 
-                src="/karirhub-lower.svg" 
-                alt="KarirHub" 
-                width={120} 
-                height={30} 
-                className="h-auto"
-              />
+            <div className="mb-4">
+              <p className="font-medium text-sm text-notion-text">Platform Dunia Kerja</p>
+              <p className="text-xs text-notion-text-light mt-1">Temukan potensi kamu.</p>
+              <p className="text-xs text-notion-text-light">Bangun karir yang tepat.</p>
+            </div>
+            <div className="flex flex-wrap items-center gap-6 mb-8">
+              <div className="flex items-center justify-center h-12">
+                <Image 
+                  src="/naker.png" 
+                  alt="Kementerian Ketenagakerjaan" 
+                  width={100} 
+                  height={40} 
+                  className="h-auto max-h-full object-contain"
+                />
+              </div>
+              <div className="flex items-center justify-center h-10">
+                <Image 
+                  src="/karirhub-lower.svg" 
+                  alt="KarirHub" 
+                  width={120} 
+                  height={30} 
+                  className="h-auto max-h-full object-contain"
+                />
+              </div>
+              <div className="flex items-center justify-center h-10">
+                <Image
+                  src="/siaker-logo-blue.svg"
+                  alt="Siaker Logo"
+                  width={120}
+                  height={30}
+                  className="h-auto max-h-full object-contain"
+                />
+              </div>
             </div>
           </div>
           

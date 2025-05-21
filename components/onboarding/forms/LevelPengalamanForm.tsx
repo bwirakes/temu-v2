@@ -13,19 +13,15 @@ import {
 } from "@/components/ui/select";
 import FormNav from "@/components/FormNav";
 import { toast } from "sonner";
+import { MIN_WORK_EXPERIENCE_OPTIONS } from "@/lib/constants";
 
-// Define possible experience levels
-const levelPengalamanOptions = [
-  { value: "entry_level", label: "Baru lulus / Entry Level" },
-  { value: "junior", label: "Junior (1-2 tahun)" },
-  { value: "mid_level", label: "Menengah (3-5 tahun)" },
-  { value: "senior", label: "Senior (5-10 tahun)" },
-  { value: "lead", label: "Lead / Manager (5+ tahun)" },
-  { value: "executive", label: "Eksekutif / Direktur (10+ tahun)" },
-];
+// Use consistent options from constants
+const levelPengalamanOptions = MIN_WORK_EXPERIENCE_OPTIONS;
+
+type LevelPengalamanEnum = typeof MIN_WORK_EXPERIENCE_OPTIONS[number]['value'];
 
 interface LevelPengalamanFormData {
-  levelPengalaman: string;
+  levelPengalaman: LevelPengalamanEnum;
   jumlahPengalaman?: number;
   bidangKeahlian?: string;
   keterampilan?: string[];
@@ -40,12 +36,12 @@ export default function LevelPengalamanForm() {
     // If we have a stored value, use it
     if (data.levelPengalaman) {
       return { 
-        levelPengalaman: data.levelPengalaman 
+        levelPengalaman: data.levelPengalaman as LevelPengalamanEnum
       };
     } 
     // Default value
     else {
-      return { levelPengalaman: "entry_level" };
+      return { levelPengalaman: "LULUSAN_BARU" };
     }
   })();
   
@@ -93,7 +89,7 @@ export default function LevelPengalamanForm() {
           <Label>Level Pengalaman Kerja</Label>
           <Select
             value={formData.levelPengalaman}
-            onValueChange={(value) => handleChange('levelPengalaman', value)}
+            onValueChange={(value: LevelPengalamanEnum) => handleChange('levelPengalaman', value)}
           >
             <SelectTrigger className="w-full">
               <SelectValue placeholder="Pilih level pengalaman" />

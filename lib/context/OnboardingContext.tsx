@@ -25,7 +25,7 @@ const initialData: OnboardingData = {
   namaLengkap: "",
   email: "",
   nomorTelepon: "",
-  tempatLahir: "",
+  tempatLahir: null,
   tanggalLahir: "",
   alamat: {
     kota: "",
@@ -36,7 +36,6 @@ const initialData: OnboardingData = {
   levelPengalaman: undefined,
   pendidikan: [],
   pengalamanKerja: [],
-  ekspektasiKerja: undefined,
   profilePhotoUrl: undefined,
 };
 
@@ -162,23 +161,17 @@ export const OnboardingProvider = ({ children }: { children: ReactNode }) => {
         break;
       case 2: // Informasi Lanjutan
         if (!data.tanggalLahir) errors.tanggalLahir = "Tanggal lahir wajib diisi";
-        if (!data.tempatLahir) errors.tempatLahir = "Tempat lahir wajib diisi";
+        // tempatLahir is now optional
         break;
-      case 3: // Alamat
-        if (!data.alamat?.kota) errors.kota = "Kota wajib diisi";
-        if (!data.alamat?.provinsi) errors.provinsi = "Provinsi wajib diisi";
-        break;
-      case 4: // Pendidikan
+      case 3: // Pendidikan
         if (data.pendidikan.length === 0) {
           errors.pendidikan = "Minimal satu pendidikan harus diisi";
         } else {
           const pendidikanErrors = data.pendidikan.map((p, i) => {
             const itemErrors: Record<string, string> = {};
-            if (!p.namaInstitusi) itemErrors.namaInstitusi = "Nama institusi wajib diisi";
-            if (!p.lokasi) itemErrors.lokasi = "Lokasi wajib diisi";
+            // Only jenjangPendidikan and bidangStudi are required
             if (!p.jenjangPendidikan) itemErrors.jenjangPendidikan = "Jenjang pendidikan wajib diisi";
-            if (!p.bidangStudi)itemErrors.bidangStudi = "Bidang studi wajib diisi";
-            if (!p.tanggalLulus) itemErrors.tanggalLulus = "Tanggal lulus wajib diisi";
+            if (!p.bidangStudi) itemErrors.bidangStudi = "Bidang studi wajib diisi";
             return Object.keys(itemErrors).length > 0 ? { index: i, errors: itemErrors } : null;
           }).filter(Boolean);
           
@@ -187,17 +180,24 @@ export const OnboardingProvider = ({ children }: { children: ReactNode }) => {
           }
         }
         break;
-      case 5: // Level Pengalaman
+      case 4: // Level Pengalaman
         if (!data.levelPengalaman) errors.levelPengalaman = "Level pengalaman wajib diisi";
+        // Validate against the enum values
+        const validLevelValues = ['LULUSAN_BARU', 'SATU_DUA_TAHUN', 'TIGA_LIMA_TAHUN', 'LIMA_SEPULUH_TAHUN', 'LEBIH_SEPULUH_TAHUN'];
+        if (data.levelPengalaman && !validLevelValues.includes(data.levelPengalaman)) {
+          errors.levelPengalaman = "Level pengalaman tidak valid";
+        }
         break;
-      case 6: // Pengalaman Kerja (optional)
+      case 5: // Pengalaman Kerja - optional
         if (data.pengalamanKerja.length > 0) {
           const pengalamanErrors = data.pengalamanKerja.map((p, i) => {
             const itemErrors: Record<string, string> = {};
             if (!p.namaPerusahaan) itemErrors.namaPerusahaan = "Nama perusahaan wajib diisi";
             if (!p.posisi) itemErrors.posisi = "Posisi wajib diisi";
             if (!p.tanggalMulai) itemErrors.tanggalMulai = "Tanggal mulai wajib diisi";
-            if (!p.tanggalSelesai) itemErrors.tanggalSelesai = "Tanggal selesai wajib diisi";
+            if (!p.tanggalSelesai && p.tanggalSelesai !== "Sekarang") {
+              itemErrors.tanggalSelesai = "Tanggal selesai wajib diisi";
+            }
             return Object.keys(itemErrors).length > 0 ? { index: i, errors: itemErrors } : null;
           }).filter(Boolean);
           
@@ -206,7 +206,7 @@ export const OnboardingProvider = ({ children }: { children: ReactNode }) => {
           }
         }
         break;
-      case 8: // CV Upload (now required)
+      case 6: // CV Upload
         if (!data.cvFileUrl) errors.cvFileUrl = "CV/Resume wajib diunggah";
         break;
     }
@@ -232,7 +232,13 @@ export const OnboardingProvider = ({ children }: { children: ReactNode }) => {
       if (submissionData.pendidikan) {
         submissionData.pendidikan = submissionData.pendidikan.map(pendidikan => ({
           ...pendidikan,
-          deskripsiTambahan: pendidikan.deskripsiTambahan || undefined,
+          // Only include required fields and provided optional fields
+          jenjangPendidikan: pendidikan.jenjangPendidikan,
+          bidangStudi: pendidikan.bidangStudi,
+          namaInstitusi: pendidikan.namaInstitusi || undefined,
+          lokasi: pendidikan.lokasi || undefined,
+          tanggalLulus: pendidikan.tanggalLulus || undefined,
+          // Remove deskripsiTambahan field
           // Remove nilaiAkhir as requested
           nilaiAkhir: undefined
         }));
@@ -242,6 +248,11 @@ export const OnboardingProvider = ({ children }: { children: ReactNode }) => {
       if (submissionData.pengalamanKerja) {
         submissionData.pengalamanKerja = submissionData.pengalamanKerja.map(pengalaman => ({
           ...pengalaman,
+          // Only include required fields and provided optional fields
+          namaPerusahaan: pengalaman.namaPerusahaan,
+          posisi: pengalaman.posisi,
+          tanggalMulai: pengalaman.tanggalMulai,
+          tanggalSelesai: pengalaman.tanggalSelesai,
           deskripsiPekerjaan: pengalaman.deskripsiPekerjaan || undefined,
           alasanKeluar: pengalaman.alasanKeluar || undefined,
           lokasiKerja: pengalaman.lokasiKerja || undefined,
@@ -249,6 +260,9 @@ export const OnboardingProvider = ({ children }: { children: ReactNode }) => {
           levelPengalaman: pengalaman.levelPengalaman || undefined
         }));
       }
+      
+      // Normalize tempatLahir
+      submissionData.tempatLahir = submissionData.tempatLahir || null;
       
       // Normalize alamat data
       if (submissionData.alamat) {

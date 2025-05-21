@@ -92,14 +92,16 @@ export default async function JobSeekerApplicationPage({ params }: PageParams) {
       // Add the new detailed fields
       tanggalLahir: profileData.tanggalLahir || undefined,
       jenisKelamin: profileData.jenisKelamin || undefined,
-      kotaDomisili: profileData.kotaDomisili || undefined,
       pengalamanKerjaTerakhir: profileData.pengalamanKerjaTerakhir || undefined,
       gajiTerakhir: profileData.gajiTerakhir === null ? undefined : profileData.gajiTerakhir,
       levelPengalaman: profileData.levelPengalaman || undefined,
-      ekspektasiGaji: profileData.ekspektasiGaji || undefined,
-      preferensiLokasiKerja: profileData.preferensiLokasiKerja || undefined,
-      preferensiJenisPekerjaan: profileData.preferensiJenisPekerjaan || undefined,
-      pendidikanFull: profileData.pendidikan || undefined,
+      // Transform pendidikan to handle null values properly
+      pendidikanFull: profileData.pendidikan ? 
+        profileData.pendidikan.map(edu => ({
+          jenjangPendidikan: edu.jenjangPendidikan || undefined,
+          bidangStudi: edu.bidangStudi || undefined,
+          tanggalLulus: edu.tanggalLulus || undefined
+        })) : undefined,
       // Map pengalamanKerja to ensure proper type handling, transforming null to undefined
       pengalamanKerjaFull: profileData.pengalamanKerja ? 
         profileData.pengalamanKerja.map(exp => {
