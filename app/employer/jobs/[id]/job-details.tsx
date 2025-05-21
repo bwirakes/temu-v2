@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
+import { MinWorkExperienceEnum, getMinWorkExperienceLabel } from "@/lib/constants";
 
 // Export type for use in parent components
 export interface Job {
@@ -19,10 +20,11 @@ export interface Job {
   employerId: string;
   jobTitle: string;
   postedDate: string;
-  minWorkExperience: number;
+  minWorkExperience: MinWorkExperienceEnum;
   lastEducation?: string;
   requiredCompetencies?: string;
   numberOfPositions?: number;
+  lokasiKerja?: string;
   expectations?: {
     ageRange?: {
       min: number;
@@ -37,7 +39,6 @@ export interface Job {
   isConfirmed: boolean;
   // Extra fields for display purposes only
   applicationCount?: number;
-  applicationDeadline?: string | null;
   workingHours?: string | null;
 }
 
@@ -84,13 +85,6 @@ export function JobDetailsCard({ job }: { job: Job }) {
             <p>{formatDate(job.postedDate)}</p>
           </div>
 
-          {job.applicationDeadline && (
-            <div>
-              <h3 className="text-sm font-medium text-muted-foreground mb-1">Batas Waktu Pendaftaran</h3>
-              <p>{formatDate(job.applicationDeadline)}</p>
-            </div>
-          )}
-
           {job.workingHours && (
             <div>
               <h3 className="text-sm font-medium text-muted-foreground mb-1">Jam Kerja</h3>
@@ -136,8 +130,15 @@ export function JobDetailsCard({ job }: { job: Job }) {
 
           <div>
             <h3 className="text-sm font-medium text-muted-foreground mb-1">Pengalaman Minimal</h3>
-            <p>{job.minWorkExperience} tahun</p>
+            <p>{getMinWorkExperienceLabel(job.minWorkExperience)}</p>
           </div>
+
+          {job.lokasiKerja && (
+            <div>
+              <h3 className="text-sm font-medium text-muted-foreground mb-1">Lokasi Kerja</h3>
+              <p>{job.lokasiKerja}</p>
+            </div>
+          )}
 
           {job.lastEducation && (
             <div>

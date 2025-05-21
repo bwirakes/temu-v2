@@ -12,7 +12,8 @@ import {
   Users,
   Clock,
   Briefcase,
-  FileText
+  FileText,
+  MapPin
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,6 +26,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
+import { MinWorkExperienceEnum, getMinWorkExperienceLabel } from "@/lib/constants";
 
 // Job interface matching our updated database schema
 interface Job {
@@ -32,12 +34,13 @@ interface Job {
   employerId: string;
   jobTitle: string;
   contractType?: string; // This is now optional since it's been removed from schema
-  minWorkExperience: number;
+  minWorkExperience: MinWorkExperienceEnum;
   postedDate: string;
   numberOfPositions: number | null; // Explicitly accept null but not undefined
   isConfirmed: boolean;
   applicationCount: number;
   jobId?: string;
+  lokasiKerja?: string; // Add lokasiKerja field
 }
 
 interface JobsClientWrapperProps {
@@ -195,6 +198,16 @@ export function JobsClientWrapper({ jobs }: JobsClientWrapperProps) {
                             <Clock className="h-4 w-4 mr-2 text-gray-500" />
                             <span className="text-sm">Diposting: {formatDate(job.postedDate)}</span>
                           </div>
+                          <div className="flex items-center col-span-2">
+                            <Briefcase className="h-4 w-4 mr-2 text-gray-500" />
+                            <span className="text-sm">Pengalaman: {getMinWorkExperienceLabel(job.minWorkExperience)}</span>
+                          </div>
+                          {job.lokasiKerja && (
+                            <div className="flex items-center col-span-2">
+                              <MapPin className="h-4 w-4 mr-2 text-gray-500" />
+                              <span className="text-sm">{job.lokasiKerja}</span>
+                            </div>
+                          )}
                         </div>
                         
                         <div className="mt-4 pt-4 border-t border-gray-100 flex justify-between">

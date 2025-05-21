@@ -10,6 +10,7 @@ import { JobPostingContext } from '@/lib/context/JobPostingContext';
 import { JobApplicationProvider } from '@/lib/context/JobApplicationContext';
 import JobApplicationForm from '@/components/job-application/JobApplicationForm';
 import { JobDetails } from '../actions';
+import { MinWorkExperienceEnum, getMinWorkExperienceLabel } from '@/lib/constants';
 
 // Define types for the client shell props
 interface ApplicationProfileData {
@@ -67,6 +68,27 @@ interface WorkLocation {
 import Image from 'next/image';
 import { Briefcase, Building, Globe, MapPin } from 'lucide-react';
 
+// Helper function to convert minWorkExperience to the expected enum type
+const convertToWorkExperienceEnum = (value: string | number | undefined): MinWorkExperienceEnum => {
+  // If it's already a valid enum value, return it
+  if (typeof value === 'string' && 
+      ['LULUSAN_BARU', 'SATU_DUA_TAHUN', 'TIGA_EMPAT_TAHUN', 'TIGA_LIMA_TAHUN', 'LEBIH_LIMA_TAHUN'].includes(value)) {
+    return value as MinWorkExperienceEnum;
+  }
+  
+  // If it's a number or non-enum string, convert to appropriate enum value
+  if (typeof value === 'number') {
+    if (value === 0) return 'LULUSAN_BARU';
+    if (value <= 2) return 'SATU_DUA_TAHUN';
+    if (value <= 4) return 'TIGA_EMPAT_TAHUN';
+    if (value <= 5) return 'TIGA_LIMA_TAHUN';
+    return 'LEBIH_LIMA_TAHUN';
+  }
+  
+  // Default to entry level if value is undefined or invalid
+  return 'LULUSAN_BARU';
+};
+
 // Separate component for job summary
 function JobSummary({ jobDetails }: { jobDetails: JobDetails }) {
   return (
@@ -84,17 +106,28 @@ function JobSummary({ jobDetails }: { jobDetails: JobDetails }) {
         </CardHeader>
         
         <CardContent className="space-y-4 pt-0">
-          <div>
-            <h5 className="text-sm font-medium text-gray-500">Lokasi</h5>
-            <ul className="mt-1 text-sm text-gray-900 list-disc pl-5">
-              {jobDetails.workLocations?.map((location: WorkLocation, index: number) => (
-                <li key={index}>
-                  {location.city}, {location.province}
-                  {location.isRemote && " (Remote)"}
-                </li>
-              ))}
-            </ul>
-          </div>
+          {/* Lokasi Kerja */}
+          {jobDetails.lokasiKerja && (
+            <div>
+              <h5 className="text-sm font-medium text-gray-500">Lokasi</h5>
+              <p className="mt-1 text-sm text-gray-900">{jobDetails.lokasiKerja}</p>
+            </div>
+          )}
+
+          {/* Work Locations if available */}
+          {!jobDetails.lokasiKerja && jobDetails.workLocations?.length > 0 && (
+            <div>
+              <h5 className="text-sm font-medium text-gray-500">Lokasi</h5>
+              <ul className="mt-1 text-sm text-gray-900 list-disc pl-5">
+                {jobDetails.workLocations?.map((location: WorkLocation, index: number) => (
+                  <li key={index}>
+                    {location.city}, {location.province}
+                    {location.isRemote && " (Remote)"}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
           
           {jobDetails.salaryRange && (
             <div>
@@ -111,7 +144,9 @@ function JobSummary({ jobDetails }: { jobDetails: JobDetails }) {
           <div>
             <h5 className="text-sm font-medium text-gray-500">Pengalaman yang Dibutuhkan</h5>
             <p className="mt-1 text-sm text-gray-900">
-              {jobDetails.minWorkExperience} tahun minimum
+              {typeof jobDetails.minWorkExperience === 'string' 
+                ? getMinWorkExperienceLabel(jobDetails.minWorkExperience as MinWorkExperienceEnum)
+                : `${jobDetails.minWorkExperience} tahun minimum`}
             </p>
           </div>
           
@@ -274,12 +309,30 @@ export default function JobApplicationClientShell({
     return {};
   }, []);
 
-  // Create the job posting data from the job details
+  // Create the job posting data from the job details with proper type handling
   const jobPostingData = {
-    ...jobDetails,
     jobId: jobDetails.jobId,
     jobTitle: jobDetails.jobTitle,
-    minWorkExperience: jobDetails.minWorkExperience
+    minWorkExperience: convertToWorkExperienceEnum(jobDetails.minWorkExperience),
+    // Handle optional string fields - convert null to undefined
+    lokasiKerja: jobDetails.lokasiKerja || undefined,
+    lastEducation: jobDetails.lastEducation || undefined,
+    requiredCompetencies: jobDetails.requiredCompetencies || undefined,
+    numberOfPositions: typeof jobDetails.numberOfPositions === 'number' ? jobDetails.numberOfPositions : undefined,
+    // Handle nested objects with proper typing
+    expectations: {
+      ageRange: {
+        min: 18, // Default values
+        max: 45
+      }
+    },
+    additionalRequirements: {
+      gender: "ANY" as const, // Use const assertion to get exact type
+      acceptedDisabilityTypes: null,
+      numberOfDisabilityPositions: null
+    },
+    // Other required fields from JobPostingData
+    isConfirmed: true
   };
 
   return (

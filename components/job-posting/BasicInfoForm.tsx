@@ -3,30 +3,23 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useJobPosting } from "@/lib/context/JobPostingContext";
-
-// Define education options
-const EDUCATION_OPTIONS = [
-  { value: "SMP", label: "SMP", showJurusan: false },
-  { value: "SMK", label: "SMK", showJurusan: true },
-  { value: "SMA", label: "SMA", showJurusan: true },
-  { value: "SMA/SMK", label: "SMA/SMK/Sederajat", showJurusan: true },
-  { value: "D1", label: "D1", showJurusan: true },
-  { value: "D2", label: "D2", showJurusan: true },
-  { value: "D3", label: "D3", showJurusan: true },
-  { value: "D4", label: "D4", showJurusan: true },
-  { value: "S1", label: "S1", showJurusan: true },
-  { value: "S2", label: "S2", showJurusan: true },
-  { value: "S3", label: "S3", showJurusan: true }
-];
+import { 
+  MIN_WORK_EXPERIENCE_OPTIONS, 
+  MinWorkExperienceEnum,
+  LOKASI_KERJA_OPTIONS,
+  LokasiKerjaEnum,
+  EDUCATION_OPTIONS_FOR_FORMS
+} from "@/lib/constants";
 
 // Define the form state type to avoid type mismatches
 interface BasicInfoFormState {
   jobTitle: string;
   numberOfPositions: number;
-  minWorkExperience: number;
+  minWorkExperience: MinWorkExperienceEnum | "";
   lastEducation: string;
-  jurusan: string; // New field for major/specialization
-  requiredCompetencies: string; // String for textarea input that will be split into array
+  jurusan: string; 
+  lokasiKerja: string;
+  requiredCompetencies: string;
 }
 
 export default function BasicInfoForm() {
@@ -36,22 +29,23 @@ export default function BasicInfoForm() {
   const [formData, setFormData] = useState<BasicInfoFormState>({
     jobTitle: data.jobTitle || "",
     numberOfPositions: data.numberOfPositions || 1,
-    minWorkExperience: data.minWorkExperience || 0,
+    minWorkExperience: data.minWorkExperience || "",
     lastEducation: data.lastEducation || "",
     jurusan: data.jurusan || "",
-    requiredCompetencies: data.requiredCompetencies || "" // Now requiredCompetencies is a string in context
+    lokasiKerja: data.lokasiKerja || "",
+    requiredCompetencies: data.requiredCompetencies || ""
   });
 
   // Helper to check if jurusan should be shown for the selected education level
   const shouldShowJurusan = () => {
-    const educationOption = EDUCATION_OPTIONS.find(option => option.value === formData.lastEducation);
+    const educationOption = EDUCATION_OPTIONS_FOR_FORMS.find(option => option.value === formData.lastEducation);
     return educationOption?.showJurusan || false;
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     
-    if (name === "numberOfPositions" || name === "minWorkExperience") {
+    if (name === "numberOfPositions") {
       // For number inputs, convert to number to remove any leading zeros
       const numericValue = value === '' ? 0 : Number(value);
       setFormData({
@@ -60,7 +54,7 @@ export default function BasicInfoForm() {
       });
     } else if (name === "lastEducation") {
       // If changing education level, clear jurusan if not applicable
-      const educationOption = EDUCATION_OPTIONS.find(option => option.value === value);
+      const educationOption = EDUCATION_OPTIONS_FOR_FORMS.find(option => option.value === value);
       setFormData({
         ...formData,
         lastEducation: value,
@@ -96,6 +90,14 @@ export default function BasicInfoForm() {
     if (!formData.lastEducation || formData.lastEducation === "") {
       newErrors.lastEducation = "Pendidikan terakhir wajib diisi";
     }
+
+    if (!formData.minWorkExperience) {
+      newErrors.minWorkExperience = "Minimum pengalaman kerja wajib diisi";
+    }
+
+    if (!formData.lokasiKerja) {
+      newErrors.lokasiKerja = "Lokasi kerja wajib diisi";
+    }
     
     console.log("Local validation errors:", newErrors);
     
@@ -105,14 +107,15 @@ export default function BasicInfoForm() {
       return;
     }
     
-    // Update form values in context - directly use requiredCompetencies string
+    // Update form values in context
     updateFormValues({
       jobTitle: formData.jobTitle,
       numberOfPositions: formData.numberOfPositions,
-      minWorkExperience: formData.minWorkExperience,
+      minWorkExperience: formData.minWorkExperience as MinWorkExperienceEnum,
       lastEducation: formData.lastEducation,
-      jurusan: shouldShowJurusan() ? formData.jurusan : "", // Only save jurusan if applicable for selected education
-      requiredCompetencies: formData.requiredCompetencies.trim() // Use the string directly, just trim whitespace
+      jurusan: shouldShowJurusan() ? formData.jurusan : "",
+      requiredCompetencies: formData.requiredCompetencies.trim(),
+      lokasiKerja: formData.lokasiKerja,
     });
     
     // Clear any previous errors
@@ -139,6 +142,7 @@ export default function BasicInfoForm() {
           className={`mt-1 block w-full rounded-md border ${
             errors.jobTitle ? "border-red-300" : "border-gray-300"
           } shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2`}
+          required
         />
         {errors.jobTitle && (
           <p className="mt-1 text-sm text-red-600">{errors.jobTitle}</p>
@@ -160,6 +164,7 @@ export default function BasicInfoForm() {
           className={`mt-1 block w-full rounded-md border ${
             errors.numberOfPositions ? "border-red-300" : "border-gray-300"
           } shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2`}
+          required
         />
         {errors.numberOfPositions && (
           <p className="mt-1 text-sm text-red-600">{errors.numberOfPositions}</p>
@@ -169,22 +174,54 @@ export default function BasicInfoForm() {
       {/* Minimum Work Experience */}
       <div>
         <label htmlFor="minWorkExperience" className="block text-sm font-medium text-gray-700">
-          Minimum Pengalaman Kerja <span className="text-gray-400 text-xs ml-1">(Tahun)</span>
+          Minimum Pengalaman Kerja <span className="text-red-500">*</span>
         </label>
-        <div className="mt-1 flex items-center">
-          <input
-            type="number"
-            id="minWorkExperience"
-            name="minWorkExperience"
-            min="0"
-            value={Number(formData.minWorkExperience)}
-            onChange={handleChange}
-            className="block w-24 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2"
-          />
-          <span className="ml-2 text-sm text-gray-700">tahun</span>
-        </div>
+        <select
+          id="minWorkExperience"
+          name="minWorkExperience"
+          value={formData.minWorkExperience}
+          onChange={handleChange}
+          className={`mt-1 block w-full rounded-md border ${
+            errors.minWorkExperience ? "border-red-300" : "border-gray-300"
+          } shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2`}
+          required
+        >
+          <option value="" disabled>Pilih pengalaman kerja</option>
+          {MIN_WORK_EXPERIENCE_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+        {errors.minWorkExperience && (
+          <p className="mt-1 text-sm text-red-600">{errors.minWorkExperience}</p>
+        )}
+      </div>
+
+      {/* Lokasi Kerja */}
+      <div>
+        <label htmlFor="lokasiKerja" className="block text-sm font-medium text-gray-700">
+          Lokasi Kerja <span className="text-red-500">*</span>
+        </label>
+        <input
+          type="text"
+          id="lokasiKerja"
+          name="lokasiKerja"
+          value={formData.lokasiKerja}
+          onChange={handleChange}
+          placeholder="Contoh: Jakarta, Remote, Hybrid (Jakarta-Bandung), dll"
+          className={`mt-1 block w-full rounded-md border ${
+            errors.lokasiKerja ? "border-red-300" : "border-gray-300"
+          } shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2`}
+          required
+        />
+        {errors.lokasiKerja && (
+          <p className="mt-1 text-sm text-red-600">{errors.lokasiKerja}</p>
+        )}
         <p className="mt-1 text-xs text-gray-500">
-          Masukkan 0 jika tidak ada persyaratan pengalaman kerja
+          Deskripsi umum lokasi kerja yang akan ditampilkan kepada pencari kerja. 
+          Isi dengan informasi ringkas seperti kota, jenis lokasi (remote/hybrid), 
+          atau area yang diinginkan.
         </p>
       </div>
 
@@ -201,9 +238,10 @@ export default function BasicInfoForm() {
           className={`mt-1 block w-full rounded-md border ${
             errors.lastEducation ? "border-red-300" : "border-gray-300"
           } shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2`}
+          required
         >
           <option value="">Pilih Pendidikan Terakhir</option>
-          {EDUCATION_OPTIONS.map((option) => (
+          {EDUCATION_OPTIONS_FOR_FORMS.map((option) => (
             <option key={option.value} value={option.value}>
               {option.label}
             </option>
@@ -249,16 +287,12 @@ Pemecahan masalah
 Kerjasama tim"
           className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2"
         />
-        <p className="mt-1 text-xs text-gray-500">
-          Tuliskan setiap kompetensi pada baris terpisah untuk tampilan yang lebih baik
-        </p>
       </div>
 
-      {/* Navigation Buttons */}
-      <div className="flex justify-end">
+      <div className="flex justify-end pt-5">
         <button
           type="submit"
-          className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+          className="ml-3 inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
         >
           Lanjutkan
         </button>

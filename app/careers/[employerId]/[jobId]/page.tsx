@@ -17,7 +17,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Suspense } from 'react';
 import JobDetailLoader from '../../components/job-detail-loader';
-import { MapPinIcon } from '@heroicons/react/24/outline';
+import { MapPinIcon, BriefcaseIcon } from '@heroicons/react/24/outline';
+import { MinWorkExperienceEnum, getMinWorkExperienceLabel } from '@/lib/constants';
 
 // Add export config for ISR
 export const revalidate = 3600; // Revalidate every hour
@@ -44,7 +45,8 @@ interface Job {
   createdAt: Date | string;
   updatedAt: Date | string;
   employerId: string;
-  minWorkExperience: number;
+  minWorkExperience: MinWorkExperienceEnum;
+  lokasiKerja?: string | null;
   lastEducation?: "SD" | "SMP" | "SMA/SMK" | "D1" | "D2" | "D3" | "D4" | "S1" | "S2" | "S3" | null;
   requiredCompetencies?: string;
   expectations?: {
@@ -265,306 +267,210 @@ async function JobDetail({ employerId, jobId }: { employerId: string; jobId: str
   const contractType = job.jobId?.split('-')[0] || 'Full-time';
 
   return (
-    <>
-      <div>
-        <h1 className="text-2xl md:text-3xl font-bold mb-2">{job.jobTitle}</h1>
-        <p className="text-gray-500 mb-6">{employer.namaPerusahaan}</p>
-      </div>
-      
-      {/* Job header card */}
-      <Card className="shadow-sm hover:shadow-md transition-shadow duration-200 mb-6">
-        <CardHeader className="pb-3">
-          <div className="flex flex-col md:flex-row justify-between">
-            <div>
-              <div className="flex flex-wrap gap-2 mb-4">
-                <Badge variant="secondary" className="text-xs font-medium">
-                  {contractType}
-                </Badge>
+    <div className="max-w-4xl mx-auto px-6 md:px-8 pb-16">
+      <header className="mb-10">
+        <div className="flex flex-col md:flex-row md:items-center mb-6">
+          <div className="flex-1">
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">
+              {job.jobTitle}
+            </h1>
+            <p className="text-xl text-gray-600">{employer.namaPerusahaan}</p>
+          </div>
+          
+          <div className="mt-4 md:mt-0 md:ml-6">
+            <Link href={`/careers/${employerId}/${jobId}/apply`}>
+              <Button className="w-full md:w-auto" size="lg">
+                Lamar Sekarang
+              </Button>
+            </Link>
+          </div>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+          <Card>
+            <CardContent className="pt-6">
+              <div className="space-y-4">
                 {job.numberOfPositions && (
-                  <Badge variant="secondary" className="text-xs font-medium">
-                    {job.numberOfPositions} posisi
-                  </Badge>
+                  <div className="flex items-center">
+                    <svg className="w-5 h-5 text-gray-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                    <span className="text-gray-700">{job.numberOfPositions} posisi</span>
+                  </div>
                 )}
-                {job.minWorkExperience > 0 && (
-                  <Badge variant="outline" className="text-xs font-medium">
-                    {job.minWorkExperience} tahun pengalaman
-                  </Badge>
+                
+                <div className="flex items-center">
+                  <BriefcaseIcon className="w-5 h-5 text-gray-500 mr-2" />
+                  <span className="text-gray-700">{getMinWorkExperienceLabel(job.minWorkExperience)}</span>
+                </div>
+                
+                {job.lastEducation && (
+                  <div className="flex items-center">
+                    <svg className="w-5 h-5 text-gray-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path d="M12 14l9-5-9-5-9 5 9 5z" />
+                      <path d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 14l9-5-9-5-9 5 9 5zm0 0l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14zm-4 6v-7.5l4-2.222" />
+                    </svg>
+                    <span className="text-gray-700">Pendidikan min. {job.lastEducation}</span>
+                  </div>
                 )}
-              </div>
-            </div>
-            
-            <div className="mt-4 md:mt-0">
-              {employer.logoUrl ? (
-                <div className="w-16 h-16 relative flex-shrink-0 bg-white p-2 rounded-lg border border-gray-200">
-                  <Image
-                    src={employer.logoUrl}
-                    alt={employer.namaPerusahaan}
-                    fill
-                    priority
-                    sizes="64px"
-                    className="object-contain"
-                  />
-                </div>
-              ) : (
-                <div className="h-16 w-16 bg-blue-50 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <span className="text-xl font-bold text-blue-600">
-                    {employer.namaPerusahaan.substring(0, 2).toUpperCase()}
-                  </span>
-                </div>
-              )}
-            </div>
-          </div>
-        </CardHeader>
-            
-        <CardContent className="pb-3">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-1">
-              <p className="text-sm text-gray-500">Tanggal Posting</p>
-              <p className="font-medium">{format(new Date(job.postedDate), 'dd MMMM yyyy', { locale: id })}</p>
-            </div>
-          </div>
-        </CardContent>
-            
-        {/* Apply button */}
-        <CardFooter className="border-t pt-4">
-          <Link
-            href={`/job-seeker/job-application/${jobId}`}
-            className="w-full"
-          >
-            <Button className="w-full" size="lg">
-              <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 13l-3 3m0 0l-3-3m3 3V8m0 13a9 9 0 110-18 9 9 0 010 18z"></path>
-              </svg>
-              Lamar Posisi Ini
-            </Button>
-          </Link>
-        </CardFooter>
-      </Card>
-      
-      {/* Job details card */}
-      <Card className="shadow-sm hover:shadow-md transition-shadow duration-200 mb-6">
-        <CardHeader>
-          <CardTitle className="text-xl font-medium">Detail Lowongan</CardTitle>
-        </CardHeader>
-        
-        {/* Min Work Experience */}
-        {job.minWorkExperience > 0 && (
-          <CardContent className="border-b pt-0 pb-6">
-            <h2 className="text-lg font-medium mb-4 flex items-center text-gray-900">
-              <svg className="w-5 h-5 mr-2 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-              </svg>
-              Pengalaman Kerja
-            </h2>
-            <div className="p-3 bg-gray-50 rounded-lg">
-              <p className="text-gray-600">
-                Minimal {job.minWorkExperience} tahun
-              </p>
-            </div>
-          </CardContent>
-        )}
-        
-        {/* Last Education */}
-        {(job.lastEducation !== null && job.lastEducation !== undefined) && (
-          <CardContent className="border-b pt-0 pb-6">
-            <h2 className="text-lg font-medium mb-4 flex items-center text-gray-900">
-              <svg className="w-5 h-5 mr-2 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path d="M12 14l9-5-9-5-9 5 9 5z" />
-                <path d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998a12.078 12.078 0 01.665-6.479L12 14z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 14l9-5-9-5-9 5 9 5zm0 0l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998a12.078 12.078 0 01.665-6.479L12 14zm-4 6v-7.5l4-2.222" />
-              </svg>
-              Pendidikan Terakhir
-            </h2>
-            <div className="p-3 bg-gray-50 rounded-lg">
-              <p className="text-gray-600">
-                Minimal {job.lastEducation}
-              </p>
-            </div>
-          </CardContent>
-        )}
-        
-        {/* Required Competencies */}
-        {job.requiredCompetencies && (
-          <CardContent className="border-b pt-0 pb-6">
-            <h2 className="text-lg font-medium mb-4 flex items-center text-gray-900">
-              <svg className="w-5 h-5 mr-2 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
-              </svg>
-              Kompetensi yang Dibutuhkan
-            </h2>
-            <div className="p-3 bg-gray-50 rounded-lg">
-              <p className="text-gray-600 whitespace-pre-line">{job.requiredCompetencies}</p>
-            </div>
-          </CardContent>
-        )}
-        
-        {/* Accepted Disability Types */}
-        {job.additionalRequirements && 
-         Array.isArray(job.additionalRequirements.acceptedDisabilityTypes) && 
-         job.additionalRequirements.acceptedDisabilityTypes.length > 0 && (
-          <CardContent className="border-b pt-0 pb-6">
-            <h2 className="text-lg font-medium mb-4 flex items-center text-gray-900">
-              <svg className="w-5 h-5 mr-2 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
-              </svg>
-              Jenis Disabilitas yang Diterima
-            </h2>
-            <div className="space-y-2 text-gray-600">
-              <ul className="list-disc list-inside space-y-1">
-                {job.additionalRequirements.acceptedDisabilityTypes.map((item: string, index: number) => (
-                  <li key={index}>{item}</li>
-                ))}
-              </ul>
-            </div>
-          </CardContent>
-        )}
-        
-        {/* Number of Disability Positions */}
-        {job.additionalRequirements && 
-         typeof job.additionalRequirements.numberOfDisabilityPositions === 'number' && 
-         job.additionalRequirements.numberOfDisabilityPositions > 0 && (
-          <CardContent className="border-b pt-0 pb-6">
-            <h2 className="text-lg font-medium mb-4 flex items-center text-gray-900">
-              <svg className="w-5 h-5 mr-2 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-              </svg>
-              Jumlah Posisi untuk Disabilitas
-            </h2>
-            <div className="p-3 bg-gray-50 rounded-lg">
-              <p className="text-gray-600">
-                {job.additionalRequirements.numberOfDisabilityPositions} posisi
-              </p>
-            </div>
-          </CardContent>
-        )}
-        
-        {/* Work Locations */}
-        {locations && locations.length > 0 && (
-          <CardContent className="pt-0 pb-6">
-            <h2 className="text-lg font-medium mb-4 flex items-center text-gray-900">
-              <svg className="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
-              </svg>
-              Lokasi Kerja
-            </h2>
-            <div className="flex flex-col space-y-2">
-              {locations && locations.length > 0 ? (
-                locations.map((item: JobLocation, index: number) => (
-                  <div key={index} className="flex items-start space-x-2">
+                
+                {locations && locations.length > 0 && (
+                  <div className="flex items-start">
                     <MapPinIcon className="h-5 w-5 text-gray-500 flex-shrink-0 mt-0.5" />
-                    <div>
-                      <p className="text-sm font-medium">
-                        {item.city}, {item.province}
-                        {item.isRemote && " (Remote)"}
-                      </p>
-                      {item.address && <p className="text-xs text-gray-500">{item.address}</p>}
+                    <div className="ml-2">
+                      {locations.map((location, idx) => (
+                        <div key={idx} className="text-gray-700">
+                          {location.isRemote 
+                            ? 'Remote'
+                            : `${location.city}, ${location.province}`
+                          }
+                          {location.address && (
+                            <div className="text-sm text-gray-500">{location.address}</div>
+                          )}
+                        </div>
+                      ))}
                     </div>
                   </div>
-                ))
-              ) : (
-                <p className="text-sm text-gray-500">Lokasi tidak tersedia</p>
-              )}
-            </div>
-          </CardContent>
-        )}
-      </Card>
-      
-      {/* Company info card */}
-      <Card className="shadow-sm hover:shadow-md transition-shadow duration-200">
-        <CardHeader>
-          <CardTitle className="text-xl font-medium flex items-center">
-            <svg className="w-5 h-5 mr-2 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
-            </svg>
-            Tentang Perusahaan
-          </CardTitle>
-        </CardHeader>
-        
-        <CardContent>
-          <div className="flex flex-col md:flex-row items-start gap-6">
-            <div className="flex-shrink-0">
-              {employer.logoUrl && employer.logoUrl !== 'https://via.placeholder.com/100' ? (
-                <div className="w-20 h-20 relative flex-shrink-0 bg-white p-2 rounded-lg border border-gray-200">
-                  <Image
-                    src={employer.logoUrl}
-                    alt={employer.namaPerusahaan}
-                    fill
-                    priority
-                    sizes="80px"
-                    className="object-contain"
-                  />
-                </div>
-              ) : (
-                <div className="w-20 h-20 bg-blue-50 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <span className="text-xl font-bold text-blue-600">
-                    {employer.namaPerusahaan.substring(0, 2).toUpperCase()}
+                )}
+                
+                {job.lokasiKerja && (
+                  <div className="flex items-start">
+                    <MapPinIcon className="h-5 w-5 text-gray-500 flex-shrink-0 mt-0.5" />
+                    <div className="ml-2">
+                      <div className="text-gray-700">{job.lokasiKerja}</div>
+                    </div>
+                  </div>
+                )}
+                
+                <div className="flex items-center">
+                  <svg className="w-5 h-5 text-gray-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  <span className="text-gray-700">
+                    Diposting: {format(new Date(job.postedDate), 'dd MMMM yyyy', { locale: id })}
                   </span>
                 </div>
-              )}
-            </div>
-            
-            <div className="flex-grow">
-              <h3 className="text-lg font-medium text-gray-900 mb-2">
-                {employer.namaPerusahaan}
-                {employer.merekUsaha && ` (${employer.merekUsaha})`}
-              </h3>
-              <p className="text-gray-500 mb-2 flex items-center">
-                <svg className="w-4 h-4 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
-                </svg>
-                Industri: {employer.industri}
-              </p>
-              <p className="text-gray-500 mb-4 flex items-center">
-                <svg className="w-4 h-4 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                </svg>
-                Lokasi: {employer.alamatKantor}
-              </p>
-            
-              <div className="flex flex-wrap gap-4">
-                {employer.website && (
-                  <a 
-                    href={employer.website.startsWith('http') ? employer.website : `https://${employer.website}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-blue-600 hover:text-blue-800 flex items-center transition-colors duration-150"
-                  >
-                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path>
-                    </svg>
-                    Website
-                  </a>
-                )}
               </div>
+            </CardContent>
+          </Card>
           
-              {/* Social media links */}
-              {employer.socialMedia && Object.values(employer.socialMedia).some(link => !!link) && (
-                <div className="mt-4">
-                  <p className="text-sm text-gray-500 mb-2">Ikuti kami di:</p>
-                  <SocialMediaLinks socialMedia={employer.socialMedia} />
+          <Card>
+            <CardContent className="pt-6">
+              <div className="space-y-4">
+                {employer.website && (
+                  <div className="flex items-center">
+                    <svg className="w-5 h-5 text-gray-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
+                    </svg>
+                    <a 
+                      href={employer.website.startsWith('http') ? employer.website : `https://${employer.website}`} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:underline"
+                    >
+                      Website Perusahaan
+                    </a>
+                  </div>
+                )}
+                
+                <div className="flex items-center">
+                  <svg className="w-5 h-5 text-gray-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                  </svg>
+                  <span className="text-gray-700">{employer.industri}</span>
                 </div>
+                
+                <div className="flex items-start">
+                  <svg className="w-5 h-5 text-gray-500 mr-2 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  <span className="text-gray-700">{employer.alamatKantor}</span>
+                </div>
+                
+                <SocialMediaLinks socialMedia={employer.socialMedia} />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </header>
+      
+      <div className="bg-white rounded-lg shadow-sm overflow-hidden mb-8">
+        <div className="border-b border-gray-200 bg-gray-50 px-6 py-4">
+          <h2 className="text-xl font-semibold text-gray-800">Deskripsi Pekerjaan</h2>
+        </div>
+        
+        <div className="p-6 space-y-6">
+          <div>
+            <h3 className="font-semibold text-gray-800 mb-2">Deskripsi Tugas</h3>
+            <div className="prose prose-gray max-w-none">
+              {job.requiredCompetencies ? (
+                <p>{job.requiredCompetencies}</p>
+              ) : (
+                <p className="text-gray-500 italic">Deskripsi tugas tidak tersedia</p>
               )}
             </div>
           </div>
-        </CardContent>
-        
-        <CardFooter className="border-t pt-4">
-          <Link
-            href={`/careers/${employerId}`}
-            className="w-full"
-          >
-            <Button variant="outline" className="w-full" size="lg">
-              <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
-              </svg>
-              Lihat Semua Lowongan dari {employer.namaPerusahaan}
-            </Button>
-          </Link>
-        </CardFooter>
-      </Card>
-    </>
+          
+          {job.expectations && job.expectations.ageRange && (
+            <div>
+              <h3 className="font-semibold text-gray-800 mb-2">Kriteria Umur</h3>
+              <p className="text-gray-700">{job.expectations.ageRange.min} - {job.expectations.ageRange.max} tahun</p>
+            </div>
+          )}
+          
+          <div>
+            <h3 className="font-semibold text-gray-800 mb-2">Pengalaman Kerja Minimal</h3>
+            <p className="text-gray-700">{getMinWorkExperienceLabel(job.minWorkExperience)}</p>
+          </div>
+          
+          {job.lokasiKerja && (
+            <div>
+              <h3 className="font-semibold text-gray-800 mb-2">Lokasi Kerja</h3>
+              <p className="text-gray-700">{job.lokasiKerja}</p>
+            </div>
+          )}
+          
+          {job.additionalRequirements && job.additionalRequirements.gender && job.additionalRequirements.gender !== 'ANY' && (
+            <div>
+              <h3 className="font-semibold text-gray-800 mb-2">Jenis Kelamin</h3>
+              <p className="text-gray-700">
+                {job.additionalRequirements.gender === 'MALE' && 'Laki-laki'}
+                {job.additionalRequirements.gender === 'FEMALE' && 'Perempuan'} 
+                {job.additionalRequirements.gender === 'ALL' && 'Laki-laki & Perempuan'}
+              </p>
+            </div>
+          )}
+          
+          {job.additionalRequirements?.acceptedDisabilityTypes && job.additionalRequirements.acceptedDisabilityTypes.length > 0 && (
+            <div>
+              <h3 className="font-semibold text-gray-800 mb-2">Terbuka untuk Disabilitas</h3>
+              <div className="flex flex-wrap gap-2">
+                {job.additionalRequirements.acceptedDisabilityTypes.map((type, idx) => (
+                  <Badge key={idx} variant="outline" className="text-sm">
+                    {type}
+                  </Badge>
+                ))}
+              </div>
+              {job.additionalRequirements.numberOfDisabilityPositions && (
+                <p className="mt-2 text-sm text-gray-600">
+                  {job.additionalRequirements.numberOfDisabilityPositions} posisi tersedia untuk penyandang disabilitas
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+      
+      <div className="text-center">
+        <Link href={`/careers/${employerId}/${jobId}/apply`}>
+          <Button size="lg" className="min-w-[200px]">
+            Lamar Sekarang
+          </Button>
+        </Link>
+      </div>
+    </div>
   );
 }
 

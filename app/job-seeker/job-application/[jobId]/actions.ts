@@ -21,12 +21,12 @@ export interface JobDetails {
   jobId: string;
   jobTitle: string;
   contractType: string;
-  minWorkExperience: number;
+  minWorkExperience: number | string; // Can be number (old data) or string (enum value)
+  lokasiKerja?: string | null;
   salaryRange: { min?: number; max?: number; isNegotiable?: boolean; };
   lastEducation?: string;
   requiredCompetencies?: string;
   numberOfPositions?: number;
-  applicationDeadline?: Date;
   workLocations: { city: string; province: string; isRemote: boolean; }[];
   companyInfo: {
     name: string;
@@ -206,11 +206,11 @@ export async function getJobApplicationPageData(jobId: string) {
       jobTitle: job.jobTitle,
       contractType: 'FULL_TIME',
       minWorkExperience: job.minWorkExperience,
+      lokasiKerja: job.lokasiKerja,
       salaryRange: { isNegotiable: false },
       lastEducation: job.lastEducation || undefined,
       requiredCompetencies: job.requiredCompetencies || undefined,
       numberOfPositions: job.numberOfPositions || undefined,
-      applicationDeadline: job.postedDate,
       workLocations: workLocations.map(l => ({
         city: l.city,
         province: l.province,

@@ -2,6 +2,8 @@ import Link from 'next/link';
 import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
 import EmployerLogo from './employer-logo';
+import { MinWorkExperienceEnum, getMinWorkExperienceLabel } from '@/lib/constants';
+import { MapPinIcon, BriefcaseIcon, CalendarIcon } from '@heroicons/react/24/outline';
 
 // Types
 interface Job {
@@ -14,7 +16,8 @@ interface Job {
   createdAt: Date | string;
   updatedAt: Date | string;
   employerId: string;
-  minWorkExperience: number;
+  minWorkExperience: MinWorkExperienceEnum;
+  lokasiKerja?: string | null;
   lastEducation?: "SD" | "SMP" | "SMA/SMK" | "D1" | "D2" | "D3" | "D4" | "S1" | "S2" | "S3" | null;
   requiredCompetencies?: string | null;
   expectations?: {
@@ -69,11 +72,9 @@ function JobCard({ job, index }: { job: Job; index: number }) {
                   {job.numberOfPositions} posisi
                 </span>
               )}
-              {job.minWorkExperience > 0 && (
-                <span className="px-3 py-1 bg-notion-highlight-orange text-notion-text text-xs font-medium rounded-notion">
-                  {job.minWorkExperience} tahun pengalaman
-                </span>
-              )}
+              <span className="px-3 py-1 bg-notion-highlight-orange text-notion-text text-xs font-medium rounded-notion">
+                {getMinWorkExperienceLabel(job.minWorkExperience)}
+              </span>
             </div>
           </div>
         </div>
@@ -82,11 +83,25 @@ function JobCard({ job, index }: { job: Job; index: number }) {
       <div className="p-6">
         <div className="space-y-3 text-sm text-notion-text-light">
           <div className="flex items-start">
-            <svg className="w-5 h-5 text-notion-text-light mr-2 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-            </svg>
+            <CalendarIcon className="w-5 h-5 text-notion-text-light mr-2 mt-0.5" />
             <div>
               <p>Diposting: {format(new Date(job.postedDate), 'dd MMM yyyy', { locale: id })}</p>
+            </div>
+          </div>
+          
+          {job.lokasiKerja && (
+            <div className="flex items-start">
+              <MapPinIcon className="w-5 h-5 text-notion-text-light mr-2 mt-0.5" />
+              <div>
+                <p>{job.lokasiKerja}</p>
+              </div>
+            </div>
+          )}
+          
+          <div className="flex items-start">
+            <BriefcaseIcon className="w-5 h-5 text-notion-text-light mr-2 mt-0.5" />
+            <div>
+              <p>{getMinWorkExperienceLabel(job.minWorkExperience)}</p>
             </div>
           </div>
         </div>

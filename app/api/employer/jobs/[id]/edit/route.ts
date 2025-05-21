@@ -3,6 +3,7 @@ import { getJobById, updateJob, getEmployerByUserId } from "@/lib/db";
 import { z } from "zod";
 import { auth } from '@/lib/auth';
 import { revalidatePath } from "next/cache";
+import { EDUCATION_LEVELS, MIN_WORK_EXPERIENCE_OPTIONS, MinWorkExperienceEnum } from "@/lib/constants";
 
 // Mark this API route as dynamic to prevent static generation errors with headers()
 export const dynamic = 'force-dynamic';
@@ -18,15 +19,20 @@ interface CustomSession {
   };
 }
 
+// Get enum values for Zod validation
+const MIN_WORK_EXPERIENCE_VALUES = MIN_WORK_EXPERIENCE_OPTIONS.map(option => option.value);
+
 /**
  * Schema for validating job update data
  */
 const jobUpdateSchema = z.object({
   jobTitle: z.string().min(1, "Job title is required"),
-  minWorkExperience: z.number().int().min(0, "Work experience must be a positive number"),
-  numberOfPositions: z.number().int().positive().optional(),
-  lastEducation: z.enum(["SD", "SMP", "SMA/SMK", "D1", "D2", "D3", "D4", "S1", "S2", "S3"]).optional(),
-  requiredCompetencies: z.string().optional(),
+  minWorkExperience: z.enum(MIN_WORK_EXPERIENCE_VALUES as [string, ...string[]]),
+  numberOfPositions: z.number().int().positive().optional().nullable(),
+  lastEducation: z.enum(EDUCATION_LEVELS as any as [string, ...string[]]).optional().nullable(),
+  jurusan: z.string().optional().nullable(),
+  lokasiKerja: z.string().optional().nullable(),
+  requiredCompetencies: z.string().optional().nullable(),
   expectations: z
     .object({
       ageRange: z
@@ -35,18 +41,22 @@ const jobUpdateSchema = z.object({
           max: z.number(),
         })
         .optional()
+        .nullable()
         .refine((data) => !data || data.max >= data.min, {
           message: "Maximum age must be greater than or equal to minimum age",
+          path: ["max"],
         }),
     })
-    .optional(),
+    .optional()
+    .nullable(),
   additionalRequirements: z
     .object({
-      gender: z.enum(["MALE", "FEMALE", "ANY", "ALL"]).optional(),
-      acceptedDisabilityTypes: z.array(z.string()).optional(),
-      numberOfDisabilityPositions: z.number().int().min(0).optional(),
+      gender: z.enum(["MALE", "FEMALE", "ANY", "ALL"]).optional().nullable(),
+      acceptedDisabilityTypes: z.array(z.string()).optional().nullable(),
+      numberOfDisabilityPositions: z.number().int().min(0).optional().nullable(),
     })
-    .optional(),
+    .optional()
+    .nullable(),
   isConfirmed: z.boolean().optional(),
 });
 
@@ -119,11 +129,24 @@ export async function PUT(req: NextRequest, props: { params: Promise<{ id: strin
     // Prepare data for update
     const jobData = {
       ...validationResult.data,
+      minWorkExperience: validationResult.data.minWorkExperience as MinWorkExperienceEnum,
+      lokasiKerja: validationResult.data.lokasiKerja,
       // Ensure new fields are properly included
-      lastEducation: validationResult.data.lastEducation,
+      lastEducation: validationResult.data.lastEducation as any,
+      jurusan: validationResult.data.jurusan,
       requiredCompetencies: validationResult.data.requiredCompetencies || '',
       acceptedDisabilityTypes: validationResult.data.additionalRequirements?.acceptedDisabilityTypes || [],
       numberOfDisabilityPositions: validationResult.data.additionalRequirements?.numberOfDisabilityPositions || 0,
+      // Handle expectations explicitly to avoid null issues
+      expectations: validationResult.data.expectations ? {
+        ageRange: validationResult.data.expectations.ageRange || undefined
+      } : undefined,
+      // Handle additionalRequirements explicitly to avoid null issues
+      additionalRequirements: validationResult.data.additionalRequirements ? {
+        gender: validationResult.data.additionalRequirements.gender || "ANY",
+        acceptedDisabilityTypes: undefined,
+        numberOfDisabilityPositions: undefined
+      } : undefined,
       updatedAt: new Date() // Ensure updatedAt is refreshed
     };
 
@@ -225,8 +248,6 @@ export async function GET(req: NextRequest, props: { params: Promise<{ id: strin
     // Format the job data for the frontend
     const formattedJob = {
       ...job,
-      // Always include applicationDeadline property, set to null if it doesn't exist
-      applicationDeadline: null,
       // Convert postedDate to ISO string
       postedDate: job.postedDate.toISOString(),
     };

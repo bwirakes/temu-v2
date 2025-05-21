@@ -59,9 +59,7 @@ export async function createJobPosting(jobData: Partial<JobPostingData>): Promis
     // Prepare the request payload ensuring all fields match the expected API schema
     const payload = {
       jobTitle: jobData.jobTitle,
-      minWorkExperience: typeof jobData.minWorkExperience === 'string' 
-        ? parseInt(jobData.minWorkExperience, 10) 
-        : jobData.minWorkExperience,
+      minWorkExperience: jobData.minWorkExperience, // Keep as enum string value, don't convert to number
       numberOfPositions: typeof jobData.numberOfPositions === 'string' 
         ? parseInt(jobData.numberOfPositions, 10) 
         : jobData.numberOfPositions,

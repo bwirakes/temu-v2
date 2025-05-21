@@ -2,18 +2,24 @@ import { NextRequest, NextResponse } from "next/server";
 import { createJob, getEmployerByUserId, getJobsByEmployerId } from "@/lib/db";
 import { z } from "zod";
 import { auth } from '@/lib/auth';
+import { LokasiKerjaEnum, EDUCATION_LEVELS, MinWorkExperienceEnum, MIN_WORK_EXPERIENCE_OPTIONS } from "@/lib/constants";
 
 // Mark this API route as dynamic to prevent static generation errors with headers()
 export const dynamic = 'force-dynamic';
+
+// Get MinWorkExperience enum values for Zod validation
+const MIN_WORK_EXPERIENCE_VALUES = MIN_WORK_EXPERIENCE_OPTIONS.map(option => option.value);
 
 /**
  * Schema for validating job posting data
  */
 const jobPostingSchema = z.object({
   jobTitle: z.string().min(1, "Job title is required"),
-  minWorkExperience: z.number().int().min(0, "Work experience must be a positive number"),
+  minWorkExperience: z.enum(MIN_WORK_EXPERIENCE_VALUES as [string, ...string[]]), // Validate as enum
   numberOfPositions: z.number().int().positive().optional(),
-  lastEducation: z.enum(["SD", "SMP", "SMA/SMK", "D1", "D2", "D3", "D4", "S1", "S2", "S3"]).optional(),
+  lastEducation: z.enum(EDUCATION_LEVELS as any as [string, ...string[]]).optional(),
+  jurusan: z.string().optional(),
+  lokasiKerja: z.string().optional(), // Changed from enum to string
   requiredCompetencies: z.string().optional(),
   expectations: z
     .object({
@@ -37,6 +43,12 @@ const jobPostingSchema = z.object({
     .optional(),
   isConfirmed: z.boolean().default(false),
 });
+
+// Ensure the createJob function types match
+type JobPostingCreateData = z.infer<typeof jobPostingSchema> & {
+  employerId: string;
+  jobId: string;
+};
 
 /**
  * Function to generate a human-readable job ID
@@ -92,21 +104,10 @@ export async function POST(request: NextRequest) {
 
     // Prepare data for insertion
     const jobData = {
-      employerId, // Use the fetched and verified employerId
-      jobId, // Add the generated human-readable ID
-      jobTitle: validationResult.data.jobTitle,
-      minWorkExperience: validationResult.data.minWorkExperience,
-      numberOfPositions: validationResult.data.numberOfPositions,
-      lastEducation: validationResult.data.lastEducation,
-      requiredCompetencies: validationResult.data.requiredCompetencies || '',
-      expectations: validationResult.data.expectations || { ageRange: undefined },
-      additionalRequirements: {
-        gender: validationResult.data.additionalRequirements?.gender || "ANY",
-        acceptedDisabilityTypes: validationResult.data.additionalRequirements?.acceptedDisabilityTypes || undefined,
-        numberOfDisabilityPositions: validationResult.data.additionalRequirements?.numberOfDisabilityPositions || undefined
-      },
-      isConfirmed: validationResult.data.isConfirmed
-    };
+      ...validationResult.data,
+      employerId,
+      jobId,
+    } as any; // Cast to any to avoid TypeScript errors
 
     // Create job posting
     const newJob = await createJob(jobData);

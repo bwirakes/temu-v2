@@ -29,6 +29,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { Textarea } from "@/components/ui/textarea";
+import { MIN_WORK_EXPERIENCE_OPTIONS, MinWorkExperienceEnum } from "@/lib/constants";
 
 // Define education options
 const EDUCATION_OPTIONS = [
@@ -68,10 +69,17 @@ const jobSchema = z.object({
   
   // Requirements
   gender: z.enum(["ANY", "MALE", "FEMALE"]),
-  minWorkExperience: z.number().min(0).optional(),
+  minWorkExperience: z.enum([
+    "LULUSAN_BARU",
+    "SATU_DUA_TAHUN",
+    "TIGA_EMPAT_TAHUN",
+    "TIGA_LIMA_TAHUN",
+    "LEBIH_LIMA_TAHUN"
+  ]),
   // Retained fields
   lastEducation: z.string().optional(),
   jurusan: z.string().optional(),
+  lokasiKerja: z.string().optional(),
   requiredCompetencies: z.string().optional(), // Will be split into array when submitting
   acceptedDisabilityTypes: z.string().optional(), // Will be split into array when submitting
   numberOfDisabilityPositions: z.number().min(0).default(0),
@@ -121,7 +129,6 @@ export default function JobEditForm({ jobId, onSave, onCancel }: JobEditFormProp
   const [workLocations, setWorkLocations] = useState<WorkLocation[]>([
     { address: "", city: "", province: "", isRemote: false }
   ]);
-  const [showWorkLocations, setShowWorkLocations] = useState(true);
   const [customDisabilityType, setCustomDisabilityType] = useState("");
   const [error, setError] = useState<string | null>(null);
   
@@ -131,7 +138,7 @@ export default function JobEditForm({ jobId, onSave, onCancel }: JobEditFormProp
       jobTitle: "",
       numberOfPositions: 1,
       gender: "ANY",
-      minWorkExperience: 0,
+      minWorkExperience: "LULUSAN_BARU",
       // New fields defaults
       lastEducation: undefined,
       jurusan: undefined,
@@ -173,16 +180,37 @@ export default function JobEditForm({ jobId, onSave, onCancel }: JobEditFormProp
           (job.acceptedDisabilityTypes && job.acceptedDisabilityTypes.length > 0) || 
           (job.numberOfDisabilityPositions && job.numberOfDisabilityPositions > 0);
         
+        // Convert numeric minWorkExperience to enum if needed
+        let minWorkExperience: MinWorkExperienceEnum = "LULUSAN_BARU";
+        
+        if (typeof job.minWorkExperience === 'string') {
+          minWorkExperience = job.minWorkExperience as MinWorkExperienceEnum;
+        } else if (typeof job.minWorkExperience === 'number') {
+          // Convert from old numeric format
+          if (job.minWorkExperience === 0) {
+            minWorkExperience = "LULUSAN_BARU";
+          } else if (job.minWorkExperience <= 2) {
+            minWorkExperience = "SATU_DUA_TAHUN";
+          } else if (job.minWorkExperience <= 4) {
+            minWorkExperience = "TIGA_EMPAT_TAHUN";
+          } else if (job.minWorkExperience <= 5) {
+            minWorkExperience = "TIGA_LIMA_TAHUN";
+          } else {
+            minWorkExperience = "LEBIH_LIMA_TAHUN";
+          }
+        }
+        
         // Format job data for the form
         form.reset({
           jobTitle: job.jobTitle || "",
           numberOfPositions: job.numberOfPositions || 1,
           gender: job.additionalRequirements?.gender === "MALE" ? "MALE" : 
                  job.additionalRequirements?.gender === "FEMALE" ? "FEMALE" : "ANY",
-          minWorkExperience: job.minWorkExperience || 0,
+          minWorkExperience: minWorkExperience,
           // New fields
           lastEducation: job.lastEducation || NO_REQUIREMENTS,
           jurusan: job.jurusan || undefined,
+          lokasiKerja: job.lokasiKerja || undefined,
           requiredCompetencies: job.requiredCompetencies || "",
           acceptedDisabilityTypes: Array.isArray(job.acceptedDisabilityTypes) 
             ? job.acceptedDisabilityTypes.join("\n") 
@@ -212,9 +240,6 @@ export default function JobEditForm({ jobId, onSave, onCancel }: JobEditFormProp
             province: loc.province || "",
             isRemote: loc.isRemote || false
           })));
-          setShowWorkLocations(true);
-        } else {
-          setShowWorkLocations(false);
         }
       } catch (err: any) {
         console.error('Error fetching job data:', err);
@@ -292,82 +317,51 @@ export default function JobEditForm({ jobId, onSave, onCancel }: JobEditFormProp
     setIsSaving(true);
     
     try {
-      // Only validate work locations if the section is shown
-      if (showWorkLocations) {
-        const hasValidLocations = workLocations.every(loc => loc.city && loc.province);
-        
-        if (!hasValidLocations) {
-          toast.error("Validasi gagal", {
-            description: "Setiap lokasi kerja harus memiliki kota dan provinsi."
-          });
-          setIsSaving(false);
-          return;
-        }
-      }
-
-      // Format data for the API
-      const jobData = {
-        jobTitle: data.jobTitle,
-        minWorkExperience: data.minWorkExperience,
-        numberOfPositions: data.numberOfPositions,
-        // New fields - don't send NO_REQUIREMENTS to API
-        lastEducation: data.lastEducation === NO_REQUIREMENTS ? undefined : data.lastEducation,
-        jurusan: data.jurusan,
-        requiredCompetencies: data.requiredCompetencies || '',
-        acceptedDisabilityTypes: data.suitableForDisability && data.acceptedDisabilityTypes ? 
-          data.acceptedDisabilityTypes.split('\n').filter(Boolean) : [],
-        numberOfDisabilityPositions: data.suitableForDisability ? data.numberOfDisabilityPositions : 0,
-        // Only include age range in expectations
-        expectations: {
-          ageRange: {
-            min: data.ageRangeMin,
-            max: data.ageRangeMax
-          }
-        },
-        // Only include gender field in additionalRequirements
-        additionalRequirements: {
-          gender: data.gender,
+      // Format age range as expected by the API
+      const expectations = {
+        ageRange: {
+          min: data.ageRangeMin,
+          max: data.ageRangeMax
         }
       };
-
+      
+      // Prepare disability info if enabled
+      const additionalRequirements = {
+        gender: data.gender,
+      };
+      
       // Update job data
-      const updateResponse = await fetch(`/api/employer/jobs/${jobId}/edit`, {
+      const jobResponse = await fetch(`/api/employer/jobs/${jobId}/edit`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(jobData)
+        body: JSON.stringify({
+          jobTitle: data.jobTitle,
+          minWorkExperience: data.minWorkExperience,
+          numberOfPositions: data.numberOfPositions,
+          lastEducation: data.lastEducation === NO_REQUIREMENTS ? null : data.lastEducation,
+          jurusan: data.jurusan || null,
+          lokasiKerja: data.lokasiKerja || null,
+          requiredCompetencies: data.requiredCompetencies || null,
+          expectations,
+          additionalRequirements,
+          // Pass acceptedDisabilityTypes and numberOfDisabilityPositions only if suitableForDisability is true
+          ...(data.suitableForDisability && {
+            additionalRequirements: {
+              ...additionalRequirements,
+              acceptedDisabilityTypes: data.acceptedDisabilityTypes 
+                ? data.acceptedDisabilityTypes.split('\n').filter(Boolean)
+                : [],
+              numberOfDisabilityPositions: data.numberOfDisabilityPositions || 0
+            }
+          })
+        })
       });
-
-      if (!updateResponse.ok) {
-        const error = await updateResponse.json();
+      
+      if (!jobResponse.ok) {
+        const error = await jobResponse.json();
         throw new Error(error.error || 'Failed to update job');
-      }
-
-      // Delete existing locations
-      await fetch(`/api/employer/jobs/${jobId}/locations`, {
-        method: 'DELETE'
-      });
-
-      // Add new locations only if the section is shown
-      if (showWorkLocations) {
-        // Then add each location
-        for (const location of workLocations) {
-          if (location.city && location.province) {
-            await fetch(`/api/employer/jobs/${jobId}/locations`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json'
-              },
-              body: JSON.stringify({
-                city: location.city,
-                province: location.province,
-                isRemote: location.isRemote,
-                address: location.address
-              })
-            });
-          }
-        }
       }
 
       toast.success("Perubahan disimpan", {
@@ -446,119 +440,44 @@ export default function JobEditForm({ jobId, onSave, onCancel }: JobEditFormProp
             )}
           </div>
 
-          {/* Work Location Toggle */}
-          <div className="flex items-center space-x-2 pt-2">
-            <Checkbox
-              id="showWorkLocations"
-              checked={showWorkLocations}
-              onCheckedChange={(checked) => setShowWorkLocations(!!checked)}
-            />
-            <Label htmlFor="showWorkLocations" className="font-medium">
-              Tambahkan Lokasi Kerja
-            </Label>
+          {/* Minimum Work Experience */}
+          <div className="space-y-2">
+            <LabelText htmlFor="minWorkExperience">Pengalaman Minimum</LabelText>
+            <Select
+              onValueChange={(value) => form.setValue("minWorkExperience", value as MinWorkExperienceEnum)}
+              defaultValue={form.getValues("minWorkExperience")}
+            >
+              <SelectTrigger id="minWorkExperience" className={form.formState.errors.minWorkExperience ? "border-red-500" : ""}>
+                <SelectValue placeholder="Pilih pengalaman minimum" />
+              </SelectTrigger>
+              <SelectContent>
+                {MIN_WORK_EXPERIENCE_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
-          {/* Work Locations - Only shown if toggle is enabled */}
-          {showWorkLocations && (
-            <div className="space-y-3 pt-2">
-              <div className="flex justify-between items-center">
-                <Label className="flex items-center gap-1">
-                  <span>Lokasi Kerja</span>
-                  <span className="text-red-500">*</span>
-                </Label>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={addLocation}
-                  className="flex items-center gap-1"
-                >
-                  <PlusCircle className="h-4 w-4" />
-                  <span>Tambah Lokasi</span>
-                </Button>
-              </div>
-
-              {workLocations.map((location, index) => (
-                <div key={index} className="p-4 border rounded-md space-y-3">
-                  <div className="flex justify-between items-start">
-                    <h4 className="font-medium">Lokasi {index + 1}</h4>
-                    {index > 0 && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => removeLocation(index)}
-                        className="text-red-500 h-8 w-8 p-0"
-                      >
-                        <XCircle className="h-4 w-4" />
-                        <span className="sr-only">Hapus lokasi</span>
-                      </Button>
-                    )}
-                  </div>
-
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
-                      id={`isRemote-${index}`}
-                      checked={location.isRemote}
-                      onCheckedChange={(checked) => 
-                        handleLocationChange(index, "isRemote", Boolean(checked))
-                      }
-                    />
-                    <Label htmlFor={`isRemote-${index}`}>
-                      Pekerjaan ini dapat dilakukan secara remote
-                    </Label>
-                  </div>
-
-                  <div className="space-y-3">
-                    <div>
-                      <Label htmlFor={`address-${index}`}>Alamat</Label>
-                      <Input
-                        id={`address-${index}`}
-                        value={location.address}
-                        onChange={(e) => handleLocationChange(index, "address", e.target.value)}
-                        placeholder="Jl. Contoh No. 123"
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor={`city-${index}`} className="flex items-center gap-1">
-                          <span>Kota</span>
-                          <span className="text-red-500">*</span>
-                        </Label>
-                        <Input
-                          id={`city-${index}`}
-                          value={location.city}
-                          onChange={(e) => handleLocationChange(index, "city", e.target.value)}
-                          placeholder="Jakarta"
-                          className={!location.city ? "border-red-500" : ""}
-                        />
-                        {!location.city && (
-                          <p className="text-sm text-red-500">Kota wajib diisi</p>
-                        )}
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor={`province-${index}`} className="flex items-center gap-1">
-                          <span>Provinsi</span>
-                          <span className="text-red-500">*</span>
-                        </Label>
-                        <Input
-                          id={`province-${index}`}
-                          value={location.province}
-                          onChange={(e) => handleLocationChange(index, "province", e.target.value)}
-                          placeholder="DKI Jakarta"
-                          className={!location.province ? "border-red-500" : ""}
-                        />
-                        {!location.province && (
-                          <p className="text-sm text-red-500">Provinsi wajib diisi</p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+          {/* Work Location */}
+          <div className="space-y-2">
+            <LabelText htmlFor="lokasiKerja">Lokasi Kerja</LabelText>
+            <Input
+              id="lokasiKerja"
+              placeholder="Contoh: Jakarta, Remote, Hybrid (Jakarta-Bandung), dll"
+              {...form.register("lokasiKerja")}
+              className={form.formState.errors.lokasiKerja ? "border-red-500" : ""}
+            />
+            {form.formState.errors.lokasiKerja && (
+              <p className="text-sm text-red-500">{form.formState.errors.lokasiKerja.message}</p>
+            )}
+            <p className="text-xs text-gray-500">
+              Deskripsi umum lokasi kerja yang akan ditampilkan kepada pencari kerja. 
+              Isi dengan informasi ringkas seperti kota, jenis lokasi (remote/hybrid), 
+              atau area yang diinginkan.
+            </p>
+          </div>
         </CardContent>
       </Card>
 
@@ -597,41 +516,22 @@ export default function JobEditForm({ jobId, onSave, onCancel }: JobEditFormProp
             </RadioGroup>
           </div>
 
-          {/* Minimum Work Experience */}
-          <div className="space-y-2">
-            <LabelText htmlFor="minWorkExperience">Minimum Pengalaman Kerja</LabelText>
-            <div className="flex items-center space-x-2">
-              <Input
-                id="minWorkExperience"
-                type="number"
-                min="0"
-                className="w-24"
-                {...form.register("minWorkExperience", { valueAsNumber: true })}
-              />
-              <span>tahun</span>
-            </div>
-            <p className="text-xs text-gray-500">
-              Masukkan 0 jika tidak ada persyaratan pengalaman kerja
-            </p>
-          </div>
-
           {/* Last Education */}
           <div className="space-y-2">
             <LabelText htmlFor="lastEducation">Pendidikan Terakhir</LabelText>
             <Select
-              value={form.watch("lastEducation") || NO_REQUIREMENTS}
               onValueChange={(value) => {
                 form.setValue("lastEducation", value);
-                
-                // Clear jurusan if not applicable for this education level or if "No Requirements" is selected
-                const educationOption = EDUCATION_OPTIONS.find(option => option.value === value);
-                if (!educationOption?.showJurusan || value === NO_REQUIREMENTS) {
+                // Clear jurusan if education doesn't show it
+                const option = EDUCATION_OPTIONS.find(opt => opt.value === value);
+                if (!option?.showJurusan) {
                   form.setValue("jurusan", "");
                 }
               }}
+              defaultValue={form.getValues("lastEducation") || NO_REQUIREMENTS}
             >
-              <SelectTrigger>
-                <SelectValue placeholder="Pilih Pendidikan Minimal" />
+              <SelectTrigger id="lastEducation" className={form.formState.errors.lastEducation ? "border-red-500" : ""}>
+                <SelectValue placeholder="Pilih pendidikan" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value={NO_REQUIREMENTS}>Tidak Ada Persyaratan</SelectItem>
@@ -642,12 +542,9 @@ export default function JobEditForm({ jobId, onSave, onCancel }: JobEditFormProp
                 ))}
               </SelectContent>
             </Select>
-            <p className="text-xs text-gray-500">
-              Pendidikan minimum yang diperlukan untuk posisi ini
-            </p>
           </div>
           
-          {/* Jurusan field - only shown for applicable education levels */}
+          {/* Jurusan - conditionally rendered */}
           {(() => {
             const currentEducation = form.watch("lastEducation");
             // Don't show jurusan if education is NO_REQUIREMENTS

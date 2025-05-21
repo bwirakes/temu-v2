@@ -37,5 +37,15 @@ module.exports = {
   // Configure experimental features
   experimental: {
     optimizePackageImports: ["next-auth"]
+  },
+  // Exclude development-only directories and files from the build
+  webpack: (config, { isServer }) => {
+    // Exclude migrations and scripts from the build
+    config.module.rules.push({
+      test: /migrations|scripts/,
+      use: 'ignore-loader'
+    });
+
+    return config;
   }
 }; 

@@ -76,10 +76,11 @@ export default function ConfirmationForm() {
         data.additionalRequirements.numberOfDisabilityPositions &&
         data.additionalRequirements.numberOfDisabilityPositions > 0;
 
-      // Ensure we're sending valid number values
+      // Ensure we're sending valid values
       const jobPostingData = {
         ...data,
-        minWorkExperience: Number(data.minWorkExperience),
+        // Keep minWorkExperience as enum string, don't convert to number
+        minWorkExperience: data.minWorkExperience,
         isConfirmed: true, // Automatically confirm on submission
         numberOfPositions: data.numberOfPositions ? Number(data.numberOfPositions) : 1,
         // Ensure nested objects are properly structured
@@ -152,6 +153,10 @@ export default function ConfirmationForm() {
           <div>
             <p className="text-sm font-medium text-gray-500">Pengalaman Kerja Minimal</p>
             <p className="mt-1">{data.minWorkExperience} tahun</p>
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-500">Lokasi Kerja</p>
+            <p className="mt-1">{data.lokasiKerja || 'Tidak Ditentukan'}</p>
           </div>
           <div className="col-span-2">
             <p className="text-sm font-medium text-gray-500">Kompetensi yang Dibutuhkan</p>

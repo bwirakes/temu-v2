@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useState, ReactNode } from 'react';
+import { MinWorkExperienceEnum, LokasiKerjaEnum } from '@/lib/constants';
 
 /**
  * Type definition for job posting data
@@ -8,11 +9,12 @@ import { createContext, useContext, useState, ReactNode } from 'react';
 export interface JobPostingData {
   jobId: string;
   jobTitle: string;
-  minWorkExperience: number;
+  minWorkExperience: MinWorkExperienceEnum;
   lastEducation?: string;
   jurusan?: string;
   requiredCompetencies?: string;
   numberOfPositions?: number;
+  lokasiKerja?: string;
   expectations?: {
     ageRange?: {
       min: number | undefined;
@@ -43,11 +45,12 @@ interface JobPostingContextType {
 const defaultJobPostingData: JobPostingData = {
   jobId: '',
   jobTitle: '',
-  minWorkExperience: 0,
+  minWorkExperience: 'LULUSAN_BARU',
   lastEducation: '',
   jurusan: '',
   requiredCompetencies: '',
   numberOfPositions: 0,
+  lokasiKerja: undefined,
   expectations: {
     ageRange: {
       min: 18,
@@ -80,10 +83,6 @@ export const JobPostingProvider = ({ children }: { children: ReactNode }) => {
       const processedValues = { ...values };
       
       // Handle number conversions
-      if (typeof values.minWorkExperience === 'string') {
-        processedValues.minWorkExperience = parseInt(values.minWorkExperience, 10);
-      }
-      
       if (typeof values.numberOfPositions === 'string') {
         processedValues.numberOfPositions = parseInt(values.numberOfPositions, 10);
       }

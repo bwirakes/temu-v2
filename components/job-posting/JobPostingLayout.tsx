@@ -21,16 +21,17 @@ export default function JobPostingLayout({
           <div className="order-2 md:order-1 w-full px-4 md:px-0 mb-4">
             <ProgressBar />
           </div>
+        </div>
+      </div>
 
-          <div className="order-1 md:order-2 w-full">
-            <div className="p-6 bg-white border-b border-gray-200 text-gray-800 md:rounded-t-md">
-              <h2 className="text-xl font-medium text-gray-900">{title}</h2>
-              <p className="text-gray-600 mt-2 text-sm">{description}</p>
+      <div className="md:container md:mx-auto md:px-4 md:max-w-3xl">
+        <div className="order-3 md:order-3 w-full mt-[-2rem] md:mt-[-3rem] relative z-10">
+          <div className="bg-white rounded-md shadow-xl border border-gray-200 overflow-hidden">
+            <div className="bg-blue-600 p-6 text-white">
+              <h2 className="text-xl font-medium text-white">{title}</h2>
+              <p className="text-blue-100 mt-2 text-sm">{description}</p>
             </div>
-          </div>
-
-          <div className="order-3 md:order-3 w-full">
-            <div className="bg-white p-5 md:p-8 md:rounded-b-md border-t border-gray-100">
+            <div className="p-5 md:p-8">
               {children}
             </div>
           </div>

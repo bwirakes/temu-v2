@@ -100,6 +100,15 @@ export const lastEducationEnum = pgEnum('last_education', [
   'S3'
 ]);
 
+// New enum for minimum work experience
+export const minWorkExperienceEnum = pgEnum('min_work_experience_enum', [
+  'LULUSAN_BARU',
+  'SATU_DUA_TAHUN',
+  'TIGA_EMPAT_TAHUN',
+  'TIGA_LIMA_TAHUN',
+  'LEBIH_LIMA_TAHUN'
+]);
+
 export const users = pgTable('users', {
   id: uuid('id').defaultRandom().primaryKey(),
   name: text('name'),
@@ -261,12 +270,13 @@ export const jobs = pgTable('jobs', {
     .references(() => employers.id, { onDelete: 'cascade' }),
   jobId: text('job_id').notNull(),
   jobTitle: text('job_title').notNull(),
-  minWorkExperience: integer('min_work_experience').notNull(),
+  minWorkExperience: minWorkExperienceEnum('min_work_experience').notNull(),
   postedDate: timestamp('posted_date').defaultNow().notNull(),
   numberOfPositions: integer('number_of_positions'),
   lastEducation: lastEducationEnum('last_education'),
   jurusan: text('jurusan'),
   requiredCompetencies: text('required_competencies'),
+  lokasiKerja: text('lokasi_kerja'),
   expectations: jsonb('expectations').$type<{
     ageRange?: {
       min: number;

@@ -34,6 +34,7 @@ import {
 import { eq } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { JobsClientWrapper } from "./jobs-client";
+import { MinWorkExperienceEnum } from "@/lib/constants";
 
 // Enable Incremental Static Regeneration
 export const revalidate = 3600; // Revalidate every hour
@@ -47,7 +48,7 @@ interface Job {
   employerId: string;
   jobId?: string; // Make jobId optional with the ? operator
   jobTitle: string;
-  minWorkExperience: number;
+  minWorkExperience: MinWorkExperienceEnum;
   postedDate: string;
   // Allow numberOfPositions to be null (this matches what's returned from the database)
   numberOfPositions: number | null;
@@ -55,6 +56,8 @@ interface Job {
   applicationCount: number;
   // Make contractType optional since it's being removed
   contractType?: string;
+  // Add lokasiKerja field, allow it to be string | undefined, but not null
+  lokasiKerja?: string;
 }
 
 const getContractTypeLabel = (type?: string): string => {
@@ -114,12 +117,33 @@ export default async function JobsPage() {
       
       const applicationCount = applications.length;
       
+      // Convert minWorkExperience from number to enum if needed
+      let minWorkExperienceValue: MinWorkExperienceEnum = "LULUSAN_BARU";
+      
+      if (typeof job.minWorkExperience === 'string' && 
+          ["LULUSAN_BARU", "SATU_DUA_TAHUN", "TIGA_EMPAT_TAHUN", "TIGA_LIMA_TAHUN", "LEBIH_LIMA_TAHUN"].includes(job.minWorkExperience)) {
+        minWorkExperienceValue = job.minWorkExperience as MinWorkExperienceEnum;
+      } else if (typeof job.minWorkExperience === 'number') {
+        // Convert numeric experience to enum based on values
+        if (job.minWorkExperience === 0) {
+          minWorkExperienceValue = "LULUSAN_BARU";
+        } else if (job.minWorkExperience <= 2) {
+          minWorkExperienceValue = "SATU_DUA_TAHUN";
+        } else if (job.minWorkExperience <= 4) {
+          minWorkExperienceValue = "TIGA_EMPAT_TAHUN";
+        } else if (job.minWorkExperience <= 5) {
+          minWorkExperienceValue = "TIGA_LIMA_TAHUN";
+        } else {
+          minWorkExperienceValue = "LEBIH_LIMA_TAHUN";
+        }
+      }
+      
       // Transform dates to strings and ensure all required fields are present
       return {
         id: job.id,
         employerId: job.employerId,
         jobTitle: job.jobTitle,
-        minWorkExperience: job.minWorkExperience,
+        minWorkExperience: minWorkExperienceValue,
         postedDate: job.postedDate.toISOString(),
         // Keep numberOfPositions as null if it's null in the database
         numberOfPositions: job.numberOfPositions,
@@ -128,7 +152,9 @@ export default async function JobsPage() {
         // Add default contractType since it's been removed from schema
         contractType: "FULL_TIME",
         // Include jobId if available
-        jobId: job.jobId
+        jobId: job.jobId,
+        // Include lokasiKerja, convert null to undefined
+        lokasiKerja: job.lokasiKerja || undefined
       };
     })
   );

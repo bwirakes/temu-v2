@@ -124,6 +124,14 @@ export default function AdditionalDetailsForm() {
         ...formData,
         acceptedDisabilityTypes: [...formData.acceptedDisabilityTypes, customDisabilityType]
       });
+      // Show visual feedback that the type was added
+      const customTypeInput = document.getElementById('custom-disability-type');
+      if (customTypeInput) {
+        customTypeInput.classList.add('bg-green-50', 'border-green-500');
+        setTimeout(() => {
+          customTypeInput.classList.remove('bg-green-50', 'border-green-500');
+        }, 1000);
+      }
       setCustomDisabilityType("");
     }
   };
@@ -213,7 +221,6 @@ export default function AdditionalDetailsForm() {
           <option value="ANY">Semua Jenis Kelamin</option>
           <option value="MALE">Laki-laki</option>
           <option value="FEMALE">Perempuan</option>
-          <option value="ALL">Semua</option>
         </select>
         {errors.gender && (
           <p className="mt-1 text-sm text-red-600">{errors.gender}</p>
@@ -323,10 +330,11 @@ export default function AdditionalDetailsForm() {
             <div className="mt-3 flex items-center">
               <input
                 type="text"
+                id="custom-disability-type"
                 value={customDisabilityType}
                 onChange={(e) => setCustomDisabilityType(e.target.value)}
                 placeholder="Jenis disabilitas lainnya"
-                className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2"
+                className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 transition-colors duration-200"
               />
               <button
                 type="button"
@@ -337,6 +345,16 @@ export default function AdditionalDetailsForm() {
                 Tambah
               </button>
             </div>
+            
+            {/* Feedback message for adding custom disability type */}
+            {formData.acceptedDisabilityTypes.length > 0 && formData.acceptedDisabilityTypes[formData.acceptedDisabilityTypes.length - 1] !== "" && (
+              <div className="mt-1">
+                <p className="text-xs text-green-600 min-h-[1rem] transition-opacity duration-500 ease-in-out">
+                  {formData.acceptedDisabilityTypes.includes(customDisabilityType.trim()) ? 
+                    `"${customDisabilityType}" telah ditambahkan` : ""}
+                </p>
+              </div>
+            )}
             
             {/* Display selected custom disability types */}
             {formData.acceptedDisabilityTypes.filter(type => !DISABILITY_TYPES.includes(type)).length > 0 && (

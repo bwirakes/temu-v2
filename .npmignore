@@ -1,0 +1,12 @@
+# Development and script files that shouldn't be included in builds
+/migrations/
+/scripts/
+*.sh
+/deploy/
+/docs/
+/tests/
+/test/
+/coverage/
+.env*
+.vscode/
+.github/ 

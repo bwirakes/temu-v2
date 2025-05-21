@@ -31,6 +31,7 @@ async function JobsContent() {
       updatedAt: jobs.updatedAt,
       employerId: jobs.employerId,
       minWorkExperience: jobs.minWorkExperience,
+      lokasiKerja: jobs.lokasiKerja,
       lastEducation: jobs.lastEducation,
       requiredCompetencies: jobs.requiredCompetencies,
       expectations: jobs.expectations,

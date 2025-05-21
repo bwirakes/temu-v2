@@ -14,6 +14,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Suspense } from 'react';
 import JobDetailSkeleton from '../components/job-detail-skeleton';
+import { MinWorkExperienceEnum, getMinWorkExperienceLabel } from '@/lib/constants';
+import { MapPinIcon, BriefcaseIcon } from '@heroicons/react/24/outline';
 
 // Use ISR with revalidation
 export const revalidate = 3600; // Revalidate every hour
@@ -40,7 +42,8 @@ interface Job {
   createdAt: Date | string;
   updatedAt: Date | string;
   employerId: string;
-  minWorkExperience: number;
+  minWorkExperience: MinWorkExperienceEnum;
+  lokasiKerja?: string | null;
   lastEducation?: "SD" | "SMP" | "SMA/SMK" | "D1" | "D2" | "D3" | "D4" | "S1" | "S2" | "S3" | null;
   requiredCompetencies?: string | null;
   expectations?: {
@@ -268,9 +271,9 @@ export default async function JobDetailPage(props: { params: Promise<{ jobId: st
                     {job.numberOfPositions} posisi
                   </Badge>
                 )}
-                {job.minWorkExperience > 0 && (
+                {job.minWorkExperience && (
                   <Badge variant="outline" className="text-xs font-medium">
-                    {job.minWorkExperience} tahun pengalaman
+                    {getMinWorkExperienceLabel(job.minWorkExperience)}
                   </Badge>
                 )}
               </div>
@@ -317,7 +320,7 @@ export default async function JobDetailPage(props: { params: Promise<{ jobId: st
           <CardTitle className="text-xl font-medium">Detail Lowongan</CardTitle>
         </CardHeader>
         {/* Min Work Experience */}
-        {job.minWorkExperience > 0 && (
+        {job.minWorkExperience && (
           <CardContent className="border-b pt-0 pb-6">
             <h2 className="text-lg font-medium mb-4 flex items-center text-gray-900">
               <svg className="w-5 h-5 mr-2 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -327,7 +330,7 @@ export default async function JobDetailPage(props: { params: Promise<{ jobId: st
             </h2>
             <div className="p-3 bg-gray-50 rounded-lg">
               <p className="text-gray-600">
-                Minimal {job.minWorkExperience} tahun
+                Minimal {getMinWorkExperienceLabel(job.minWorkExperience)}
               </p>
             </div>
           </CardContent>

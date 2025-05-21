@@ -1,0 +1,13 @@
+# Exclude migrations and other development files from Vercel deployments
+/migrations/
+/scripts/
+*.sh
+/deploy/
+/docs/
+/tests/
+/test/
+/coverage/
+.env*
+.vscode/
+.github/
+README.md 

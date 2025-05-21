@@ -212,8 +212,6 @@ export async function GET(req: NextRequest, props: { params: Promise<{ id: strin
     const jobWithApplicationCount = {
       ...job,
       applicationCount,
-      // Always include applicationDeadline property, set to null
-      applicationDeadline: null,
       // Format dates as ISO strings
       postedDate: job.postedDate.toISOString(),
       createdAt: job.createdAt.toISOString(),

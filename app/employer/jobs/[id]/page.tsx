@@ -287,6 +287,7 @@ export default async function JobDetailPage(props: { params: Promise<{ id: strin
     applicationCount: totalApplicants, // Set the accurate count from our server-side fetch
     lastEducation: job.lastEducation || undefined,
     requiredCompetencies: job.requiredCompetencies || '',
+    lokasiKerja: job.lokasiKerja || undefined,
     expectations: job.expectations ? {
       ageRange: job.expectations.ageRange
     } : undefined,
