@@ -41,3 +41,5 @@ next-env.d.ts
 /scripts/
 *.sh
 /created_employers_log.csv 
+/public/export_employer_data.csv
+/public/job_posting_upload.csv
