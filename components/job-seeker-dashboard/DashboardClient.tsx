@@ -3,16 +3,21 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import useSWR from "swr";
 import { 
   Search, 
   Briefcase, 
   User, 
   ArrowRight,
-  ExternalLink
+  ExternalLink,
+  AlertTriangle,
+  Building
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import EmployerLogo from "../../app/job-seeker/jobs/components/employer-logo";
 
 // Define the type for job applications from server
 interface JobApplication {
@@ -29,6 +34,40 @@ interface DashboardClientProps {
   initialRecentApplications: JobApplication[];
 }
 
+// New interface for the sample jobs from the API
+interface SampleJob {
+  uuid: string;
+  jobId: string;
+  jobTitle: string;
+  companyName: string;
+  logoUrl: string | null;
+}
+
+// SWR fetcher function
+const fetcher = async (url: string) => {
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error('Failed to fetch sample jobs');
+  }
+  return response.json();
+};
+
+// SampleJobCardSkeleton component for loading state
+const SampleJobCardSkeleton = () => (
+  <Card className="overflow-hidden">
+    <CardHeader className="py-2 px-3 bg-gray-50">
+      <Skeleton className="h-5 w-24" />
+    </CardHeader>
+    <CardContent className="py-2 px-3">
+      <Skeleton className="h-4 w-32 mb-2" />
+      <Skeleton className="h-3 w-24" />
+    </CardContent>
+    <CardFooter className="py-2 px-3 border-t">
+      <Skeleton className="h-4 w-28" />
+    </CardFooter>
+  </Card>
+);
+
 export default function DashboardClient({ 
   userName,
   initialRecentApplications 
@@ -37,20 +76,16 @@ export default function DashboardClient({
   const [jobId, setJobId] = useState("");
   const [recentApplications] = useState<JobApplication[]>(initialRecentApplications);
   
+  // Fetch sample jobs using SWR
+  const { data: sampleJobsData, error: sampleJobsError, isLoading: isLoadingSampleJobs } = 
+    useSWR<{ jobs: SampleJob[] }>('/api/jobs/sample', fetcher);
+  
   const handleJobSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (jobId) {
       router.push(`/job-seeker/jobs/${jobId}`);
     }
   };
-
-  // Sample job IDs for testing
-  const sampleJobIds = [
-    { id: "JOB-2023", title: "Senior Frontend Developer", company: "TechCorp Indonesia" },
-    { id: "JOB-3045", title: "UX/UI Designer", company: "Creative Solutions" },
-    { id: "JOB-4872", title: "Backend Developer (Node.js)", company: "Fintech Innovations" },
-    { id: "JOB-5639", title: "Data Scientist", company: "AnalyticsPro" },
-  ];
 
   return (
     <div className="space-y-6">
@@ -65,49 +100,84 @@ export default function DashboardClient({
             className="max-w-xs"
           />
           <Button type="submit" className="bg-blue-600 hover:bg-blue-700">
+            <Search className="h-4 w-4 mr-2" />
             Cari Lowongan
           </Button>
         </form>
       </div>
 
-      {/* Sample Job IDs Info Card */}
-      <Card className="bg-blue-50 border-blue-200">
+      {/* Dynamic Sample Jobs Card - Replacing static sample job IDs */}
+      <Card className="bg-sky-50 border-sky-200">
         <CardHeader className="pb-2">
-          <CardTitle className="text-blue-800 text-lg flex items-center gap-2">
-            <Search className="h-5 w-5" />
-            Contoh ID Lowongan untuk Testing
+          <CardTitle className="text-sky-800 text-lg flex items-center gap-2">
+            <Briefcase className="h-5 w-5" />
+            Jelajahi Lowongan Ini
           </CardTitle>
-          <CardDescription className="text-blue-700">
-            Gunakan ID Lowongan berikut untuk mencoba alur lamar kerja
+          <CardDescription className="text-sky-700">
+            Beberapa lowongan terbaru yang mungkin menarik bagi Anda.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-            {sampleJobIds.map((job) => (
-              <Card key={job.id} className="border-blue-200 overflow-hidden">
-                <CardHeader className="py-2 px-3 bg-blue-100">
-                  <CardTitle className="text-sm font-mono text-blue-800">{job.id}</CardTitle>
-                </CardHeader>
-                <CardContent className="py-2 px-3">
-                  <p className="text-sm font-medium">{job.title}</p>
-                  <p className="text-xs text-gray-600">{job.company}</p>
-                </CardContent>
-                <CardFooter className="py-2 px-3 border-t">
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    className="text-xs text-blue-600 hover:text-blue-800 p-0 h-auto"
-                    onClick={() => {
-                      setJobId(job.id);
-                      router.push(`/job-seeker/jobs/${job.id}`);
-                    }}
-                  >
-                    Lihat Lowongan <ExternalLink className="ml-1 h-3 w-3" />
-                  </Button>
-                </CardFooter>
-              </Card>
-            ))}
-          </div>
+          {isLoadingSampleJobs && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+              {Array(4).fill(0).map((_, i) => (
+                <SampleJobCardSkeleton key={i} />
+              ))}
+            </div>
+          )}
+          
+          {sampleJobsError && (
+            <div className="text-red-600 flex items-center gap-2 p-4 bg-red-50 border border-red-200 rounded-md">
+              <AlertTriangle className="h-5 w-5" />
+              <span>Terjadi kesalahan saat memuat data lowongan. Silakan coba lagi nanti.</span>
+            </div>
+          )}
+          
+          {sampleJobsData && sampleJobsData.jobs.length > 0 && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+              {sampleJobsData.jobs.map((job) => (
+                <Card key={job.uuid} className="border-gray-200 overflow-hidden">
+                  <CardHeader className="py-3 px-4 bg-gray-50 flex-row items-center gap-3">
+                    <EmployerLogo 
+                      logoUrl={job.logoUrl} 
+                      companyName={job.companyName} 
+                      size="sm"
+                    />
+                    <div>
+                      <CardTitle className="text-sm font-mono text-sky-800">{job.jobId}</CardTitle>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="py-3 px-4">
+                    <p className="text-base font-semibold text-gray-800 leading-tight">{job.jobTitle}</p>
+                    <p className="text-xs text-gray-500 mt-1 flex items-center">
+                      <Building className="h-3 w-3 mr-1 flex-shrink-0" />
+                      {job.companyName}
+                    </p>
+                  </CardContent>
+                  <CardFooter className="py-2 px-3 border-t">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="text-xs text-blue-600 hover:text-blue-800 p-0 h-auto"
+                      onClick={() => {
+                        setJobId(job.jobId); // Set search input to human-readable job ID
+                        router.push(`/job-seeker/jobs/${job.jobId}`); // Navigate using human-readable job ID instead of UUID
+                      }}
+                    >
+                      Lihat Lowongan <ExternalLink className="ml-1 h-3 w-3" />
+                    </Button>
+                  </CardFooter>
+                </Card>
+              ))}
+            </div>
+          )}
+          
+          {sampleJobsData && sampleJobsData.jobs.length === 0 && !isLoadingSampleJobs && (
+            <div className="text-gray-500 flex items-center gap-2 p-4 bg-gray-50 border border-gray-200 rounded-md">
+              <Briefcase className="h-5 w-5" />
+              <span>Belum ada lowongan pekerjaan tersedia saat ini.</span>
+            </div>
+          )}
         </CardContent>
       </Card>
 
