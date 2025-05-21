@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { Upload, X, Check, RefreshCw, FileText, AlertCircle } from "lucide-react";
+import { Upload, X, Check, RefreshCw, FileText, Image, AlertCircle } from "lucide-react";
 import { useOnboarding } from "@/lib/context/OnboardingContext";
 import { Button } from "@/components/ui/button";
 import FormNav from "@/components/FormNav";
@@ -31,9 +31,18 @@ export default function CVUploadForm() {
     setErrorMessage(null);
     setUploadStatus("idle");
     
-    // Validate file type
-    if (!file.type.match('application/pdf') && !file.type.match('application/msword') && !file.type.match('application/vnd.openxmlformats-officedocument.wordprocessingml.document')) {
-      setErrorMessage("File harus berupa dokumen (PDF atau Word)");
+    // Validate file type - now including image formats
+    const validDocumentTypes = [
+      'application/pdf', 
+      'application/msword', 
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'image/jpeg',
+      'image/jpg',
+      'image/png'
+    ];
+    
+    if (!validDocumentTypes.includes(file.type)) {
+      setErrorMessage("File harus berupa dokumen (PDF atau Word) atau gambar (JPEG atau PNG)");
       return;
     }
     
@@ -61,9 +70,18 @@ export default function CVUploadForm() {
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       const file = e.dataTransfer.files[0];
       
-      // Validate file type
-      if (!file.type.match('application/pdf') && !file.type.match('application/msword') && !file.type.match('application/vnd.openxmlformats-officedocument.wordprocessingml.document')) {
-        setErrorMessage("File harus berupa dokumen (PDF atau Word)");
+      // Validate file type - now including image formats
+      const validDocumentTypes = [
+        'application/pdf', 
+        'application/msword', 
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'image/jpeg',
+        'image/jpg',
+        'image/png'
+      ];
+      
+      if (!validDocumentTypes.includes(file.type)) {
+        setErrorMessage("File harus berupa dokumen (PDF atau Word) atau gambar (JPEG atau PNG)");
         return;
       }
       
@@ -231,6 +249,11 @@ export default function CVUploadForm() {
     }
   };
   
+  const isImageFile = (file: File | null): boolean => {
+    if (!file) return false;
+    return file.type.startsWith('image/');
+  };
+
   return (
     <div className="space-y-6">
       <div className="space-y-4">
@@ -238,6 +261,7 @@ export default function CVUploadForm() {
         <p className="text-gray-500">
           Unggah CV atau resume Anda untuk meningkatkan peluang mendapatkan pekerjaan yang sesuai.
           CV/Resume ini akan dilihat oleh perekrut saat Anda melamar pekerjaan.
+          Anda dapat mengunggah dokumen PDF/Word atau gambar JPEG/PNG.
         </p>
         
         <div 
@@ -254,14 +278,18 @@ export default function CVUploadForm() {
             type="file"
             ref={fileInputRef}
             className="hidden"
-            accept=".pdf,.doc,.docx"
+            accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
             onChange={handleFileChange}
           />
           
           {filePreview ? (
             <div className="flex flex-col items-center">
               <div className="relative w-full mb-4 p-4 bg-white rounded-md border flex items-center">
-                <FileText className="h-10 w-10 text-blue-600 mr-3" />
+                {cvFile && isImageFile(cvFile) ? (
+                  <Image className="h-10 w-10 text-blue-600 mr-3" />
+                ) : (
+                  <FileText className="h-10 w-10 text-blue-600 mr-3" />
+                )}
                 <div className="flex-1 truncate">
                   <p className="font-medium">{typeof filePreview === 'string' ? filePreview : 'CV Document'}</p>
                   <p className="text-sm text-gray-500">
@@ -288,7 +316,7 @@ export default function CVUploadForm() {
               </div>
               <p className="font-medium text-gray-700 mb-1">Unggah CV/Resume Anda</p>
               <p className="text-sm text-gray-500 mb-2">Tarik dan lepas dokumen di sini atau klik untuk unggah</p>
-              <p className="text-xs text-gray-400">Format: PDF, DOC, atau DOCX (Maks. 3MB)</p>
+              <p className="text-xs text-gray-400">Format: PDF, DOC, DOCX, JPEG, JPG, atau PNG (Maks. 3MB)</p>
             </div>
           )}
         </div>
