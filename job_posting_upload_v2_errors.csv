@@ -1,0 +1,2 @@
+email,jobTitle,numberOfPositions,gender,lastEducation,jurusan,minWorkExperience,ageRange_min,ageRange_max,lokasiKerja,requiredCompetencies,acceptedDisabilityTypes,validation_errors
+Dlv.delvin@gmail.com,STORE LEADER / SUPERVISOR,5,Laki-laki,D4 / S1,,3-5 Tahun,25,35,,"Leadership, Reporting, Negosiasi, Planning",,Invalid lastEducation value: D4 / S1

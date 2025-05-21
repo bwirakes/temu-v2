@@ -51,7 +51,7 @@ const jobPostingSchema = z.object({
       suitableForDisability: z.boolean().optional(),
     })
     .optional(),
-  isConfirmed: z.boolean().default(false),
+  isConfirmed: z.boolean().default(true),
 });
 
 /**
