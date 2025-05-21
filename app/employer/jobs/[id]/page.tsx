@@ -22,12 +22,15 @@ import {
 } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { ApplicantsClientWrapper } from "./applicants-client";
-import { eq, and } from 'drizzle-orm';
+import { eq, and, sql } from 'drizzle-orm';
 import { Suspense } from "react";
+import { EXPERIENCE_LEVEL_CATEGORIES } from "@/lib/constants";
 
 // Import type definitions only
 import type { Job } from "./job-details";
 import type { Applicant } from "./applicants";
+import { JobDetailsCard } from "./job-details";
+import { ApplicantsTab } from "./applicants";
 
 // Configure ISR - revalidate job pages every 1 hour (3600 seconds)
 export const revalidate = 3600;
@@ -142,7 +145,8 @@ export default async function JobDetailPage(props: { params: Promise<{ id: strin
     };
   }
 
-  // Get job applications with user profiles (server-side data fetching for SSG/ISR)
+  // Get just the first page of applications (limit 20 for initial load)
+  // This will be used as fallback data for SWR
   const applicationsData = await db
     .select({
       id: jobApplications.id,
@@ -173,7 +177,53 @@ export default async function JobDetailPage(props: { params: Promise<{ id: strin
       userProfiles,
       eq(jobApplications.applicantProfileId, userProfiles.id)
     )
+    .where(eq(jobApplications.jobId, jobId))
+    .limit(20);
+
+  // Get total count of applicants for this job (for pagination metadata)
+  const countResult = await db
+    .select({ count: sql<number>`COUNT(*)` })
+    .from(jobApplications)
     .where(eq(jobApplications.jobId, jobId));
+
+  const totalApplicants = countResult[0]?.count || 0;
+  const totalPages = Math.ceil(totalApplicants / 20); // Using limit of 20 per page
+
+  // Fetch distinct values for filter dropdowns
+  const distinctEducations = await db
+    .selectDistinct({ education: jobApplications.education })
+    .from(jobApplications)
+    .where(eq(jobApplications.jobId, jobId))
+    .orderBy(jobApplications.education);
+
+  const distinctCities = await db
+    .selectDistinct({ city: jobApplications.kotaDomisili })
+    .from(jobApplications)
+    .where(and(
+      eq(jobApplications.jobId, jobId),
+      sql`${jobApplications.kotaDomisili} IS NOT NULL`
+    ))
+    .orderBy(jobApplications.kotaDomisili);
+
+  const distinctLevelPengalaman = await db
+    .selectDistinct({ level: jobApplications.levelPengalaman })
+    .from(jobApplications)
+    .where(and(
+      eq(jobApplications.jobId, jobId),
+      sql`${jobApplications.levelPengalaman} IS NOT NULL`
+    ))
+    .orderBy(jobApplications.levelPengalaman);
+
+  // Combine standard categories with any custom ones from the database
+  const standardizedLevelPengalaman = [
+    ...EXPERIENCE_LEVEL_CATEGORIES,
+    ...distinctLevelPengalaman
+      .map(level => level.level)
+      .filter(level => 
+        level !== null && 
+        !EXPERIENCE_LEVEL_CATEGORIES.includes(level)
+      )
+  ].filter((value, index, self) => self.indexOf(value) === index);
 
   // Format applicant data for the client component
   const applicants: Applicant[] = applicationsData.map(application => ({
@@ -206,6 +256,23 @@ export default async function JobDetailPage(props: { params: Promise<{ id: strin
       : null
   }));
 
+  // Prepare the initial data object for SWR fallback - ensure all values are non-null
+  const initialApplicantsData = {
+    applicants,
+    totalApplicants,
+    currentPage: 1,
+    totalPages,
+    limit: 20,
+    hasNextPage: totalPages > 1,
+    hasPrevPage: false,
+    filterOptions: {
+      educations: distinctEducations.map(e => e.education).filter(Boolean) as string[],
+      cities: distinctCities.map(c => c.city).filter(Boolean) as string[],
+      levelPengalaman: standardizedLevelPengalaman.filter(Boolean) as string[],
+      gender: ["MALE", "FEMALE"]
+    }
+  };
+
   // Transform job data to match the expected format
   const jobData = {
     id: job.id,
@@ -217,7 +284,7 @@ export default async function JobDetailPage(props: { params: Promise<{ id: strin
     postedDate: job.postedDate.toISOString(),
     numberOfPositions: job.numberOfPositions || undefined,
     isConfirmed: job.isConfirmed,
-    applicationCount: applicants.length, // Set the accurate count from our server-side fetch
+    applicationCount: totalApplicants, // Set the accurate count from our server-side fetch
     lastEducation: job.lastEducation || undefined,
     requiredCompetencies: job.requiredCompetencies || '',
     expectations: job.expectations ? {
@@ -248,78 +315,71 @@ export default async function JobDetailPage(props: { params: Promise<{ id: strin
         <span className="mx-2">/</span>
         <Link href="/employer/jobs" className="hover:underline">Lowongan</Link>
         <span className="mx-2">/</span>
-        <span className="text-foreground font-medium truncate max-w-[200px]">{job.jobTitle}</span>
+        <span className="text-foreground">{job.jobTitle}</span>
       </div>
 
-      {/* Header section */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      {/* Job header */}
+      <div className="flex flex-col md:flex-row justify-between items-start gap-4">
         <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl md:text-3xl font-bold">{job.jobTitle}</h1>
+          <h1 className="text-2xl font-bold">{job.jobTitle}</h1>
+          <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
+            <span>Diposting pada {formatDate(job.postedDate)}</span>
+            <span>•</span>
+            <span>{getContractTypeLabel()}</span>
+            <span>•</span>
             {getStatusBadge(job.isConfirmed)}
           </div>
-          <p className="text-muted-foreground mt-1">
-            {getContractTypeLabel(undefined)} • {job?.numberOfPositions || 1} posisi • 
-            Diposting pada {formatDate(job.postedDate)}
-          </p>
         </div>
-        
-        <div className="flex flex-wrap gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            asChild
-          >
-            <Link href={`/careers/${employer.id}/${job.id}`}>
-            <Eye className="mr-2 h-4 w-4" />
-            Lihat Posting
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" asChild>
+            <Link href={`/employer/jobs/${job.id}/edit`}>
+              <Edit className="mr-2 h-4 w-4" />
+              Edit Lowongan
             </Link>
           </Button>
-          <Button
-            variant="default"
-            size="sm"
-            asChild
-          >
-            <Link href={`/employer/job-posting/edit/${jobId}`}>
-            <Edit className="mr-2 h-4 w-4" />
-            Edit Lowongan
-            </Link>
-          </Button>
+          {job.isConfirmed && (
+            <Button variant="outline" size="sm" asChild>
+              <Link href={`/jobs/${job.id}`} target="_blank">
+                <Eye className="mr-2 h-4 w-4" />
+                Lihat di Portal
+              </Link>
+            </Button>
+          )}
           <ApplicantsClientWrapper />
         </div>
       </div>
 
-      {/* Tabs */}
-      <Tabs defaultValue="applicants" className="w-full">
-        <TabsList className="grid grid-cols-2 w-full max-w-md">
+      {/* Job tabs */}
+      <Tabs defaultValue="applicants" className="space-y-4">
+        <TabsList>
           <TabsTrigger value="applicants">
-            <Users className="h-4 w-4 mr-2" />
+            <Users className="mr-2 h-4 w-4" />
             Pelamar
+            <span className="ml-1 bg-primary/10 text-primary rounded-full px-2 py-0.5 text-xs">
+              {totalApplicants}
+            </span>
           </TabsTrigger>
-          <TabsTrigger value="details">
-            <FileText className="h-4 w-4 mr-2" />
-            Detail Lowongan
+          <TabsTrigger value="info">
+            <FileText className="mr-2 h-4 w-4" />
+            Info Lowongan
           </TabsTrigger>
         </TabsList>
-
-        {/* Applicants Tab Content - Pass the server-fetched data */}
-        <TabsContent value="applicants" className="mt-6">
-          <ApplicantsTabContent 
-            jobId={jobId} 
-            initialApplicants={applicants} 
-            jobTitle={job.jobTitle} 
-          />
+        <TabsContent value="applicants" className="space-y-4">
+          <Suspense fallback={<div>Loading applicants...</div>}>
+            <ApplicantsTab 
+              jobId={jobId} 
+              initialApplicants={applicants} 
+              jobTitle={job.jobTitle}
+              filterOptions={initialApplicantsData.filterOptions}
+              totalApplicants={totalApplicants}
+              totalPages={totalPages}
+            />
+          </Suspense>
         </TabsContent>
-
-        {/* Job Details Tab Content - Static content */}
-        <TabsContent value="details" className="mt-6">
-          <JobDetailsCardComponent job={jobData} />
+        <TabsContent value="info" className="space-y-4">
+          <JobDetailsCard job={jobData} />
         </TabsContent>
       </Tabs>
     </div>
   );
 } 
-
-// Import components dynamically to avoid naming conflicts
-import { JobDetailsCard as JobDetailsCardComponent } from "./job-details";
-import { ApplicantsTab as ApplicantsTabContent } from "./applicants"; 

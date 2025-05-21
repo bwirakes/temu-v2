@@ -161,7 +161,7 @@ export default function DashboardClient({
                       className="text-xs text-blue-600 hover:text-blue-800 p-0 h-auto"
                       onClick={() => {
                         setJobId(job.jobId); // Set search input to human-readable job ID
-                        router.push(`/job-seeker/jobs/${job.jobId}`); // Navigate using human-readable job ID instead of UUID
+                        router.push(`/job-seeker/jobs/${job.uuid}`); // Navigate using UUID
                       }}
                     >
                       Lihat Lowongan <ExternalLink className="ml-1 h-3 w-3" />

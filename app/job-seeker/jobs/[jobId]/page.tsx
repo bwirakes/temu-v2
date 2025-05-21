@@ -6,7 +6,6 @@ import { id } from 'date-fns/locale';
 import { 
   getAllConfirmedJobIds,
   getJobById, 
-  getJobByHumanId,
   getJobWorkLocationsByJobId,
   getEmployerById 
 } from '@/lib/db';
@@ -88,16 +87,7 @@ export async function generateMetadata(
   }
 ): Promise<Metadata> {
   const params = await props.params;
-  const jobId = params.jobId;
-  
-  // Check if jobId is a UUID or a human-readable ID
-  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(jobId);
-  
-  // Use the appropriate function based on the ID format
-  const job = isUuid 
-    ? await getJobById(jobId)
-    : await getJobByHumanId(jobId);
-    
+  const job = await getJobById(params.jobId);
   const employer = job ? await getEmployerById(job.employerId) : null;
 
   if (!job || !employer) {
@@ -224,13 +214,8 @@ export default async function JobDetailPage(props: { params: Promise<{ jobId: st
   const params = await props.params;
   const { jobId } = params;
 
-  // Check if jobId is a UUID or a human-readable ID
-  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(jobId);
-  
-  // Use the appropriate function based on the ID format
-  const job = isUuid 
-    ? await getJobById(jobId)
-    : await getJobByHumanId(jobId);
+  // Get job details
+  const job = await getJobById(jobId);
 
   // If job doesn't exist or isn't confirmed, return 404
   if (!job || !job.isConfirmed) {
@@ -245,7 +230,7 @@ export default async function JobDetailPage(props: { params: Promise<{ jobId: st
   }
 
   // Get job locations
-  const locations = await getJobWorkLocationsByJobId(job.id);
+  const locations = await getJobWorkLocationsByJobId(jobId);
 
   // Extract the contract type from the job ID
   const contractType = job.jobId?.split('-')[0] || 'Full-time';

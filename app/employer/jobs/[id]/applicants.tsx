@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useTransition } from "react";
+import { useState, useEffect, useMemo, useTransition, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { 
   Eye, 
@@ -53,6 +53,9 @@ import { id } from "date-fns/locale";
 import { toast } from "@/components/ui/use-toast";
 import { ReasonDialog } from "@/components/shared/ReasonDialog";
 import { ApplicantDetailsDialog } from "./components";
+import useSWR from "swr";
+// @ts-ignore
+import { debounce } from "lodash";
 
 // Types
 export interface Applicant {
@@ -198,32 +201,222 @@ export const getLatestEducationDisplay = (pendidikanFull: Applicant['pendidikanF
   return sortedEdu.length > 0 && sortedEdu[0].jenjangPendidikan ? sortedEdu[0].jenjangPendidikan : "N/A";
 };
 
+// Helper function to get the gender display
+export const getGenderDisplay = (jenisKelamin: string | null | undefined): string => {
+  if (!jenisKelamin) return "N/A";
+  
+  switch (jenisKelamin.toUpperCase()) {
+    case "MALE":
+      return "Laki-laki";
+    case "FEMALE":
+      return "Perempuan";
+    default:
+      return jenisKelamin;
+  }
+};
+
+// Helper function to standardize experience level display
+export const getStandardizedExperienceLevel = (levelPengalaman: string | null | undefined): string => {
+  if (!levelPengalaman) return "N/A";
+  
+  // Standardize experience level categories
+  switch(levelPengalaman.toUpperCase()) {
+    case "ENTRY LEVEL":
+    case "FRESH GRADUATE":
+    case "JUNIOR":
+    case "PEMULA":
+    case "0-1 TAHUN":
+    case "< 1 TAHUN":
+      return "Entry Level (0-1 tahun)";
+      
+    case "MID LEVEL":
+    case "INTERMEDIATE":
+    case "MENENGAH":
+    case "1-3 TAHUN":
+    case "2-3 TAHUN":
+      return "Mid Level (1-3 tahun)";
+      
+    case "SENIOR":
+    case "EXPERT":
+    case "AHLI":
+    case "3-5 TAHUN":
+    case "4-5 TAHUN":
+      return "Senior (3-5 tahun)";
+      
+    case "LEAD":
+    case "MANAGER":
+    case "SUPERVISOR":
+    case "5-10 TAHUN":
+    case "> 5 TAHUN":
+      return "Lead/Manager (5+ tahun)";
+      
+    case "DIRECTOR":
+    case "VP":
+    case "C-LEVEL":
+    case "EXECUTIVE":
+    case "> 10 TAHUN":
+      return "Executive (10+ tahun)";
+      
+    default:
+      return levelPengalaman;
+  }
+};
+
 interface ApplicantsTabProps {
   jobId: string;
   initialApplicants: Applicant[];
   jobTitle: string;
+  filterOptions?: {
+    educations: string[];
+    cities: string[];
+    levelPengalaman: string[];
+    gender: string[];
+  };
+  totalApplicants?: number;
+  totalPages?: number;
 }
 
-export function ApplicantsTab({ jobId, initialApplicants, jobTitle }: ApplicantsTabProps) {
+// Define the SortableApplicantKeys type
+type SortableApplicantKeys = keyof Pick<Applicant, 
+  'name' | 
+  'email' | 
+  'applicationDate' | 
+  'status' | 
+  'education' | 
+  'matchScore' | 
+  'jenisKelamin' | 
+  'umur' | 
+  'kotaDomisili'
+>;
+
+// SWR fetcher function with proper error type
+const fetcher = async (url: string) => {
+  const res = await fetch(url);
+  if (!res.ok) {
+    const error = new Error('An error occurred while fetching the data.') as Error & {
+      info?: any;
+      status?: number;
+    };
+    // Attach extra info to the error object
+    error.info = await res.json();
+    error.status = res.status;
+    throw error;
+  }
+  return res.json();
+};
+
+// Create a reusable Pagination component
+const Pagination = ({ 
+  currentPage, 
+  totalPages, 
+  hasPrevPage, 
+  hasNextPage, 
+  isLoading,
+  isValidating, 
+  onPageChange 
+}: { 
+  currentPage: number; 
+  totalPages: number; 
+  hasPrevPage: boolean; 
+  hasNextPage: boolean; 
+  isLoading: boolean;
+  isValidating: boolean;
+  onPageChange: (page: number) => void;
+}) => {
+  const isDisabled = isLoading || isValidating;
+  
+  return (
+    <div className="flex justify-center my-4 px-1">
+      <div className="flex flex-wrap items-center gap-1 sm:gap-2 w-full justify-center">
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={() => onPageChange(1)} 
+          disabled={currentPage === 1 || isDisabled}
+          className="h-8 px-2 text-xs"
+        >
+          <span className="hidden sm:inline mr-1">First</span>
+          <span className="sm:hidden">«</span>
+        </Button>
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={() => onPageChange(currentPage - 1)} 
+          disabled={!hasPrevPage || isDisabled}
+          className="h-8 px-2 text-xs"
+        >
+          <span className="hidden sm:inline mr-1">Prev</span>
+          <span className="sm:hidden">‹</span>
+        </Button>
+        
+        <div className="flex items-center px-2">
+          <span className="text-xs sm:text-sm whitespace-nowrap">
+            <span className="hidden sm:inline">Page </span>
+            {currentPage} <span className="hidden sm:inline">of</span><span className="sm:hidden">/</span> {totalPages}
+          </span>
+        </div>
+        
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={() => onPageChange(currentPage + 1)} 
+          disabled={!hasNextPage || isDisabled}
+          className="h-8 px-2 text-xs"
+        >
+          <span className="hidden sm:inline mr-1">Next</span>
+          <span className="sm:hidden">›</span>
+        </Button>
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={() => onPageChange(totalPages)} 
+          disabled={currentPage === totalPages || isDisabled}
+          className="h-8 px-2 text-xs"
+        >
+          <span className="hidden sm:inline mr-1">Last</span>
+          <span className="sm:hidden">»</span>
+        </Button>
+      </div>
+    </div>
+  );
+};
+
+export function ApplicantsTab({ 
+  jobId, 
+  initialApplicants, 
+  jobTitle,
+  filterOptions,
+  totalApplicants: initialTotalApplicants,
+  totalPages: initialTotalPages
+}: ApplicantsTabProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [isFetching, setIsFetching] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [applicants, setApplicants] = useState<Applicant[]>(initialApplicants);
-  const [statusFilter, setStatusFilter] = useState<Applicant['status'] | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [updatingApplicationId, setUpdatingApplicationId] = useState<string | null>(null);
   const [lastRefreshed, setLastRefreshed] = useState<Date | null>(new Date());
   const [refreshing, setRefreshing] = useState(false);
   
-  // New filter states
+  // Filter states
   const [showFilters, setShowFilters] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<Applicant['status'] | null>(null);
   const [educationFilter, setEducationFilter] = useState<string | null>(null);
-  const [pendidikanTerakhirFilter, setPendidikanTerakhirFilter] = useState<string | null>(null);
-  const [pengalamanKerjaFilter, setPengalamanKerjaFilter] = useState<string | null>(null);
+  const [genderFilter, setGenderFilter] = useState<string | null>(null);
+  const [ageMinFilter, setAgeMinFilter] = useState<number | string>("");
+  const [ageMaxFilter, setAgeMaxFilter] = useState<number | string>("");
+  const [cityFilter, setCityFilter] = useState<string | null>(null);
   const [levelPengalamanFilter, setLevelPengalamanFilter] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
   
-  // State for reason dialog
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const limit = 20; // Items per page
+  
+  // Sorting state
+  const [sortColumn, setSortColumn] = useState<SortableApplicantKeys | null>("applicationDate");
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  
+  // Status update states
+  const [updatingApplicationId, setUpdatingApplicationId] = useState<string | null>(null);
   const [isReasonDialogOpen, setIsReasonDialogOpen] = useState(false);
   const [statusChangeReasonText, setStatusChangeReasonText] = useState("");
   const [pendingApplicantUpdateInfo, setPendingApplicantUpdateInfo] = useState<{
@@ -231,19 +424,133 @@ export function ApplicantsTab({ jobId, initialApplicants, jobTitle }: Applicants
     newStatus: Applicant['status'];
     currentReason?: string | null;
   } | null>(null);
-
-  // State for details dialog
+  
+  // Details dialog state
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
   const [selectedApplicant, setSelectedApplicant] = useState<Applicant | null>(null);
-
+  
   // Define statuses that require a reason
   const DIALOG_STATUSES: Applicant['status'][] = ["REJECTED", "ACCEPTED", "WITHDRAWN"];
+  
+  // Construct the SWR key for fetching applicants
+  const getApplicantsUrl = useCallback(() => {
+    const params = new URLSearchParams({
+      page: currentPage.toString(),
+      limit: limit.toString(),
+    });
+    
+    if (searchQuery) params.append('searchQuery', searchQuery);
+    if (statusFilter) params.append('status', statusFilter);
+    if (educationFilter) params.append('education', educationFilter);
+    if (genderFilter) params.append('gender', genderFilter);
+    if (ageMinFilter) params.append('ageMin', ageMinFilter.toString());
+    if (ageMaxFilter) params.append('ageMax', ageMaxFilter.toString());
+    if (cityFilter) params.append('city', cityFilter);
+    if (levelPengalamanFilter) params.append('levelPengalaman', levelPengalamanFilter);
+    if (sortColumn) params.append('sortBy', sortColumn);
+    if (sortDirection) params.append('sortOrder', sortDirection);
+    
+    return `/api/employer/jobs/${jobId}/applicants?${params.toString()}`;
+  }, [
+    jobId, 
+    currentPage, 
+    limit, 
+    searchQuery, 
+    statusFilter, 
+    educationFilter, 
+    genderFilter, 
+    ageMinFilter, 
+    ageMaxFilter, 
+    cityFilter, 
+    levelPengalamanFilter, 
+    sortColumn, 
+    sortDirection
+  ]);
+  
+  // Set up the initial fallback data for SWR
+  const fallbackData = useMemo(() => {
+    return {
+      applicants: initialApplicants,
+      totalApplicants: initialTotalApplicants || initialApplicants.length,
+      currentPage: 1,
+      totalPages: initialTotalPages || 1,
+      limit,
+      hasNextPage: (initialTotalPages || 1) > 1,
+      hasPrevPage: false,
+      filterOptions: filterOptions || {
+        educations: [],
+        cities: [],
+        levelPengalaman: [],
+        gender: ["MALE", "FEMALE"]
+      }
+    };
+  }, [initialApplicants, initialTotalApplicants, initialTotalPages, filterOptions, limit]);
+  
+  // Fetch data with SWR
+  const { 
+    data: apiResponse, 
+    error: swrError, 
+    isLoading, 
+    isValidating,
+    mutate
+  } = useSWR(getApplicantsUrl(), fetcher, {
+    fallbackData,
+    keepPreviousData: true,
+    revalidateOnFocus: true,
+    dedupingInterval: 5000, // Dedupe identical requests for 5 seconds
+  });
+  
+  // Extract data from the API response
+  const applicants = apiResponse?.applicants || [];
+  const totalApplicants = apiResponse?.totalApplicants || 0;
+  const totalPages = apiResponse?.totalPages || 1;
+  const hasNextPage = apiResponse?.hasNextPage || false;
+  const hasPrevPage = apiResponse?.hasPrevPage || false;
+  const availableFilterOptions = apiResponse?.filterOptions || fallbackData.filterOptions;
+  
+  // Debounce the search input to avoid too many API requests
+  const debouncedSearch = useMemo(
+    () => debounce((value: string) => {
+      setSearchQuery(value);
+      setCurrentPage(1); // Reset to first page on new search
+    }, 500),
+    []
+  );
+  
+  // Handle search input changes
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    debouncedSearch(e.target.value);
+  };
 
-  // Sorting state
-  type SortableApplicantKeys = keyof Pick<Applicant, 'name' | 'email' | 'applicationDate' | 'status' | 'education' | 'matchScore'>;
-  const [sortColumn, setSortColumn] = useState<SortableApplicantKeys | null>(null);
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
-
+  // Check if any filter is active
+  const hasActiveFilters = searchQuery || 
+    statusFilter || 
+    educationFilter || 
+    genderFilter || 
+    ageMinFilter || 
+    ageMaxFilter || 
+    cityFilter || 
+    levelPengalamanFilter;
+  
+  // Reset all filters
+  const resetAllFilters = () => {
+    setSearchQuery("");
+    setStatusFilter(null);
+    setEducationFilter(null);
+    setGenderFilter(null);
+    setAgeMinFilter("");
+    setAgeMaxFilter("");
+    setCityFilter(null);
+    setLevelPengalamanFilter(null);
+    setCurrentPage(1);
+    
+    // Also reset the search input element
+    const searchInput = document.querySelector('input[placeholder*="Cari"]') as HTMLInputElement;
+    if (searchInput) {
+      searchInput.value = "";
+    }
+  };
+  
   // Sorting handler function
   const handleSort = (column: SortableApplicantKeys) => {
     if (sortColumn === column) {
@@ -252,187 +559,57 @@ export function ApplicantsTab({ jobId, initialApplicants, jobTitle }: Applicants
       setSortColumn(column);
       setSortDirection('asc');
     }
+    
+    // Reset to first page when sorting changes
+    setCurrentPage(1);
   };
-
-  // Refresh applicants data when needed (manual refresh or after status updates)
+  
+  // Manual refresh function (mostly for after status updates)
   const refreshApplicants = async () => {
     setRefreshing(true);
-    setIsFetching(true);
     try {
-      const response = await fetch(`/api/employer/jobs/${jobId}`, {
-        cache: 'no-store'
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Failed to fetch applicants: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      
-      // Update applicants data
-      if (data.applicants && Array.isArray(data.applicants)) {
-        setApplicants(data.applicants);
-      }
-      
+      await mutate(); // Use SWR's mutate to refresh data
       setLastRefreshed(new Date());
       setError(null);
     } catch (error) {
       console.error('Error refreshing applicants:', error);
       setError('Terjadi kesalahan saat menyegarkan data');
     } finally {
-      setIsFetching(false);
       setRefreshing(false);
     }
   };
-
-  // Filter applicants based on search query and all filters
-  const filteredApplicants = useMemo(() => {
-    return applicants.filter(applicant => {
-      // Text search filter
-      const matchesSearch = searchQuery === "" || 
-                          applicant.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          applicant.email.toLowerCase().includes(searchQuery.toLowerCase());
-      
-      // Status filter
-      const matchesStatus = statusFilter === null || applicant.status === statusFilter;
-      
-      // Education filter (formal education level)
-      const matchesEducation = educationFilter === null || applicant.education === educationFilter;
-      
-      // Pendidikan Terakhir filter (latest education from pendidikanFull)
-      const matchesPendidikanTerakhir = pendidikanTerakhirFilter === null || 
-        getLatestEducationDisplay(applicant.pendidikanFull) === pendidikanTerakhirFilter;
-      
-      // Pengalaman Kerja filter
-      const matchesPengalamanKerja = pengalamanKerjaFilter === null || 
-        (applicant.pengalamanKerjaTerakhir?.posisi && 
-         applicant.pengalamanKerjaTerakhir.posisi.includes(pengalamanKerjaFilter));
-      
-      // Level Pengalaman filter
-      const matchesLevelPengalaman = levelPengalamanFilter === null || 
-        applicant.levelPengalaman === levelPengalamanFilter;
-      
-      // Return true only if all filters match
-      return matchesSearch && 
-             matchesStatus && 
-             matchesEducation && 
-             matchesPendidikanTerakhir && 
-             matchesPengalamanKerja && 
-             matchesLevelPengalaman;
-    });
-  }, [
-    applicants, 
-    searchQuery, 
-    statusFilter, 
-    educationFilter, 
-    pendidikanTerakhirFilter, 
-    pengalamanKerjaFilter, 
-    levelPengalamanFilter
-  ]);
-
-  // Extract unique values for filter dropdowns
-  const uniqueEducationLevels = useMemo(() => {
-    const levels = applicants
-      .map(app => app.education)
-      .filter((value, index, self) => 
-        value !== null && 
-        value !== undefined && 
-        self.indexOf(value) === index
-      ) as string[];
-    return levels.sort();
-  }, [applicants]);
-
-  const uniquePendidikanTerakhir = useMemo(() => {
-    const levels = applicants
-      .map(app => getLatestEducationDisplay(app.pendidikanFull))
-      .filter((value, index, self) => 
-        value !== "N/A" && 
-        self.indexOf(value) === index
-      );
-    return levels.sort();
-  }, [applicants]);
-
-  const uniqueLevelPengalaman = useMemo(() => {
-    const levels = applicants
-      .map(app => app.levelPengalaman)
-      .filter((value, index, self) => 
-        value !== null && 
-        value !== undefined && 
-        self.indexOf(value) === index
-      ) as string[];
-    return levels.sort();
-  }, [applicants]);
-
-  // Reset all filters
-  const resetAllFilters = () => {
-    setSearchQuery("");
-    setStatusFilter(null);
-    setEducationFilter(null);
-    setPendidikanTerakhirFilter(null);
-    setPengalamanKerjaFilter(null);
-    setLevelPengalamanFilter(null);
-  };
-
-  // Check if any filter is active
-  const hasActiveFilters = searchQuery || 
-    statusFilter || 
-    educationFilter || 
-    pendidikanTerakhirFilter || 
-    pengalamanKerjaFilter || 
-    levelPengalamanFilter;
-
-  // Sort the filtered applicants based on sort column and direction
-  const sortedApplicants = useMemo(() => {
-    if (!sortColumn || !filteredApplicants) return filteredApplicants || []; // Handle null filteredApplicants
-
-    return [...filteredApplicants].sort((a, b) => {
-      // Ensure a and b are valid Applicant objects
-      if (!a || !b) return 0;
-
-      let valA = a[sortColumn as keyof Applicant];
-      let valB = b[sortColumn as keyof Applicant];
-
-      // Type-specific comparisons
-      if (sortColumn === 'applicationDate') {
-        valA = a.applicationDate ? new Date(a.applicationDate).getTime() : 0;
-        valB = b.applicationDate ? new Date(b.applicationDate).getTime() : 0;
-      } else if (sortColumn === 'matchScore') {
-        valA = typeof a.matchScore === 'number' ? a.matchScore : -1;
-        valB = typeof b.matchScore === 'number' ? b.matchScore : -1;
-      } else if (sortColumn === 'education') {
-        // Custom ordering for education levels
-        const educationOrder = {
-          "SD": 1, "SMP": 2, "SMA/SMK": 3, "D1": 4, "D2": 5, "D3": 6, "D4": 7, "S1": 8, "S2": 9, "S3": 10
-        };
-        valA = a.education ? educationOrder[a.education as keyof typeof educationOrder] || 0 : 0;
-        valB = b.education ? educationOrder[b.education as keyof typeof educationOrder] || 0 : 0;
-      } else if (sortColumn === 'status') {
-        // Custom ordering for application statuses
-        const statusOrder = {
-          "SUBMITTED": 1, "REVIEWING": 2, "INTERVIEW": 3, "OFFERED": 4, "ACCEPTED": 5, "REJECTED": 6, "WITHDRAWN": 7
-        };
-        valA = statusOrder[a.status] || 0;
-        valB = statusOrder[b.status] || 0;
-      } else if (typeof valA === 'string' && typeof valB === 'string') {
-        // Case insensitive string comparison
-        valA = valA.toLowerCase();
-        valB = valB.toLowerCase();
+  
+  // Function to handle pagination
+  const handlePageChange = (newPage: number) => {
+    if (newPage >= 1 && newPage <= totalPages && newPage !== currentPage) {
+      // Show loading indicator
+      if (!isValidating) {
+        setIsFetching(true);
       }
-
-      // Null/undefined handling
-      if (valA === null || valA === undefined) valA = '';
-      if (valB === null || valB === undefined) valB = '';
-
-      // Comparison logic
-      if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
-      if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
-      return 0;
-    });
-  }, [filteredApplicants, sortColumn, sortDirection]);
+      
+      // Set the new page
+      setCurrentPage(newPage);
+      
+      // Scroll to top of table or component when changing pages
+      setTimeout(() => {
+        const tableContainer = document.querySelector('.table-container');
+        if (tableContainer) {
+          tableContainer.scrollTop = 0;
+        } else {
+          // Fallback to scrolling the card into view
+          const card = document.querySelector('.card-applicants');
+          if (card) {
+            card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        }
+        setIsFetching(false);
+      }, 100);
+    }
+  };
 
   // Function to decide whether to show dialog or update immediately
   const promptForReasonOrUpdate = (applicantId: string, newStatus: Applicant['status']) => {
-    const applicant = applicants.find(app => app.id === applicantId);
+    const applicant = applicants.find((app: Applicant) => app.id === applicantId);
     
     if (!applicant) return;
     
@@ -469,15 +646,25 @@ export function ApplicantsTab({ jobId, initialApplicants, jobTitle }: Applicants
       // Set loading state for this specific applicant
       setUpdatingApplicationId(applicantId);
       
-      // Show optimistic UI update
-      setApplicants(prevApplicants => 
-        prevApplicants.map(app => 
-          app.id === applicantId ? { 
-            ...app, 
-            status: newStatus,
-            statusChangeReason: reason !== undefined ? reason : app.statusChangeReason
-          } : app
-        )
+      // Use optimistic update with SWR
+      await mutate(
+        async (currentData: { applicants: Applicant[] } & Record<string, any>) => {
+          // Create a new applicants array with the updated status
+          const updatedApplicants = currentData.applicants.map((app: Applicant) => 
+            app.id === applicantId ? { 
+              ...app, 
+              status: newStatus,
+              statusChangeReason: reason !== undefined ? reason : app.statusChangeReason
+            } : app
+          );
+          
+          // Return the updated data structure
+          return {
+            ...currentData,
+            applicants: updatedApplicants
+          };
+        },
+        false // Don't revalidate yet
       );
       
       // Make API call to update the status
@@ -497,8 +684,8 @@ export function ApplicantsTab({ jobId, initialApplicants, jobTitle }: Applicants
         const errorData = await response.json();
         console.error('Error updating applicant status:', errorData);
         
-        // Revert the optimistic update
-        setApplicants(originalApplicants);
+        // Revert the optimistic update by forcing a revalidation
+        await mutate();
         
         // Show an error message
         toast({
@@ -512,13 +699,13 @@ export function ApplicantsTab({ jobId, initialApplicants, jobTitle }: Applicants
       // Status updated successfully
       const result = await response.json();
       console.log('Status updated successfully:', result);
-
+      
       // Show success toast
       toast({
         title: "Status diperbarui",
         description: `Status pelamar berhasil diubah menjadi ${getStatusLabel(newStatus)}.`,
       });
-
+      
       // Update the router/page to reflect the changes
       if (result.revalidated) {
         // Trigger a page refresh after a short delay to allow revalidation to complete
@@ -529,11 +716,14 @@ export function ApplicantsTab({ jobId, initialApplicants, jobTitle }: Applicants
         }, 1000);
       }
       
+      // Revalidate the data to ensure we have the latest
+      await mutate();
+      
     } catch (error) {
       console.error('Error updating applicant status:', error);
       
-      // Revert the optimistic update in case of error
-      setApplicants(originalApplicants);
+      // Revalidate to ensure we have the correct data
+      await mutate();
       
       // Show an error message
       toast({
@@ -555,15 +745,15 @@ export function ApplicantsTab({ jobId, initialApplicants, jobTitle }: Applicants
     setIsDetailsDialogOpen(true);
   };
 
-  // Return the UI
-  if (error) {
+  // Return the UI for error state
+  if (error || swrError) {
     return (
       <div className="p-4 md:p-6 flex flex-col items-center justify-center min-h-[30vh]">
         <div className="h-12 w-12 flex items-center justify-center rounded-full bg-red-100 text-red-500 mb-4">
           <Users className="h-6 w-6" />
         </div>
         <h3 className="text-lg font-medium text-gray-900">Terjadi kesalahan</h3>
-        <p className="mt-1 text-sm text-gray-500">{error}</p>
+        <p className="mt-1 text-sm text-gray-500">{error || "Gagal memuat data pelamar"}</p>
         <Button 
           variant="outline" 
           className="mt-4"
@@ -577,7 +767,7 @@ export function ApplicantsTab({ jobId, initialApplicants, jobTitle }: Applicants
 
   return (
     <>
-      <Card>
+      <Card className="card-applicants">
         <CardHeader className="pb-3">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
@@ -609,7 +799,7 @@ export function ApplicantsTab({ jobId, initialApplicants, jobTitle }: Applicants
                 <Input
                   placeholder="Cari pelamar..."
                   value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onChange={handleSearchChange}
                   className="w-full sm:w-[250px]"
                 />
               </div>
@@ -626,8 +816,10 @@ export function ApplicantsTab({ jobId, initialApplicants, jobTitle }: Applicants
                   <Badge variant="secondary" className="ml-1 rounded-full h-5 w-5 p-0 flex items-center justify-center">
                     {(statusFilter ? 1 : 0) + 
                      (educationFilter ? 1 : 0) + 
-                     (pendidikanTerakhirFilter ? 1 : 0) + 
-                     (pengalamanKerjaFilter ? 1 : 0) + 
+                     (genderFilter ? 1 : 0) + 
+                     (ageMinFilter ? 1 : 0) + 
+                     (ageMaxFilter ? 1 : 0) + 
+                     (cityFilter ? 1 : 0) + 
                      (levelPengalamanFilter ? 1 : 0)}
                   </Badge>
                 )}
@@ -688,27 +880,79 @@ export function ApplicantsTab({ jobId, initialApplicants, jobTitle }: Applicants
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="ALL">Semua Pendidikan</SelectItem>
-                      {uniqueEducationLevels.map(edu => (
+                      {availableFilterOptions.educations.map((edu: string) => (
                         <SelectItem key={edu} value={edu}>{edu}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
 
-                {/* Pendidikan Terakhir Filter */}
+                {/* Gender Filter */}
                 <div>
-                  <p className="text-xs mb-1 font-medium">Pendidikan Terakhir</p>
+                  <p className="text-xs mb-1 font-medium">Jenis Kelamin</p>
                   <Select
-                    value={pendidikanTerakhirFilter || "ALL"}
-                    onValueChange={(value) => setPendidikanTerakhirFilter(value === "ALL" ? null : value)}
+                    value={genderFilter || "ALL"}
+                    onValueChange={(value) => setGenderFilter(value === "ALL" ? null : value)}
                   >
                     <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Semua Jenjang" />
+                      <SelectValue placeholder="Semua Jenis Kelamin" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="ALL">Semua Jenjang</SelectItem>
-                      {uniquePendidikanTerakhir.map(edu => (
-                        <SelectItem key={edu} value={edu}>{edu}</SelectItem>
+                      <SelectItem value="ALL">Semua Jenis Kelamin</SelectItem>
+                      {availableFilterOptions.gender.map((g: string) => (
+                        <SelectItem key={g} value={g}>{g === "MALE" ? "Laki-laki" : "Perempuan"}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Age Filter */}
+                <div>
+                  <p className="text-xs mb-1 font-medium">Umur</p>
+                  <div className="flex space-x-2">
+                    <div>
+                      <label htmlFor="age-min" className="sr-only">Umur Minimal</label>
+                      <Input
+                        id="age-min"
+                        type="number"
+                        placeholder="Min"
+                        value={ageMinFilter}
+                        onChange={(e) => setAgeMinFilter(e.target.value)}
+                        className="w-20"
+                        min="0"
+                        max="100"
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="age-max" className="sr-only">Umur Maksimal</label>
+                      <Input
+                        id="age-max"
+                        type="number"
+                        placeholder="Max"
+                        value={ageMaxFilter}
+                        onChange={(e) => setAgeMaxFilter(e.target.value)}
+                        className="w-20"
+                        min="0"
+                        max="100"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* City Filter */}
+                <div>
+                  <p className="text-xs mb-1 font-medium">Kota Domisili</p>
+                  <Select
+                    value={cityFilter || "ALL"}
+                    onValueChange={(value) => setCityFilter(value === "ALL" ? null : value)}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Semua Kota" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ALL">Semua Kota</SelectItem>
+                      {availableFilterOptions.cities.map((city: string) => (
+                        <SelectItem key={city} value={city}>{city}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -726,182 +970,239 @@ export function ApplicantsTab({ jobId, initialApplicants, jobTitle }: Applicants
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="ALL">Semua Level</SelectItem>
-                      {uniqueLevelPengalaman.map(level => (
+                      {availableFilterOptions.levelPengalaman.map((level: string) => (
                         <SelectItem key={level} value={level}>{level}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
-                </div>
-
-                {/* Pengalaman Kerja Filter */}
-                <div>
-                  <p className="text-xs mb-1 font-medium">Pengalaman Kerja</p>
-                  <Input
-                    placeholder="Cari posisi kerja..."
-                    value={pengalamanKerjaFilter || ""}
-                    onChange={(e) => setPengalamanKerjaFilter(e.target.value || null)}
-                    className="w-full"
-                  />
                 </div>
               </div>
             </div>
           )}
         </CardHeader>
         <CardContent>
-          {filteredApplicants.length === 0 ? (
-            <div className="text-center py-8">
-              <div className="mx-auto h-12 w-12 rounded-full bg-gray-100 flex items-center justify-center mb-3">
-                <Users className="h-6 w-6 text-gray-500" />
-              </div>
-              <h3 className="text-lg font-medium text-gray-900">Tidak ada pelamar ditemukan</h3>
-              <p className="mt-1 text-sm text-gray-500">
-                {hasActiveFilters ? 
-                  "Tidak ada pelamar yang cocok dengan filter Anda. Coba ubah kriteria filter." : 
-                  "Belum ada pelamar untuk lowongan ini."}
-              </p>
-              {hasActiveFilters && (
-                <Button 
-                  variant="outline" 
-                  className="mt-4"
-                  onClick={resetAllFilters}
-                >
-                  Reset Semua Filter
-                </Button>
-              )}
+          <div className="flex justify-between items-center">
+            <div className="flex items-center space-x-2">
+              <h3 className="text-xl font-semibold">Pelamar</h3>
+              <Badge variant="outline" className="rounded-full">
+                {isLoading || isValidating ? (
+                  <span className="flex items-center gap-1">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    Loading...
+                  </span>
+                ) : (
+                  <>
+                    Menampilkan {totalApplicants > 0 
+                      ? `${Math.min((currentPage - 1) * limit + 1, totalApplicants)}-${Math.min(currentPage * limit, totalApplicants)} dari ${totalApplicants}`
+                      : '0'} pelamar
+                  </>
+                )}
+              </Badge>
             </div>
-          ) : (
-            <div className="rounded-md border overflow-x-auto">
-              {hasActiveFilters && (
-                <div className="px-4 py-2 bg-muted/20 border-b flex items-center justify-between">
-                  <div className="text-sm">
-                    Menampilkan <span className="font-medium">{filteredApplicants.length}</span> dari <span className="font-medium">{applicants.length}</span> pelamar
-                  </div>
-                  <Button 
-                    variant="ghost" 
-                    size="sm"
-                    onClick={resetAllFilters}
-                  >
-                    Reset Filter
-                  </Button>
+            
+            <div className="flex items-center gap-2">
+              <Badge 
+                variant={isFetching ? "secondary" : "outline"} 
+                className="text-xs font-normal"
+              >
+                {isFetching ? (
+                  <span className="flex items-center gap-1">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    Refreshing
+                  </span>
+                ) : (
+                  <>
+                    Page {currentPage} of {totalPages || 1}
+                  </>
+                )}
+              </Badge>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="h-8 w-8 p-0" 
+                onClick={refreshApplicants}
+                disabled={refreshing || isLoading || isValidating}
+              >
+                <RefreshCcw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+                <span className="sr-only">Refresh</span>
+              </Button>
+            </div>
+          </div>
+          
+          {/* ... existing filter section ... */}
+
+          {/* Pagination Controls (Top) */}
+          {totalPages > 1 && (
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              hasPrevPage={hasPrevPage}
+              hasNextPage={hasNextPage}
+              isLoading={isLoading}
+              isValidating={isValidating}
+              onPageChange={handlePageChange}
+            />
+          )}
+
+          {/* Table container */}
+          <div className="border rounded-md relative">
+            {(isLoading || isValidating || isFetching) && (
+              <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-10">
+                <div className="flex flex-col items-center gap-2">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  <p className="text-sm text-muted-foreground">Loading data...</p>
                 </div>
-              )}
-              <Table className="w-full table-fixed">
-                <TableHeader>
-                  <TableRow>
+              </div>
+            )}
+            <Table className="table-container">
+              <TableHeader>
+                <TableRow>
+                  <TableHead 
+                    onClick={() => handleSort('name')} 
+                    className="cursor-pointer hover:bg-muted transition-colors whitespace-nowrap w-[30%] p-2"
+                  >
+                    <div className="flex items-center">
+                      <span className="text-xs font-medium">Nama Pelamar</span>
+                      <ArrowUpDown className="ml-1 h-3 w-3" />
+                      {sortColumn === 'name' && (
+                        <span className="ml-1 text-xs">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                      )}
+                    </div>
+                  </TableHead>
+                  <TableHead 
+                    onClick={() => handleSort('applicationDate')} 
+                    className="cursor-pointer hover:bg-muted transition-colors whitespace-nowrap w-[20%] p-2"
+                  >
+                    <div className="flex items-center">
+                      <span className="text-xs font-medium">Tanggal Melamar</span>
+                      <ArrowUpDown className="ml-1 h-3 w-3" />
+                      {sortColumn === 'applicationDate' && (
+                        <span className="ml-1 text-xs">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                      )}
+                    </div>
+                  </TableHead>
+                  <TableHead 
+                    onClick={() => handleSort('status')} 
+                    className="cursor-pointer hover:bg-muted transition-colors whitespace-nowrap w-[15%] p-2"
+                  >
+                    <div className="flex items-center">
+                      <span className="text-xs font-medium">Status</span>
+                      {statusFilter && (
+                        <Badge variant="secondary" className="ml-1 h-4 w-4 p-0 flex items-center justify-center text-[10px]">
+                          •
+                        </Badge>
+                      )}
+                      <ArrowUpDown className="ml-1 h-3 w-3" />
+                      {sortColumn === 'status' && (
+                        <span className="ml-1 text-xs">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                      )}
+                    </div>
+                  </TableHead>
+                  <TableHead 
+                    onClick={() => handleSort('education')} 
+                    className="cursor-pointer hover:bg-muted transition-colors whitespace-nowrap hidden md:table-cell w-[10%] p-2"
+                  >
+                    <div className="flex items-center">
+                      <span className="text-xs font-medium">Pendidikan</span>
+                      {educationFilter && (
+                        <Badge variant="secondary" className="ml-1 h-4 w-4 p-0 flex items-center justify-center text-[10px]">
+                          •
+                        </Badge>
+                      )}
+                      <ArrowUpDown className="ml-1 h-3 w-3" />
+                      {sortColumn === 'education' && (
+                        <span className="ml-1 text-xs">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                      )}
+                    </div>
+                  </TableHead>
+                  <TableHead 
+                    onClick={() => handleSort('jenisKelamin')} 
+                    className="cursor-pointer hover:bg-muted transition-colors whitespace-nowrap hidden lg:table-cell w-[10%] p-2"
+                  >
+                    <div className="flex items-center">
+                      <span className="text-xs font-medium">Jenis Kelamin</span>
+                      {genderFilter && (
+                        <Badge variant="secondary" className="ml-1 h-4 w-4 p-0 flex items-center justify-center text-[10px]">
+                          •
+                        </Badge>
+                      )}
+                      <ArrowUpDown className="ml-1 h-3 w-3" />
+                      {sortColumn === 'jenisKelamin' && (
+                        <span className="ml-1 text-xs">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                      )}
+                    </div>
+                  </TableHead>
+                  <TableHead 
+                    onClick={() => handleSort('umur')} 
+                    className="cursor-pointer hover:bg-muted transition-colors whitespace-nowrap hidden md:table-cell w-[8%] p-2"
+                  >
+                    <div className="flex items-center">
+                      <span className="text-xs font-medium">Umur</span>
+                      {(ageMinFilter || ageMaxFilter) && (
+                        <Badge variant="secondary" className="ml-1 h-4 w-4 p-0 flex items-center justify-center text-[10px]">
+                          •
+                        </Badge>
+                      )}
+                      <ArrowUpDown className="ml-1 h-3 w-3" />
+                      {sortColumn === 'umur' && (
+                        <span className="ml-1 text-xs">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                      )}
+                    </div>
+                  </TableHead>
+                  <TableHead 
+                    onClick={() => handleSort('kotaDomisili')} 
+                    className="cursor-pointer hover:bg-muted transition-colors whitespace-nowrap hidden xl:table-cell w-[12%] p-2"
+                  >
+                    <div className="flex items-center">
+                      <span className="text-xs font-medium">Kota</span>
+                      {cityFilter && (
+                        <Badge variant="secondary" className="ml-1 h-4 w-4 p-0 flex items-center justify-center text-[10px]">
+                          •
+                        </Badge>
+                      )}
+                      <ArrowUpDown className="ml-1 h-3 w-3" />
+                      {sortColumn === 'kotaDomisili' && (
+                        <span className="ml-1 text-xs">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                      )}
+                    </div>
+                  </TableHead>
+                  <TableHead className="hidden md:table-cell px-2 py-3 w-[10%]">
+                    <div className="flex items-center">
+                      <span className="text-xs font-medium">Level Peng.</span>
+                      {levelPengalamanFilter && (
+                        <Badge variant="secondary" className="ml-1 h-4 w-4 p-0 flex items-center justify-center text-[10px]">
+                          •
+                        </Badge>
+                      )}
+                    </div>
+                  </TableHead>
+                  {applicants.some((app: Applicant) => app.matchScore !== undefined) && (
                     <TableHead 
-                      onClick={() => handleSort('name')} 
-                      className="cursor-pointer hover:bg-muted transition-colors whitespace-nowrap w-[30%] p-2"
-                    >
-                      <div className="flex items-center">
-                        <span className="text-xs font-medium">Nama Pelamar</span>
-                        <ArrowUpDown className="ml-1 h-3 w-3" />
-                        {sortColumn === 'name' && (
-                          <span className="ml-1 text-xs">{sortDirection === 'asc' ? '↑' : '↓'}</span>
-                        )}
-                      </div>
-                    </TableHead>
-                    <TableHead 
-                      onClick={() => handleSort('applicationDate')} 
-                      className="cursor-pointer hover:bg-muted transition-colors whitespace-nowrap w-[20%] p-2"
-                    >
-                      <div className="flex items-center">
-                        <span className="text-xs font-medium">Tanggal Melamar</span>
-                        <ArrowUpDown className="ml-1 h-3 w-3" />
-                        {sortColumn === 'applicationDate' && (
-                          <span className="ml-1 text-xs">{sortDirection === 'asc' ? '↑' : '↓'}</span>
-                        )}
-                      </div>
-                    </TableHead>
-                    <TableHead 
-                      onClick={() => handleSort('status')} 
-                      className="cursor-pointer hover:bg-muted transition-colors whitespace-nowrap w-[15%] p-2"
-                    >
-                      <div className="flex items-center">
-                        <span className="text-xs font-medium">Status</span>
-                        {statusFilter && (
-                          <Badge variant="secondary" className="ml-1 h-4 w-4 p-0 flex items-center justify-center text-[10px]">
-                            •
-                          </Badge>
-                        )}
-                        <ArrowUpDown className="ml-1 h-3 w-3" />
-                        {sortColumn === 'status' && (
-                          <span className="ml-1 text-xs">{sortDirection === 'asc' ? '↑' : '↓'}</span>
-                        )}
-                      </div>
-                    </TableHead>
-                    <TableHead 
-                      onClick={() => handleSort('education')} 
+                      onClick={() => handleSort('matchScore')} 
                       className="cursor-pointer hover:bg-muted transition-colors whitespace-nowrap hidden md:table-cell w-[10%] p-2"
                     >
                       <div className="flex items-center">
-                        <span className="text-xs font-medium">Pendidikan</span>
-                        {educationFilter && (
-                          <Badge variant="secondary" className="ml-1 h-4 w-4 p-0 flex items-center justify-center text-[10px]">
-                            •
-                          </Badge>
-                        )}
+                        <span className="text-xs font-medium">Skor Kecocokan</span>
                         <ArrowUpDown className="ml-1 h-3 w-3" />
-                        {sortColumn === 'education' && (
+                        {sortColumn === 'matchScore' && (
                           <span className="ml-1 text-xs">{sortDirection === 'asc' ? '↑' : '↓'}</span>
                         )}
                       </div>
                     </TableHead>
-                    <TableHead className="hidden lg:table-cell px-2 py-3 w-[12%]">
-                      <div className="flex items-center">
-                        <span className="text-xs font-medium">Pendidikan Terakhir</span>
-                        {pendidikanTerakhirFilter && (
-                          <Badge variant="secondary" className="ml-1 h-4 w-4 p-0 flex items-center justify-center text-[10px]">
-                            •
-                          </Badge>
-                        )}
-                      </div>
+                  )}
+                  {applicants.some((app: Applicant) => app.cvFileUrl) && (
+                    <TableHead className="hidden md:table-cell w-[8%] text-center p-2">
+                      <span className="text-xs font-medium">CV</span>
                     </TableHead>
-                    <TableHead className="hidden xl:table-cell px-2 py-3 w-[12%]">
-                      <div className="flex items-center">
-                        <span className="text-xs font-medium">Peng. Kerja</span>
-                        {pengalamanKerjaFilter && (
-                          <Badge variant="secondary" className="ml-1 h-4 w-4 p-0 flex items-center justify-center text-[10px]">
-                            •
-                          </Badge>
-                        )}
-                      </div>
-                    </TableHead>
-                    <TableHead className="hidden md:table-cell px-2 py-3 w-[10%]">
-                      <div className="flex items-center">
-                        <span className="text-xs font-medium">Level Peng.</span>
-                        {levelPengalamanFilter && (
-                          <Badge variant="secondary" className="ml-1 h-4 w-4 p-0 flex items-center justify-center text-[10px]">
-                            •
-                          </Badge>
-                        )}
-                      </div>
-                    </TableHead>
-                    {sortedApplicants.some(app => app.matchScore !== undefined) && (
-                      <TableHead 
-                        onClick={() => handleSort('matchScore')} 
-                        className="cursor-pointer hover:bg-muted transition-colors whitespace-nowrap hidden md:table-cell w-[10%] p-2"
-                      >
-                        <div className="flex items-center">
-                          <span className="text-xs font-medium">Skor Kecocokan</span>
-                          <ArrowUpDown className="ml-1 h-3 w-3" />
-                          {sortColumn === 'matchScore' && (
-                            <span className="ml-1 text-xs">{sortDirection === 'asc' ? '↑' : '↓'}</span>
-                          )}
-                        </div>
-                      </TableHead>
-                    )}
-                    {applicants.some(app => app.cvFileUrl) && (
-                      <TableHead className="hidden md:table-cell w-[8%] text-center p-2">
-                        <span className="text-xs font-medium">CV</span>
-                      </TableHead>
-                    )}
-                    <TableHead className="text-right whitespace-nowrap w-[12%] p-2">
-                      <span className="text-xs font-medium">Aksi</span>
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {sortedApplicants.map((applicant) => (
+                  )}
+                  <TableHead className="text-right whitespace-nowrap w-[12%] p-2">
+                    <span className="text-xs font-medium">Aksi</span>
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {applicants.length > 0 ? (
+                  applicants.map((applicant: Applicant) => (
                     <TableRow key={applicant.id}>
                       <TableCell className="font-medium whitespace-nowrap max-w-[180px] truncate p-2">
                         {applicant.name}
@@ -914,151 +1215,187 @@ export function ApplicantsTab({ jobId, initialApplicants, jobTitle }: Applicants
                           applicant.gajiTerakhir ||
                           applicant.levelPengalaman) && (
                           <Badge 
-                            variant="outline" 
-                            className="ml-2 bg-blue-50 text-blue-700 border-blue-200" 
-                            title="Informasi tambahan tersedia"
-                          >
-                            <Info className="h-3 w-3" />
-                          </Badge>
-                        )}
-                      </TableCell>
-                      <TableCell className="whitespace-nowrap p-2">{formatDate(applicant.applicationDate)}</TableCell>
-                      <TableCell className="p-2">{getApplicationStatusBadge(applicant.status)}</TableCell>
-                      <TableCell className="hidden md:table-cell p-2">
-                        {applicant.education ? (
-                          <Badge variant="outline" className="text-xs">{applicant.education}</Badge>
-                        ) : (
-                          <span className="text-muted-foreground text-xs">N/A</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="hidden lg:table-cell p-2 text-xs">
-                        {getLatestEducationDisplay(applicant.pendidikanFull)}
-                      </TableCell>
-                      <TableCell className="hidden xl:table-cell p-2 text-xs">
-                        {applicant.pengalamanKerjaTerakhir?.posisi || 'N/A'}
-                      </TableCell>
-                      <TableCell className="hidden md:table-cell p-2 text-xs">
-                        {applicant.levelPengalaman || 'N/A'}
-                      </TableCell>
-                      {sortedApplicants.some(app => app.matchScore !== undefined) && (
-                        <TableCell className="hidden md:table-cell p-2">
-                          {applicant.matchScore !== undefined ? (
-                            <Badge className="bg-blue-50 text-blue-700 border border-blue-200 text-xs">
-                              {applicant.matchScore}% Cocok
+                              variant="outline" 
+                              className="ml-2 bg-blue-50 text-blue-700 border-blue-200" 
+                              title="Informasi tambahan tersedia"
+                            >
+                              <Info className="h-3 w-3" />
                             </Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap p-2">{formatDate(applicant.applicationDate)}</TableCell>
+                        <TableCell className="p-2">{getApplicationStatusBadge(applicant.status)}</TableCell>
+                        <TableCell className="hidden md:table-cell p-2">
+                          {applicant.education ? (
+                            <Badge variant="outline" className="text-xs">{applicant.education}</Badge>
                           ) : (
                             <span className="text-muted-foreground text-xs">N/A</span>
                           )}
                         </TableCell>
-                      )}
-                      {applicants.some(app => app.cvFileUrl) && (
-                        <TableCell className="hidden md:table-cell text-center p-2">
-                          {applicant.cvFileUrl ? (
+                        <TableCell className="hidden lg:table-cell p-2 text-xs">
+                          {getGenderDisplay(applicant.jenisKelamin)}
+                        </TableCell>
+                        <TableCell className="hidden md:table-cell p-2 text-xs">
+                          {applicant.umur || 'N/A'}
+                        </TableCell>
+                        <TableCell className="hidden xl:table-cell p-2 text-xs">
+                          {applicant.kotaDomisili || 'N/A'}
+                        </TableCell>
+                        <TableCell className="hidden md:table-cell p-2 text-xs">
+                          {getStandardizedExperienceLevel(applicant.levelPengalaman)}
+                        </TableCell>
+                        {applicants.some((app: Applicant) => app.matchScore !== undefined) && (
+                          <TableCell className="hidden md:table-cell p-2">
+                            {applicant.matchScore !== undefined ? (
+                              <Badge className="bg-blue-50 text-blue-700 border border-blue-200 text-xs">
+                                {applicant.matchScore}% Cocok
+                              </Badge>
+                            ) : (
+                              <span className="text-muted-foreground text-xs">N/A</span>
+                            )}
+                          </TableCell>
+                        )}
+                        {applicants.some((app: Applicant) => app.cvFileUrl) && (
+                          <TableCell className="hidden md:table-cell text-center p-2">
+                            {applicant.cvFileUrl ? (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 w-6 p-0"
+                                onClick={() => window.open(applicant.cvFileUrl!, '_blank')}
+                              >
+                                <FileText className="h-3 w-3" />
+                                <span className="sr-only">Lihat CV</span>
+                              </Button>
+                            ) : (
+                              <span className="text-muted-foreground text-xs">-</span>
+                            )}
+                          </TableCell>
+                        )}
+                        <TableCell className="text-right whitespace-nowrap p-2"
+                          style={{ minWidth: '100px' }}
+                        >
+                          <div className="flex items-center justify-end space-x-1">
+                            {/* View Details Button */}
                             <Button
                               variant="ghost"
                               size="sm"
                               className="h-6 w-6 p-0"
-                              onClick={() => window.open(applicant.cvFileUrl!, '_blank')}
+                              onClick={() => handleOpenDetailsDialog(applicant)}
+                              title="Lihat detail pelamar"
                             >
-                              <FileText className="h-3 w-3" />
-                              <span className="sr-only">Lihat CV</span>
+                              <Eye className="h-3 w-3" />
+                              <span className="sr-only">Lihat Detail</span>
                             </Button>
-                          ) : (
-                            <span className="text-muted-foreground text-xs">-</span>
-                          )}
-                        </TableCell>
-                      )}
-                      <TableCell className="text-right whitespace-nowrap p-2"
-                        style={{ minWidth: '100px' }}
-                      >
-                        <div className="flex items-center justify-end space-x-1">
-                          {/* View Details Button */}
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-6 w-6 p-0"
-                            onClick={() => handleOpenDetailsDialog(applicant)}
-                            title="Lihat detail pelamar"
-                          >
-                            <Eye className="h-3 w-3" />
-                            <span className="sr-only">Lihat Detail</span>
-                          </Button>
 
-                          {/* Ubah Status Dropdown */}
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="h-6 px-1 text-xs"
-                                disabled={updatingApplicationId === applicant.id}
-                              >
-                                {updatingApplicationId === applicant.id ? (
-                                  <Loader2 className="h-3 w-3 animate-spin" />
-                                ) : (
-                                  <>
-                                    <span className="sm:inline hidden">Status</span>
-                                    <ChevronDown className="h-3 w-3 sm:ml-1" />
-                                  </>
-                                )}
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuLabel>Ubah Status</DropdownMenuLabel>
-                              <DropdownMenuSeparator />
-                              {applicationStatusOptions.map(statusOption => (
-                                <DropdownMenuItem
-                                  key={statusOption.value}
-                                  disabled={applicant.status === statusOption.value || updatingApplicationId === applicant.id}
-                                  onSelect={() => promptForReasonOrUpdate(applicant.id, statusOption.value as Applicant['status'])}
+                            {/* Ubah Status Dropdown */}
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-6 px-1 text-xs"
+                                  disabled={updatingApplicationId === applicant.id}
                                 >
-                                  {statusOption.label}
-                                </DropdownMenuItem>
-                              ))}
-                            </DropdownMenuContent>
-                          </DropdownMenu>
+                                  {updatingApplicationId === applicant.id ? (
+                                    <Loader2 className="h-3 w-3 animate-spin" />
+                                  ) : (
+                                    <>
+                                      <span className="sm:inline hidden">Status</span>
+                                      <ChevronDown className="h-3 w-3 sm:ml-1" />
+                                    </>
+                                  )}
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuLabel>Ubah Status</DropdownMenuLabel>
+                                <DropdownMenuSeparator />
+                                {applicationStatusOptions.map(statusOption => (
+                                  <DropdownMenuItem
+                                    key={statusOption.value}
+                                    disabled={applicant.status === statusOption.value || updatingApplicationId === applicant.id}
+                                    onSelect={() => promptForReasonOrUpdate(applicant.id, statusOption.value as Applicant['status'])}
+                                  >
+                                    {statusOption.label}
+                                  </DropdownMenuItem>
+                                ))}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
 
-                          {/* More Actions Dropdown */}
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
-                                <MoreHorizontal className="h-3 w-3" />
-                                <span className="sr-only">Opsi Lain</span>
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem onSelect={() => handleOpenDetailsDialog(applicant)}>
-                                <Eye className="mr-2 h-4 w-4" /> Lihat Detail
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onSelect={() => window.location.href = `mailto:${applicant.email}`}>
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2 h-4 w-4">
-                                  <rect width="20" height="16" x="2" y="4" rx="2"></rect>
-                                  <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"></path>
-                                </svg> 
-                                {applicant.email}
-                              </DropdownMenuItem>
-                              {applicant.cvFileUrl && applicants.some(app => app.cvFileUrl) && !applicants.every(app => app.cvFileUrl) && (
-                                <DropdownMenuItem onSelect={() => window.open(applicant.cvFileUrl!, '_blank')}>
-                                  <FileText className="mr-2 h-4 w-4" /> Lihat CV
+                            {/* More Actions Dropdown */}
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+                                  <MoreHorizontal className="h-3 w-3" />
+                                  <span className="sr-only">Opsi Lain</span>
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onSelect={() => handleOpenDetailsDialog(applicant)}>
+                                  <Eye className="mr-2 h-4 w-4" /> Lihat Detail
                                 </DropdownMenuItem>
-                              )}
-                              {applicant.resumeUrl && (
-                                <DropdownMenuItem onSelect={() => window.open(applicant.resumeUrl!, '_blank')}>
-                                  <Download className="mr-2 h-4 w-4" /> Unduh Resume
+                                <DropdownMenuItem onSelect={() => window.location.href = `mailto:${applicant.email}`}>
+                                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2 h-4 w-4">
+                                    <rect width="20" height="16" x="2" y="4" rx="2"></rect>
+                                    <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"></path>
+                                  </svg> 
+                                  {applicant.email}
                                 </DropdownMenuItem>
-                              )}
-                            </DropdownMenuContent>
-                          </DropdownMenu>
+                                {applicant.cvFileUrl && applicants.some((app: Applicant) => app.cvFileUrl) && !applicants.every((app: Applicant) => app.cvFileUrl) && (
+                                  <DropdownMenuItem onSelect={() => window.open(applicant.cvFileUrl!, '_blank')}>
+                                    <FileText className="mr-2 h-4 w-4" /> Lihat CV
+                                  </DropdownMenuItem>
+                                )}
+                                {applicant.resumeUrl && (
+                                  <DropdownMenuItem onSelect={() => window.open(applicant.resumeUrl!, '_blank')}>
+                                    <Download className="mr-2 h-4 w-4" /> Unduh Resume
+                                  </DropdownMenuItem>
+                                )}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={9} className="h-24 text-center">
+                        <div className="flex flex-col items-center justify-center gap-2 py-4">
+                          <Users className="h-8 w-8 text-muted-foreground" />
+                          <p className="text-lg font-medium">Tidak ada pelamar</p>
+                          <p className="text-sm text-muted-foreground">
+                            {hasActiveFilters 
+                              ? 'Tidak ada pelamar yang cocok dengan filter yang dipilih' 
+                              : 'Belum ada pelamar untuk lowongan ini'}
+                          </p>
+                          {hasActiveFilters && (
+                            <Button variant="outline" size="sm" onClick={resetAllFilters} className="mt-2">
+                              <Filter className="mr-2 h-4 w-4" />
+                              Reset Filter
+                            </Button>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>
-                  ))}
+                  )}
                 </TableBody>
               </Table>
             </div>
-          )}
-        </CardContent>
-      </Card>
+            
+            {/* Pagination Controls (Bottom) */}
+            {totalPages > 1 && (
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                hasPrevPage={hasPrevPage}
+                hasNextPage={hasNextPage}
+                isLoading={isLoading}
+                isValidating={isValidating}
+                onPageChange={handlePageChange}
+              />
+            )}
+          </CardContent>
+        </Card>
       
       {/* Reason Dialog */}
       {pendingApplicantUpdateInfo && (
@@ -1070,7 +1407,7 @@ export function ApplicantsTab({ jobId, initialApplicants, jobTitle }: Applicants
           }}
           onSubmit={handleSubmitWithReason}
           title={`Alasan untuk ${getStatusLabel(pendingApplicantUpdateInfo.newStatus)}`}
-          description={`Silakan berikan alasan untuk perubahan status pelamar ${applicants.find(a => a.id === pendingApplicantUpdateInfo.applicantId)?.name || ''} (opsional).`}
+          description={`Silakan berikan alasan untuk perubahan status pelamar ${applicants.find((a: Applicant) => a.id === pendingApplicantUpdateInfo.applicantId)?.name || ''} (opsional).`}
           isLoading={updatingApplicationId === pendingApplicantUpdateInfo.applicantId}
           initialReason={pendingApplicantUpdateInfo.currentReason || ""}
         />
