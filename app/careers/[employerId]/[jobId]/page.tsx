@@ -23,7 +23,10 @@ import { MinWorkExperienceEnum, getMinWorkExperienceLabel } from '@/lib/constant
 import { mapDbWorkExperienceToFrontend, DbWorkExperienceEnum } from '@/lib/utils/enum-mappers';
 
 // Add export config for ISR
-export const revalidate = 3600; // Revalidate every hour
+export const revalidate = 1260; // Revalidate every 20 minutes + 60 seconds offset
+
+// Forbidden employer ID
+const FORBIDDEN_EMPLOYER_ID = '95101c79-7517-4444-9930-d3e243ce6ae0';
 
 // Type that matches the actual database job schema
 interface DbJob {
@@ -132,6 +135,14 @@ export async function generateMetadata(
 ): Promise<Metadata> {
   const params = await props.params;
   
+  // Check if this is the forbidden employer ID
+  if (params.employerId === FORBIDDEN_EMPLOYER_ID) {
+    return {
+      title: 'Not Found',
+      description: 'The requested page could not be found.',
+    };
+  }
+  
   // Check if jobId is a UUID or a human-readable ID
   const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(params.jobId);
   
@@ -158,22 +169,24 @@ export async function generateMetadata(
   };
 }
 
-// Generate static paths for all jobs
+// Generate static paths for all jobs, excluding those from the forbidden employer
 export async function generateStaticParams() {
-  // Get all employer IDs
+  // Get all employer IDs except the forbidden one
   const employers = await getAllEmployerIds();
+  const filteredEmployers = employers.filter(employer => employer.id !== FORBIDDEN_EMPLOYER_ID);
+  
   const paths = [];
   
   // For each employer, get all their confirmed job IDs
-  for (const employer of employers) {
+  for (const employer of filteredEmployers) {
     const jobIds = await getConfirmedJobIdsByEmployerId(employer.id);
     
     // Add a path for each job, ensure we're using the human-readable jobId if available
     for (const job of jobIds) {
-      if (job.jobId) {
+      if (job.jobId || job.id) {
         paths.push({
           employerId: employer.id,
-          jobId: job.jobId, // Use the human-readable ID, not the UUID
+          jobId: job.jobId || job.id, // Use the human-readable ID if available, or fall back to UUID
         });
       }
     }
@@ -281,6 +294,11 @@ function SocialMediaLinks({ socialMedia }: { socialMedia?: Employer['socialMedia
 
 // Job detail component
 async function JobDetail({ employerId, jobId }: { employerId: string; jobId: string }) {
+  // Return early if this is the forbidden employer ID
+  if (employerId === FORBIDDEN_EMPLOYER_ID) {
+    return notFound();
+  }
+  
   // Check if jobId is a UUID or a human-readable ID
   const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(jobId);
   
@@ -288,25 +306,24 @@ async function JobDetail({ employerId, jobId }: { employerId: string; jobId: str
   const dbJob = isUuid 
     ? await getJobById(jobId)
     : await getJobByHumanId(jobId);
-
-  // If job doesn't exist or isn't confirmed, or doesn't belong to this employer, return 404
-  if (!dbJob || !dbJob.isConfirmed || dbJob.employerId !== employerId) {
-    notFound();
+  
+  // Convert database job to frontend job if it exists
+  const job = dbJob ? mapDbJobToFrontendJob(dbJob) : null;
+  
+  if (!job || job.employerId !== employerId || !job.isConfirmed) {
+    return notFound();
   }
-
-  // Convert database job to frontend job
-  const job = mapDbJobToFrontendJob(dbJob);
-
+  
   // Get employer details
   const employer = await getEmployerById(employerId);
-
+  
   if (!employer) {
-    notFound();
+    return notFound();
   }
-
-  // Get job locations using the UUID from the job object
-  const locations = await getJobWorkLocationsByJobId(job.id);
-
+  
+  // Get job locations
+  const jobLocations = await getJobWorkLocationsByJobId(job.id);
+  
   // Extract the contract type from the job ID
   const contractType = job.jobId?.split('-')[0] || 'Full-time';
 
@@ -359,11 +376,11 @@ async function JobDetail({ employerId, jobId }: { employerId: string; jobId: str
                   </div>
                 )}
                 
-                {locations && locations.length > 0 && (
+                {jobLocations && jobLocations.length > 0 && (
                   <div className="flex items-start">
                     <MapPinIcon className="h-5 w-5 text-gray-500 flex-shrink-0 mt-0.5" />
                     <div className="ml-2">
-                      {locations.map((location, idx) => (
+                      {jobLocations.map((location, idx) => (
                         <div key={idx} className="text-gray-700">
                           {location.isRemote 
                             ? 'Remote'
@@ -524,29 +541,21 @@ export default async function JobDetailPage(
     params: Promise<{ employerId: string; jobId: string }>;
   }
 ) {
+  const { employerId, jobId } = await props.params;
+  
+  // Return 404 for the forbidden employer ID
+  if (employerId === FORBIDDEN_EMPLOYER_ID) {
+    return notFound();
+  }
+  
   return (
-    <div className="bg-gray-50 min-h-screen">
+    <div className="bg-notion-background min-h-screen">
       {/* Add padding to account for fixed header */}
       <div className="pt-16"></div>
-      <div className="max-w-[85rem] mx-auto space-y-6 px-4 sm:px-6 py-6 md:py-8">
-        {/* Back button */}
-        <div className="mb-6">
-          <Link 
-            href={`/careers/${(await props.params).employerId}`}
-            className="inline-flex items-center text-sm font-medium text-gray-600 hover:text-gray-900 transition duration-150 ease-in-out"
-          >
-            <svg className="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
-            </svg>
-            Kembali ke semua lowongan
-          </Link>
-        </div>
-        
+      
+      <div className="notion-container py-16 max-w-6xl mx-auto px-4 sm:px-6">
         <Suspense fallback={<JobDetailLoader />}>
-          <JobDetail 
-            employerId={(await props.params).employerId} 
-            jobId={(await props.params).jobId} 
-          />
+          <JobDetail employerId={employerId} jobId={jobId} />
         </Suspense>
       </div>
     </div>

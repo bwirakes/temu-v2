@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { db } from '@/lib/db';
-import { eq, count, gt, desc } from 'drizzle-orm';
+import { eq, count, gt, desc, ilike, or, and } from 'drizzle-orm';
 import { employers, jobs } from '@/lib/db';
 import SearchBar from './components/search-bar';
 import EmployerLogo from './components/employer-logo';
@@ -8,7 +8,11 @@ import { Suspense } from 'react';
 import CareersLoader from './components/careers-loader';
 
 // Add export config for ISR
-export const revalidate = 3600; // Revalidate every hour
+export const revalidate = 1200; // Revalidate every 20 minutes
+
+// Pagination constants
+const ITEMS_PER_PAGE_INITIAL = 30;
+const ITEMS_PER_PAGE_INCREMENT = 30;
 
 // Types
 interface EmployerWithJobCount {
@@ -20,35 +24,98 @@ interface EmployerWithJobCount {
   jobCount: number;
 }
 
-async function getEmployersWithJobCounts(): Promise<EmployerWithJobCount[]> {
-  // Get all employers with at least one confirmed job
-  const employersWithJobs = await db
-    .select({
-      id: employers.id,
-      namaPerusahaan: employers.namaPerusahaan,
-      merekUsaha: employers.merekUsaha,
-      industri: employers.industri,
-      logoUrl: employers.logoUrl,
-      jobCount: count(jobs.id),
-    })
-    .from(employers)
-    .leftJoin(jobs, eq(employers.id, jobs.employerId))
-    .where(eq(jobs.isConfirmed, true))
-    .groupBy(employers.id)
-    .having(gt(count(jobs.id), 0))
-    .orderBy(desc(count(jobs.id)));
-
-  return employersWithJobs;
+// Async function to get employers with job counts, now with search and pagination
+async function getEmployersWithJobCounts(searchQuery?: string, limit?: number): Promise<EmployerWithJobCount[]> {
+  try {
+    // Build the base query
+    const baseQuery = db
+      .select({
+        id: employers.id,
+        namaPerusahaan: employers.namaPerusahaan,
+        merekUsaha: employers.merekUsaha,
+        industri: employers.industri,
+        logoUrl: employers.logoUrl,
+        jobCount: count(jobs.id),
+      })
+      .from(employers)
+      .leftJoin(jobs, eq(employers.id, jobs.employerId))
+      .where(eq(jobs.isConfirmed, true))
+      .groupBy(employers.id)
+      .having(gt(count(jobs.id), 0))
+      .orderBy(desc(count(jobs.id)));
+    
+    // Execute the query and get the results
+    let results = await baseQuery;
+    
+    // If search query is provided, filter the results in memory
+    // Note: This is a workaround for type issues. In production, 
+    // this should be handled at the database level for better performance
+    if (searchQuery && searchQuery.trim() !== '') {
+      const searchTermLower = searchQuery.toLowerCase();
+      results = results.filter(employer => 
+        employer.namaPerusahaan.toLowerCase().includes(searchTermLower) ||
+        (employer.merekUsaha && employer.merekUsaha.toLowerCase().includes(searchTermLower)) ||
+        employer.industri.toLowerCase().includes(searchTermLower)
+      );
+    }
+    
+    // Apply limit if provided
+    if (limit && typeof limit === 'number' && results.length > limit) {
+      return results.slice(0, limit + 1);
+    }
+    
+    return results;
+  } catch (error) {
+    console.error("Error fetching employers with job counts:", error);
+    return [];
+  }
 }
 
-// Employers list component - this components fetches and displays employers
-async function EmployersList() {
-  const employersWithJobs = await getEmployersWithJobCounts();
-
-  if (employersWithJobs.length > 0) {
+// Employers list display component
+function EmployersListDisplay({ 
+  employers, 
+  hasMore, 
+  currentLimit, 
+  searchQuery 
+}: { 
+  employers: EmployerWithJobCount[]; 
+  hasMore: boolean; 
+  currentLimit: number; 
+  searchQuery?: string;
+}) {
+  if (employers.length === 0) {
+    // No results message - context-aware based on search query
     return (
+      <div className="notion-card p-8 text-center shadow-sm">
+        <div className="flex justify-center mb-4 text-notion-text-light">
+          <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          </svg>
+        </div>
+        {searchQuery ? (
+          <>
+            <h3 className="text-lg font-medium text-notion-text mb-2">Tidak ada hasil pencarian</h3>
+            <p className="text-notion-text-light">
+              Kami tidak dapat menemukan perusahaan yang cocok dengan pencarian &quot;{searchQuery}&quot;. 
+              Silakan coba kata kunci lain.
+            </p>
+          </>
+        ) : (
+          <>
+            <h3 className="text-lg font-medium text-notion-text mb-2">Tidak ada perusahaan yang sedang merekrut</h3>
+            <p className="text-notion-text-light">
+              Saat ini tidak ada lowongan pekerjaan yang tersedia. Silakan periksa kembali nanti.
+            </p>
+          </>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-8">
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-        {employersWithJobs.map((employer, index) => (
+        {employers.map((employer) => (
           <div 
             key={employer.id}
             className="notion-card card-hover shadow-sm hover:shadow-md transition-shadow duration-200"
@@ -96,26 +163,50 @@ async function EmployersList() {
           </div>
         ))}
       </div>
-    );
-  }
 
-  return (
-    <div className="notion-card p-8 text-center shadow-sm">
-      <div className="flex justify-center mb-4 text-notion-text-light">
-        <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-        </svg>
-      </div>
-      <h3 className="text-lg font-medium text-notion-text mb-2">Tidak ada perusahaan yang sedang merekrut</h3>
-      <p className="text-notion-text-light">
-        Saat ini tidak ada lowongan pekerjaan yang tersedia. Silakan periksa kembali nanti.
-      </p>
+      {/* Show More Button */}
+      {hasMore && (
+        <div className="flex justify-center mt-8">
+          <Link
+            href={`/careers?${new URLSearchParams({
+              ...(searchQuery ? { q: searchQuery } : {}),
+              limit: (currentLimit + ITEMS_PER_PAGE_INCREMENT).toString()
+            }).toString()}`}
+            className="notion-button flex items-center gap-2 hover:bg-notion-blue-dark transition-colors duration-150"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path>
+            </svg>
+            Tampilkan Lebih Banyak
+          </Link>
+        </div>
+      )}
     </div>
   );
 }
 
 // Main page component
-export default function CareersPage() {
+export default async function CareersPage({
+  searchParams,
+}: {
+  searchParams: { q?: string; limit?: string };
+}) {
+  // Extract search query and limit from search params
+  const searchQuery = searchParams.q || '';
+  const limitParam = searchParams.limit ? parseInt(searchParams.limit, 10) : ITEMS_PER_PAGE_INITIAL;
+  const currentLimit = isNaN(limitParam) ? ITEMS_PER_PAGE_INITIAL : limitParam;
+
+  // Fetch employers with job counts
+  const employersWithJobs = await getEmployersWithJobCounts(searchQuery, currentLimit);
+  
+  // Check if there are more items
+  const hasMore = employersWithJobs.length > currentLimit;
+  
+  // Remove the extra item we fetched to check for more
+  const displayedEmployers = hasMore 
+    ? employersWithJobs.slice(0, currentLimit) 
+    : employersWithJobs;
+
   return (
     <div className="bg-notion-background min-h-screen">
       {/* Add padding to account for fixed header */}
@@ -131,9 +222,9 @@ export default function CareersPage() {
             Jelajahi peluang kerja dari perusahaan terkemuka dan ambil langkah selanjutnya dalam perjalanan karir Anda.
           </p>
           
-          {/* Search bar */}
+          {/* Search bar with initial query */}
           <div className="mt-10 max-w-md">
-            <SearchBar />
+            <SearchBar initialQuery={searchQuery} />
           </div>
         </div>
 
@@ -144,12 +235,30 @@ export default function CareersPage() {
               <svg className="w-6 h-6 mr-2 text-notion-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
               </svg>
-              Perusahaan yang Sedang Merekrut
+              {searchQuery 
+                ? `Hasil Pencarian: &quot;${searchQuery}&quot;` 
+                : "Perusahaan yang Sedang Merekrut"}
             </h2>
+            {searchQuery && (
+              <Link 
+                href="/careers" 
+                className="text-notion-blue hover:text-notion-blue-dark flex items-center mt-2 sm:mt-0"
+              >
+                <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+                </svg>
+                Lihat Semua Perusahaan
+              </Link>
+            )}
           </div>
 
           <Suspense fallback={<CareersLoader />}>
-            <EmployersList />
+            <EmployersListDisplay 
+              employers={displayedEmployers} 
+              hasMore={hasMore} 
+              currentLimit={currentLimit} 
+              searchQuery={searchQuery}
+            />
           </Suspense>
         </div>
 

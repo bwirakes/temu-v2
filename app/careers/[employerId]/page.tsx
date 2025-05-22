@@ -18,8 +18,11 @@ import { MinWorkExperienceEnum, getMinWorkExperienceLabel } from '@/lib/constant
 import { MapPinIcon, BriefcaseIcon, CalendarIcon } from '@heroicons/react/24/outline';
 import { mapDbWorkExperienceToFrontend, DbWorkExperienceEnum } from '@/lib/utils/enum-mappers';
 
-// Add export config for ISR
-export const revalidate = 3600; // Revalidate every hour
+// Staggered revalidation (20 minutes + 30 seconds offset)
+export const revalidate = 1230;
+
+// Forbidden employer ID
+const FORBIDDEN_EMPLOYER_ID = '95101c79-7517-4444-9930-d3e243ce6ae0';
 
 // Types
 interface JobLocation {
@@ -129,7 +132,17 @@ export async function generateMetadata(
     params: Promise<{ employerId: string }>
   }
 ): Promise<Metadata> {
-  const employer = await getEmployerById((await props.params).employerId);
+  const { employerId } = await props.params;
+  
+  // Check if this is the forbidden employer ID
+  if (employerId === FORBIDDEN_EMPLOYER_ID) {
+    return {
+      title: 'Not Found',
+      description: 'The requested page could not be found.',
+    };
+  }
+  
+  const employer = await getEmployerById(employerId);
 
   if (!employer) {
     return {
@@ -144,13 +157,15 @@ export async function generateMetadata(
   };
 }
 
-// Generate static paths for all employers
+// Generate static paths for all employers, excluding the forbidden ID
 export async function generateStaticParams() {
   const employers = await getAllEmployerIds();
   
-  return employers.map(employer => ({
-    employerId: employer.id,
-  }));
+  return employers
+    .filter(employer => employer.id !== FORBIDDEN_EMPLOYER_ID)
+    .map(employer => ({
+      employerId: employer.id,
+    }));
 }
 
 // Job card component
@@ -315,57 +330,53 @@ function SocialMediaLinks({ socialMedia }: { socialMedia?: Employer['socialMedia
 
 // Job listings component
 async function JobListings({ employerId }: { employerId: string }) {
-  // Get all jobs for this employer
-  const allDbJobs = await getJobsByEmployerId(employerId);
-
-  // Convert DB jobs to frontend jobs
-  const allJobs = allDbJobs.map(mapDbJobToFrontendJob);
-
-  // Filter for confirmed jobs only and sort by posted date (newest first)
-  const jobs = allJobs
-    .filter(job => job.isConfirmed)
-    .sort((a, b) => {
-      const dateA = new Date(a.postedDate).getTime();
-      const dateB = new Date(b.postedDate).getTime();
-      return dateB - dateA;
-    });
-
-  if (jobs.length > 0) {
+  // Return early if this is the forbidden employer ID
+  if (employerId === FORBIDDEN_EMPLOYER_ID) {
+    return notFound();
+  }
+  
+  // Fetch jobs for this employer
+  const dbJobs = await getJobsByEmployerId(employerId);
+  
+  // Convert DB jobs to frontend jobs with correct enum values
+  const jobs = dbJobs.map(mapDbJobToFrontendJob);
+  
+  if (jobs.length === 0) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {jobs.map((job, index) => (
-          <JobCard key={job.id} job={job} index={index} />
-        ))}
+      <div className="notion-card p-8 text-center shadow-sm">
+        <div className="flex justify-center mb-4 text-notion-text-light">
+          <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          </svg>
+        </div>
+        <h3 className="text-lg font-medium text-notion-text mb-2">Tidak ada lowongan saat ini</h3>
+        <p className="text-notion-text-light">
+          Perusahaan ini belum membuka lowongan pekerjaan.
+        </p>
       </div>
     );
   }
 
-  // Get employer name for display in the empty state
-  const employer = await getEmployerById(employerId);
-  
   return (
-    <div className="notion-card p-8 text-center shadow-sm">
-      <div className="flex justify-center mb-4 text-notion-text-light">
-        <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-        </svg>
-      </div>
-      <h3 className="text-lg font-medium text-notion-text mb-2">Tidak ada posisi terbuka</h3>
-      <p className="text-notion-text-light">
-        Saat ini tidak ada lowongan pekerjaan di {employer?.namaPerusahaan || 'perusahaan ini'}.
-        Silakan periksa kembali nanti untuk peluang baru.
-      </p>
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      {jobs.map((job, index) => (
+        <JobCard key={job.id} job={job} index={index} />
+      ))}
     </div>
   );
 }
 
 // Employer info component
 async function EmployerInfo({ employerId }: { employerId: string }) {
-  // Get employer details
+  // Return early if this is the forbidden employer ID
+  if (employerId === FORBIDDEN_EMPLOYER_ID) {
+    return notFound();
+  }
+  
   const employer = await getEmployerById(employerId);
-
+  
   if (!employer) {
-    notFound();
+    return notFound();
   }
   
   // Fetch all jobs for this employer to display count
@@ -522,6 +533,13 @@ export default async function EmployerCareersPage(
     params: Promise<{ employerId: string }>;
   }
 ) {
+  const { employerId } = await props.params;
+  
+  // Return 404 for the forbidden employer ID
+  if (employerId === FORBIDDEN_EMPLOYER_ID) {
+    return notFound();
+  }
+
   return (
     (<div className="bg-notion-background min-h-screen">
       {/* Add padding to account for fixed header */}
@@ -541,7 +559,7 @@ export default async function EmployerCareersPage(
         </div>
         
         <Suspense fallback={<EmployerDetailLoader />}>
-          <EmployerInfo employerId={(await props.params).employerId} />
+          <EmployerInfo employerId={employerId} />
         </Suspense>
       </div>
     </div>)

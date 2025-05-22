@@ -1,14 +1,40 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 
-export default function SearchBar() {
-  const [query, setQuery] = useState('');
+interface SearchBarProps {
+  initialQuery?: string;
+}
+
+export default function SearchBar({ initialQuery = '' }: SearchBarProps) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [query, setQuery] = useState(initialQuery);
+
+  // Sync with initialQuery prop
+  useEffect(() => {
+    setQuery(initialQuery);
+  }, [initialQuery]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    // In a real implementation, this would filter companies or jobs
-    console.log('Mencari:', query);
+    
+    // Construct new URL with search parameters
+    const params = new URLSearchParams(searchParams.toString());
+    
+    // Set or delete search query parameter
+    if (query.trim()) {
+      params.set('q', query.trim());
+    } else {
+      params.delete('q');
+    }
+    
+    // Reset pagination when performing a new search
+    params.delete('limit');
+    
+    // Navigate to the updated URL
+    router.push(`/careers?${params.toString()}`);
   };
 
   return (
@@ -35,7 +61,7 @@ export default function SearchBar() {
             name="search"
             id="search"
             className="block w-full rounded-l-md border-0 py-3 pl-10 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm sm:leading-6"
-            placeholder="Cari perusahaan atau posisi..."
+            placeholder="Cari perusahaa..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
