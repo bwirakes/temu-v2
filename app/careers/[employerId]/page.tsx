@@ -329,14 +329,17 @@ function SocialMediaLinks({ socialMedia }: { socialMedia?: Employer['socialMedia
 }
 
 // Job listings component
-async function JobListings({ employerId }: { employerId: string }) {
+async function JobListings({ employerId }: { employerId: Promise<string> }) {
+  // Await the employerId promise
+  const resolvedEmployerId = await employerId;
+  
   // Return early if this is the forbidden employer ID
-  if (employerId === FORBIDDEN_EMPLOYER_ID) {
+  if (resolvedEmployerId === FORBIDDEN_EMPLOYER_ID) {
     return notFound();
   }
   
   // Fetch jobs for this employer
-  const dbJobs = await getJobsByEmployerId(employerId);
+  const dbJobs = await getJobsByEmployerId(resolvedEmployerId);
   
   // Convert DB jobs to frontend jobs with correct enum values
   const jobs = dbJobs.map(mapDbJobToFrontendJob);
@@ -367,20 +370,23 @@ async function JobListings({ employerId }: { employerId: string }) {
 }
 
 // Employer info component
-async function EmployerInfo({ employerId }: { employerId: string }) {
+async function EmployerInfo({ employerId }: { employerId: Promise<string> }) {
+  // Await the employerId promise
+  const resolvedEmployerId = await employerId;
+  
   // Return early if this is the forbidden employer ID
-  if (employerId === FORBIDDEN_EMPLOYER_ID) {
+  if (resolvedEmployerId === FORBIDDEN_EMPLOYER_ID) {
     return notFound();
   }
   
-  const employer = await getEmployerById(employerId);
+  const employer = await getEmployerById(resolvedEmployerId);
   
   if (!employer) {
     return notFound();
   }
   
   // Fetch all jobs for this employer to display count
-  const allDbJobs = await getJobsByEmployerId(employerId);
+  const allDbJobs = await getJobsByEmployerId(resolvedEmployerId);
   const allJobs = allDbJobs.map(mapDbJobToFrontendJob);
   const jobs = allJobs.filter(job => job.isConfirmed);
 
@@ -494,7 +500,7 @@ async function EmployerInfo({ employerId }: { employerId: string }) {
         </div>
         
         <Suspense fallback={<div className="animate-pulse">{/* ... skeleton for jobs ... */}</div>}>
-          <JobListings employerId={employerId} />
+          <JobListings employerId={Promise.resolve(resolvedEmployerId)} />
         </Suspense>
       </div>
       
@@ -559,7 +565,7 @@ export default async function EmployerCareersPage(
         </div>
         
         <Suspense fallback={<EmployerDetailLoader />}>
-          <EmployerInfo employerId={employerId} />
+          <EmployerInfo employerId={Promise.resolve(employerId)} />
         </Suspense>
       </div>
     </div>)

@@ -189,11 +189,14 @@ function EmployersListDisplay({
 export default async function CareersPage({
   searchParams,
 }: {
-  searchParams: { q?: string; limit?: string };
+  searchParams: Promise<{ q?: string; limit?: string }>;
 }) {
+  // Await the searchParams promise to access its properties
+  const resolvedSearchParams = await searchParams;
+  
   // Extract search query and limit from search params
-  const searchQuery = searchParams.q || '';
-  const limitParam = searchParams.limit ? parseInt(searchParams.limit, 10) : ITEMS_PER_PAGE_INITIAL;
+  const searchQuery = resolvedSearchParams.q || '';
+  const limitParam = resolvedSearchParams.limit ? parseInt(resolvedSearchParams.limit, 10) : ITEMS_PER_PAGE_INITIAL;
   const currentLimit = isNaN(limitParam) ? ITEMS_PER_PAGE_INITIAL : limitParam;
 
   // Fetch employers with job counts

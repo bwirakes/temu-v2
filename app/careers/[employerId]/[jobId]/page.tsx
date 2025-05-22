@@ -293,29 +293,33 @@ function SocialMediaLinks({ socialMedia }: { socialMedia?: Employer['socialMedia
 }
 
 // Job detail component
-async function JobDetail({ employerId, jobId }: { employerId: string; jobId: string }) {
+async function JobDetail({ employerId, jobId }: { employerId: Promise<string>; jobId: Promise<string> }) {
+  // Await the promises
+  const resolvedEmployerId = await employerId;
+  const resolvedJobId = await jobId;
+  
   // Return early if this is the forbidden employer ID
-  if (employerId === FORBIDDEN_EMPLOYER_ID) {
+  if (resolvedEmployerId === FORBIDDEN_EMPLOYER_ID) {
     return notFound();
   }
   
   // Check if jobId is a UUID or a human-readable ID
-  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(jobId);
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(resolvedJobId);
   
   // Use the appropriate function based on the ID format
   const dbJob = isUuid 
-    ? await getJobById(jobId)
-    : await getJobByHumanId(jobId);
+    ? await getJobById(resolvedJobId)
+    : await getJobByHumanId(resolvedJobId);
   
   // Convert database job to frontend job if it exists
   const job = dbJob ? mapDbJobToFrontendJob(dbJob) : null;
   
-  if (!job || job.employerId !== employerId || !job.isConfirmed) {
+  if (!job || job.employerId !== resolvedEmployerId || !job.isConfirmed) {
     return notFound();
   }
   
   // Get employer details
-  const employer = await getEmployerById(employerId);
+  const employer = await getEmployerById(resolvedEmployerId);
   
   if (!employer) {
     return notFound();
@@ -339,7 +343,7 @@ async function JobDetail({ employerId, jobId }: { employerId: string; jobId: str
           </div>
           
           <div className="mt-4 md:mt-0 md:ml-6">
-            <Link href={`/careers/${employerId}/${jobId}/apply`}>
+            <Link href={`/careers/${resolvedEmployerId}/${resolvedJobId}/apply`}>
               <Button className="w-full md:w-auto" size="lg">
                 Lamar Sekarang
               </Button>
@@ -525,7 +529,7 @@ async function JobDetail({ employerId, jobId }: { employerId: string; jobId: str
       </div>
       
       <div className="text-center">
-        <Link href={`/careers/${employerId}/${jobId}/apply`}>
+        <Link href={`/careers/${resolvedEmployerId}/${resolvedJobId}/apply`}>
           <Button size="lg" className="min-w-[200px]">
             Lamar Sekarang
           </Button>
@@ -555,7 +559,10 @@ export default async function JobDetailPage(
       
       <div className="notion-container py-16 max-w-6xl mx-auto px-4 sm:px-6">
         <Suspense fallback={<JobDetailLoader />}>
-          <JobDetail employerId={employerId} jobId={jobId} />
+          <JobDetail 
+            employerId={Promise.resolve(employerId)} 
+            jobId={Promise.resolve(jobId)} 
+          />
         </Suspense>
       </div>
     </div>
