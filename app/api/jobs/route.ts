@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { createJob } from "@/lib/db";
 import { z } from "zod";
 import { nanoid } from "nanoid";
+import { db } from '@/lib/db';
+import { eq, desc, ilike, or, and } from 'drizzle-orm';
+import { jobs, employers } from '@/lib/db';
 
 /**
  * Schema for validating job posting data
@@ -136,11 +139,63 @@ export async function POST(
 /**
  * Handle other HTTP methods
  */
-export async function GET() {
-  return NextResponse.json(
-    { error: "Method not allowed" },
-    { status: 405 }
-  );
+export async function GET(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const searchQuery = searchParams.get('q') || '';
+    const trimmedSearchQuery = searchQuery.trim();
+    
+    // Create the base conditions
+    const baseCondition = eq(jobs.isConfirmed, true);
+    
+    // Build search conditions if there's a search query
+    const searchConditions = trimmedSearchQuery 
+      ? [
+          or(
+            ilike(jobs.jobTitle, `%${trimmedSearchQuery}%`),
+            ilike(employers.namaPerusahaan, `%${trimmedSearchQuery}%`),
+            ilike(jobs.lokasiKerja, `%${trimmedSearchQuery}%`),
+            ilike(jobs.requiredCompetencies, `%${trimmedSearchQuery}%`)
+          )
+        ] 
+      : [];
+    
+    // Combine all conditions
+    const allConditions = [baseCondition, ...searchConditions];
+    
+    // Fetch jobs with their employers
+    const dbJobsWithEmployers = await db
+      .select({
+        id: jobs.id,
+        jobId: jobs.jobId,
+        jobTitle: jobs.jobTitle,
+        postedDate: jobs.postedDate,
+        numberOfPositions: jobs.numberOfPositions,
+        isConfirmed: jobs.isConfirmed,
+        createdAt: jobs.createdAt,
+        updatedAt: jobs.updatedAt,
+        employerId: jobs.employerId,
+        minWorkExperience: jobs.minWorkExperience,
+        lokasiKerja: jobs.lokasiKerja,
+        lastEducation: jobs.lastEducation,
+        requiredCompetencies: jobs.requiredCompetencies,
+        expectations: jobs.expectations,
+        additionalRequirements: jobs.additionalRequirements,
+        employer: {
+          namaPerusahaan: employers.namaPerusahaan,
+          logoUrl: employers.logoUrl
+        }
+      })
+      .from(jobs)
+      .leftJoin(employers, eq(jobs.employerId, employers.id))
+      .where(and(...allConditions))
+      .orderBy(desc(jobs.postedDate));
+    
+    return NextResponse.json(dbJobsWithEmployers);
+  } catch (error) {
+    console.error("Error fetching jobs:", error);
+    return NextResponse.json({ error: "Failed to fetch jobs" }, { status: 500 });
+  }
 }
 
 export async function PUT() {
