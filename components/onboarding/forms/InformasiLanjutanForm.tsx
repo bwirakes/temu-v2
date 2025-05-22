@@ -30,7 +30,7 @@ const informasiLanjutanSchema = z.object({
 type InformasiLanjutanValues = z.infer<typeof informasiLanjutanSchema>;
 
 export default function InformasiLanjutanForm() {
-  const { data, updateFormValues, navigateToNextStep } = useOnboarding();
+  const { data, updateFormValues, navigateToNextStep, currentStep } = useOnboarding();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [date, setDate] = useState<Date | undefined>(
     data.tanggalLahir ? new Date(data.tanggalLahir) : undefined
@@ -176,6 +176,10 @@ export default function InformasiLanjutanForm() {
     try {
       updateFormValues(updatedValues);
       toast.success("Data berhasil disimpan");
+      
+      // Log current step before navigation for debugging
+      console.log("[InformasiLanjutanForm] Current step before navigation:", currentStep);
+      
       navigateToNextStep();
     } catch (error) {
       console.error("Error saving information:", error);

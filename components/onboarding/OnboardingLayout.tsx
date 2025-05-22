@@ -1,8 +1,9 @@
 "use client";
 
-import { ReactNode } from "react";
+import { ReactNode, useEffect } from "react";
 import ProgressBar from "./ProgressBar";
 import OnboardingLoader from "./OnboardingLoader";
+import { useOnboarding } from "@/lib/context/OnboardingContext";
 
 interface OnboardingLayoutProps {
   children: ReactNode;
@@ -17,6 +18,16 @@ export default function OnboardingLayout({
   description,
   currentStep,
 }: OnboardingLayoutProps) {
+  const { setCurrentStep: setContextCurrentStep, currentStep: contextCurrentStep } = useOnboarding();
+  
+  // Synchronize the context's currentStep with the page's currentStep prop
+  useEffect(() => {
+    if (currentStep !== undefined && currentStep !== contextCurrentStep) {
+      console.log(`[OnboardingLayout] Syncing context currentStep from ${contextCurrentStep} to ${currentStep}`);
+      setContextCurrentStep(currentStep);
+    }
+  }, [currentStep, contextCurrentStep, setContextCurrentStep]);
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white flex flex-col">
       <OnboardingLoader />

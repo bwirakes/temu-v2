@@ -42,11 +42,11 @@ export const lokasiKerjaEnum = pgEnum('lokasi_kerja', ['WFH', 'WFO', 'Hybrid']);
 export const tingkatKeahlianEnum = pgEnum('tingkat_keahlian', ['Pemula', 'Menengah', 'Mahir']);
 export const agamaEnum = pgEnum('agama', ['Islam', 'Kristen', 'Katolik', 'Hindu', 'Buddha', 'Konghucu']);
 export const levelPengalamanEnum = pgEnum('level_pengalaman', [
-  'Lulusan Baru / Fresh Graduate',
-  '1-2 Tahun',
-  '3-5 Tahun',
-  '5> Tahun',
-  '10+ Tahun'
+  'LULUSAN_BARU',
+  'SATU_DUA_TAHUN',
+  'TIGA_LIMA_TAHUN',
+  'LIMA_SEPULUH_TAHUN',
+  'LEBIH_SEPULUH_TAHUN'
 ]);
 export const willingToTravelEnum = pgEnum('willing_to_travel', ['wfh', 'wfo', 'travel', 'relocate', 'local_only', 'domestic', 'international']);
 export const applicationStatusEnum = pgEnum('application_status', [

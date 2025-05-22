@@ -15,71 +15,71 @@ import FormNav from "@/components/FormNav";
 import { toast } from "sonner";
 import { OnboardingData, levelPengalamanEnum } from "@/lib/db-types";
 
-// Use levelPengalamanEnum to define options
+// Define a mapping for display labels
+const levelPengalamanDisplayMap: Record<typeof levelPengalamanEnum.enumValues[number], string> = {
+  'LULUSAN_BARU': 'Lulusan Baru / Fresh Graduate',
+  'SATU_DUA_TAHUN': '1-2 Tahun Pengalaman',
+  'TIGA_LIMA_TAHUN': '3-5 Tahun Pengalaman',
+  'LIMA_SEPULUH_TAHUN': '5-10 Tahun Pengalaman',
+  'LEBIH_SEPULUH_TAHUN': 'Lebih dari 10 Tahun Pengalaman'
+};
+
 const levelPengalamanOptions = levelPengalamanEnum.enumValues.map(value => ({
-  value: value,
-  label: value, // Using the enum value as both value and label
+  value: value, // Machine-readable value, e.g., 'LULUSAN_BARU'
+  label: levelPengalamanDisplayMap[value] || value, // Human-readable label
 }));
 
 // Define the type for levelPengalaman based on the enum values
 type LevelPengalamanValueType = typeof levelPengalamanEnum.enumValues[number];
 
-interface LevelPengalamanFormData {
+type LevelPengalamanFormData = {
   levelPengalaman: LevelPengalamanValueType;
-  jumlahPengalaman?: number;
-  bidangKeahlian?: string;
-  keterampilan?: string[];
-}
+};
 
 export default function LevelPengalamanForm() {
-  // Initialize with a valid value from levelPengalamanEnum
+  const onboarding = useOnboarding();
+
+  // Initialize with a valid machine-readable enum value
   const initialState: LevelPengalamanFormData = {
-    levelPengalaman: levelPengalamanEnum.enumValues[0] || "" as LevelPengalamanValueType, // Default to the first enum value (now "Lulusan Baru / Fresh Graduate")
+    levelPengalaman: onboarding.data?.levelPengalaman || levelPengalamanEnum.enumValues[0],
   };
   
   const [formData, setFormData] = useState<LevelPengalamanFormData>(initialState);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [contextError, setContextError] = useState<Error | null>(null);
-  
-  const onboarding = useOnboarding();
   
   useEffect(() => {
-    try {
-      if (onboarding.data?.levelPengalaman) {
-        // Ensure the value from context is a valid enum member
-        if (levelPengalamanEnum.enumValues.includes(onboarding.data.levelPengalaman)) {
-          setFormData(prev => ({ ...prev, levelPengalaman: onboarding.data.levelPengalaman as LevelPengalamanValueType }));
-        } else {
-          console.warn(`Invalid levelPengalaman value from context: ${onboarding.data.levelPengalaman}. Using default.`);
-          setFormData(prev => ({ ...prev, levelPengalaman: initialState.levelPengalaman }));
-        }
+    if (onboarding.data?.levelPengalaman) {
+      // Ensure the value from context is a valid enum member
+      if ((levelPengalamanEnum.enumValues as readonly string[]).includes(onboarding.data.levelPengalaman)) {
+        setFormData({ levelPengalaman: onboarding.data.levelPengalaman as LevelPengalamanValueType });
       } else {
-        // If context has no value, ensure form is set to its initial state
-        setFormData(prev => ({ ...prev, levelPengalaman: initialState.levelPengalaman }));
+        // Fallback if context data is somehow invalid
+        setFormData({ levelPengalaman: levelPengalamanEnum.enumValues[0] });
       }
-    } catch (error) {
-      console.warn("Error initializing from context:", error);
-      setContextError(error instanceof Error ? error : new Error(String(error)));
+    } else {
+       setFormData({ levelPengalaman: levelPengalamanEnum.enumValues[0] });
     }
-  }, [onboarding.data?.levelPengalaman, initialState.levelPengalaman]);
+  }, [onboarding.data?.levelPengalaman]);
 
-  const handleChange = (field: keyof LevelPengalamanFormData, value: LevelPengalamanValueType) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
+  const handleChange = (value: LevelPengalamanValueType) => { // Value from Select is already the machine-readable key
+    setFormData({ levelPengalaman: value });
   };
 
   const handleSubmit = async () => {
+    // Validate that formData.levelPengalaman is a valid enum key
+    if (!(levelPengalamanEnum.enumValues as readonly string[]).includes(formData.levelPengalaman)) {
+        toast.error("Level pengalaman tidak valid. Silakan pilih dari daftar.");
+        return;
+    }
+
     try {
       setIsSubmitting(true);
       
-      if (onboarding.updateFormValues && onboarding.navigateToNextStep) {
-        onboarding.updateFormValues({
-          levelPengalaman: formData.levelPengalaman // This is now correctly typed
-        });
+      if (onboarding && onboarding.updateFormValues && onboarding.navigateToNextStep) {
+        // formData.levelPengalaman is already the machine-readable backend enum value
+        console.log("Saving level pengalaman (machine-readable):", formData.levelPengalaman);
         
-        console.log("Saving level pengalaman:", formData.levelPengalaman);
+        onboarding.updateFormValues({ levelPengalaman: formData.levelPengalaman });
         
         toast.success("Level pengalaman berhasil disimpan");
         onboarding.navigateToNextStep();
@@ -95,51 +95,42 @@ export default function LevelPengalamanForm() {
     }
   };
 
+  if (onboarding.isLoading) {
+    return <div>Loading...</div>; // Or a proper skeleton loader
+  }
+
   return (
-    <div className="space-y-6">
-      <div className="space-y-4">
-        <div className="space-y-4">
-          <h2 className="text-xl font-semibold tracking-tight">Level Pengalaman Kerja</h2>
-          <p className="text-gray-500">
-            Pilih level pengalaman kerja Anda untuk membantu kami menemukan pekerjaan yang sesuai dengan keahlian Anda.
-          </p>
-        </div>
-        
-        {contextError && (
-          <div className="p-4 border border-red-200 bg-red-50 text-red-700 rounded-md">
-            <p>Terjadi kesalahan saat memuat data. Mohon refresh halaman atau coba lagi nanti.</p>
-          </div>
-        )}
-        
-        <div className="space-y-2">
-          <Label htmlFor="levelPengalaman">Level Pengalaman Kerja</Label>
-          <Select
-            name="levelPengalaman"
-            value={formData.levelPengalaman}
-            onValueChange={(value: LevelPengalamanValueType) => handleChange('levelPengalaman', value)}
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Pilih level pengalaman" />
-            </SelectTrigger>
-            <SelectContent>
-              {levelPengalamanOptions.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          
-          <div className="mt-2 text-sm text-gray-500">
-            <p>Pilih level pengalaman yang paling menggambarkan situasi Anda saat ini.</p>
-          </div>
-        </div>
+    <div className="space-y-8">
+      <div>
+        <h2 className="text-2xl font-semibold">Level Pengalaman</h2>
+        <p className="text-muted-foreground">
+          Pilih level pengalaman Anda saat ini.
+        </p>
       </div>
 
-      <FormNav 
+      <div className="space-y-4">
+        <Label htmlFor="levelPengalaman">Level Pengalaman</Label>
+        <Select
+          value={formData.levelPengalaman}
+          onValueChange={(value) => handleChange(value as LevelPengalamanValueType)}
+        >
+          <SelectTrigger id="levelPengalaman">
+            <SelectValue placeholder="Pilih level pengalaman" />
+          </SelectTrigger>
+          <SelectContent>
+            {levelPengalamanOptions.map(option => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      
+      <FormNav
         onSubmit={handleSubmit}
+        disableNext={!formData.levelPengalaman}
         isSubmitting={isSubmitting}
-        saveOnNext={false}
       />
     </div>
   );

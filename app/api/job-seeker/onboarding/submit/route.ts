@@ -375,45 +375,42 @@ export async function POST(req: NextRequest) {
         
         // Insert new pengalaman kerja records
         for (const pengalaman of standardizedData.pengalamanKerja) {
-          // Map to a valid levelPengalamanEnum value
-          // Default to one of the valid enum values
-          let levelPengalamanValue: typeof levelPengalamanEnum.enumValues[number] = "Lulusan Baru / Fresh Graduate";
-          
-          // Map from MinWorkExperienceEnum to levelPengalamanEnum if possible
-          if (pengalaman.levelPengalaman) {
-            switch(pengalaman.levelPengalaman) {
-              case "LULUSAN_BARU":
-                levelPengalamanValue = "Lulusan Baru / Fresh Graduate";
-                break;
-              case "SATU_DUA_TAHUN":
-                levelPengalamanValue = "1-2 Tahun";
-                break;
-              case "TIGA_LIMA_TAHUN":
-                levelPengalamanValue = "3-5 Tahun";
-                break;
-              case "LIMA_SEPULUH_TAHUN":
-                levelPengalamanValue = "5> Tahun";
-                break;
-              case "LEBIH_SEPULUH_TAHUN":
-                levelPengalamanValue = "10+ Tahun";
-                break;
+          const machineFriendlyDbEnumValues = levelPengalamanEnum.enumValues; // Now ['LULUSAN_BARU', ...]
+          let dbLevelPengalamanForPengalamanKerja: typeof machineFriendlyDbEnumValues[number];
+
+          const clientProvidedLevel = pengalaman.levelPengalaman; // Expected to be 'LULUSAN_BARU', etc.
+
+          if (clientProvidedLevel && (machineFriendlyDbEnumValues as readonly string[]).includes(clientProvidedLevel)) {
+            dbLevelPengalamanForPengalamanKerja = clientProvidedLevel as typeof machineFriendlyDbEnumValues[number];
+          } else {
+            // Defaulting because userPengalamanKerja.levelPengalaman is NOT NULL.
+            // Log if clientProvidedLevel was something unexpected but not null/undefined.
+            if (clientProvidedLevel && clientProvidedLevel.trim() !== "") {
+              console.warn(`Unexpected value for pengalamanKerja.levelPengalaman: "${clientProvidedLevel}". Defaulting to ${machineFriendlyDbEnumValues[0]}.`);
             }
+            dbLevelPengalamanForPengalamanKerja = machineFriendlyDbEnumValues[0]; // Default to the first enum value
           }
           
           // Convert lokasiKerja to a valid enum value if present
-          const lokasiKerjaValue = pengalaman.lokasiKerja as typeof lokasiKerjaEnum.enumValues[number] || null;
+          const validLokasiKerjaValues = lokasiKerjaEnum.enumValues;
+          let dbLokasiKerja: typeof validLokasiKerjaValues[number] | null = null;
+          if (pengalaman.lokasiKerja && (validLokasiKerjaValues as readonly string[]).includes(pengalaman.lokasiKerja)) {
+            dbLokasiKerja = pengalaman.lokasiKerja as typeof validLokasiKerjaValues[number];
+          } else if (pengalaman.lokasiKerja) {
+            console.warn(`Unexpected value for pengalamanKerja.lokasiKerja: "${pengalaman.lokasiKerja}". Setting to null.`);
+          }
 
           await tx
             .insert(userPengalamanKerja)
             .values({
               userProfileId: userProfile.id,
-              levelPengalaman: levelPengalamanValue,
+              levelPengalaman: dbLevelPengalamanForPengalamanKerja, // Use the machine-friendly value
               namaPerusahaan: pengalaman.namaPerusahaan || "",
               posisi: pengalaman.posisi || "",
               tanggalMulai: pengalaman.tanggalMulai || "",
               tanggalSelesai: pengalaman.tanggalSelesai || "",
               deskripsiPekerjaan: pengalaman.deskripsiPekerjaan || null,
-              lokasiKerja: lokasiKerjaValue,
+              lokasiKerja: dbLokasiKerja,
               lokasi: pengalaman.lokasi || null,
               alasanKeluar: pengalaman.alasanKeluar || null,
             });

@@ -430,6 +430,10 @@ export const OnboardingProvider = ({ children }: { children: ReactNode }) => {
       const path = getStepPath(nextStep);
       if (path) {
         router.push(path);
+        // Reset the flag after the current synchronous code block finishes
+        Promise.resolve().then(() => {
+          setIsProgrammaticNavigation(false);
+        });
       }
     }
   }, [currentStep, getStepPath, router]);
@@ -443,6 +447,10 @@ export const OnboardingProvider = ({ children }: { children: ReactNode }) => {
       const path = getStepPath(prevStep);
       if (path) {
         router.push(path);
+        // Reset the flag after the current synchronous code block finishes
+        Promise.resolve().then(() => {
+          setIsProgrammaticNavigation(false);
+        });
       }
     }
   }, [currentStep, getStepPath, router]);
@@ -455,6 +463,10 @@ export const OnboardingProvider = ({ children }: { children: ReactNode }) => {
       const path = getStepPath(step);
       if (path) {
         router.push(path);
+        // Reset the flag after the current synchronous code block finishes
+        Promise.resolve().then(() => {
+          setIsProgrammaticNavigation(false);
+        });
       }
     }
   }, [getStepPath, router]);
