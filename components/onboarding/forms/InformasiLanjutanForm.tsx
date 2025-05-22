@@ -41,7 +41,7 @@ export default function InformasiLanjutanForm() {
     tanggalLahir: data.tanggalLahir ? new Date(data.tanggalLahir) : undefined,
     tanggalLahirText: data.tanggalLahir ? format(new Date(data.tanggalLahir), "dd/MM/yyyy") : "",
     tempatLahir: data.tempatLahir || "",
-    jenisKelamin: data.jenisKelamin === "Lainnya" ? undefined : data.jenisKelamin,
+    jenisKelamin: (data.jenisKelamin === "Laki-laki" || data.jenisKelamin === "Perempuan") ? data.jenisKelamin : undefined,
   };
 
   const {
@@ -86,13 +86,22 @@ export default function InformasiLanjutanForm() {
     
     if (!inputValue) {
       setDateInputError("Tanggal lahir wajib diisi");
+      setValue("tanggalLahir", undefined as any); // Clear the actual date if input is empty
       return;
     }
 
     // Only try to parse if we have enough characters for a complete date
-    if (inputValue.length < 8) {
+    if (inputValue.length < 8 && inputValue.length !== 0) { // Allow clearing, but require length for parsing
+      setDateInputError("Format tanggal tidak lengkap.");
+      setValue("tanggalLahir", undefined as any);
       return;
     }
+    if (inputValue.length === 0) { // If cleared completely
+        setDateInputError("Tanggal lahir wajib diisi");
+        setValue("tanggalLahir", undefined as any);
+        return;
+    }
+
 
     try {
       // Try to parse the date with different formats
@@ -110,42 +119,58 @@ export default function InformasiLanjutanForm() {
       if (parsedDate && isValid(parsedDate)) {
         // Check if date is within valid range
         const today = new Date();
+        today.setHours(0, 0, 0, 0); // Compare dates only
         const minDate = new Date("1900-01-01");
         
         if (parsedDate > today) {
           setDateInputError("Tanggal tidak boleh lebih dari hari ini");
+          setValue("tanggalLahir", undefined as any);
           return;
         }
         
         if (parsedDate < minDate) {
           setDateInputError("Tanggal tidak boleh kurang dari tahun 1900");
+          setValue("tanggalLahir", undefined as any);
           return;
         }
 
         setDate(parsedDate);
-        setValue("tanggalLahir", parsedDate);
+        setValue("tanggalLahir", parsedDate, { shouldValidate: true });
         setDateInputError(null);
-      } else if (inputValue.length >= 10) {
+      } else if (inputValue.length >= 10 || (inputValue.length >=8 && !inputValue.includes('/'))) { // Trigger error if fully typed or close to it
         setDateInputError("Format tanggal tidak valid. Gunakan format DD/MM/YYYY");
+        setValue("tanggalLahir", undefined as any);
+      } else {
+        // For incomplete dates that are not yet 10 chars, clear previous error if any, but don't set date
+        setDateInputError(null); 
+        setValue("tanggalLahir", undefined as any);
       }
     } catch (error) {
       if (inputValue.length >= 10) {
         setDateInputError("Format tanggal tidak valid. Gunakan format DD/MM/YYYY");
       }
+      setValue("tanggalLahir", undefined as any);
     }
   };
 
   const onSubmit = async (values: InformasiLanjutanValues) => {
+    // Re-validate tanggalLahir directly from form state before submission
+    if (!values.tanggalLahir) {
+        setDateInputError("Tanggal lahir wajib diisi");
+        toast.error("Tanggal lahir wajib diisi. Mohon periksa kembali.");
+        return;
+    }
     if (dateInputError) {
+      toast.error(`Masalah pada tanggal lahir: ${dateInputError}`);
       return;
     }
     
     setIsSubmitting(true);
     
     const updatedValues = {
-      tanggalLahir: values.tanggalLahir.toISOString().split("T")[0],
-      tempatLahir: values.tempatLahir,
-      jenisKelamin: values.jenisKelamin,
+      tanggalLahir: values.tanggalLahir.toISOString().split("T")[0], // Ensure date is in YYYY-MM-DD
+      tempatLahir: values.tempatLahir || null, // Send null if empty
+      jenisKelamin: values.jenisKelamin || null, // Send null if undefined
     };
     
     try {
@@ -160,13 +185,20 @@ export default function InformasiLanjutanForm() {
     }
   };
 
-  const selectedDate = watch("tanggalLahir");
   const dateText = watch("tanggalLahirText");
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
       <div className="space-y-4">
-        {/* Tempat Lahir field is removed */}
+        {/* Tempat Lahir field */}
+        <div className="space-y-2">
+          <FormLabel htmlFor="tempatLahir">Tempat Lahir <span className="text-gray-500 text-sm font-normal">(Opsional)</span></FormLabel>
+          <Input
+            id="tempatLahir"
+            placeholder="Contoh: Jakarta"
+            {...register("tempatLahir")}
+          />
+        </div>
         
         {/* Tanggal Lahir */}
         <div className="space-y-2">
@@ -178,9 +210,10 @@ export default function InformasiLanjutanForm() {
             <Input
               id="tanggalLahirText"
               placeholder="DD/MM/YYYY"
-              value={dateText}
+              value={dateText || ""}
               onChange={handleDateInputChange}
               inputMode="numeric"
+              maxLength={10}
               className={cn(
                 dateInputError || errors.tanggalLahir ? "border-red-500" : ""
               )}
@@ -199,21 +232,21 @@ export default function InformasiLanjutanForm() {
 
         {/* Jenis Kelamin */}
         <div className="space-y-2">
-          <FormLabel>Jenis Kelamin</FormLabel>
+          <FormLabel>Jenis Kelamin <span className="text-gray-500 text-sm font-normal">(Opsional)</span></FormLabel>
           <RadioGroup
-            defaultValue={defaultValues.jenisKelamin}
+            value={watch("jenisKelamin")}
             onValueChange={(value) => 
-              setValue("jenisKelamin", value as "Laki-laki" | "Perempuan")
+              setValue("jenisKelamin", value as "Laki-laki" | "Perempuan", { shouldValidate: true })
             }
             className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4"
           >
             <div className="flex items-center space-x-2">
               <RadioGroupItem value="Laki-laki" id="laki-laki" />
-              <FormLabel htmlFor="laki-laki" className="cursor-pointer">Laki-laki</FormLabel>
+              <FormLabel htmlFor="laki-laki" className="cursor-pointer font-normal">Laki-laki</FormLabel>
             </div>
             <div className="flex items-center space-x-2">
               <RadioGroupItem value="Perempuan" id="perempuan" />
-              <FormLabel htmlFor="perempuan" className="cursor-pointer">Perempuan</FormLabel>
+              <FormLabel htmlFor="perempuan" className="cursor-pointer font-normal">Perempuan</FormLabel>
             </div>
           </RadioGroup>
         </div>

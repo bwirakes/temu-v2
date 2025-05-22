@@ -23,13 +23,12 @@ const onboardingSchema = z.object({
 const REQUIRED_FIELDS = {
   1: ['namaLengkap', 'email', 'nomorTelepon'],
   2: ['tanggalLahir', 'tempatLahir'],
-  3: ['alamat.kota'],
-  4: ['pendidikan'],
-  5: ['levelPengalaman'],
-  6: [], // Pengalaman Kerja - Optional
-  7: ['cvFileUrl'], // CV Upload - Now required
-  8: [], // Profile Photo - Optional
-  9: []  // Summary
+  3: ['pendidikan'],
+  4: ['levelPengalaman'],
+  5: [], // Pengalaman Kerja - Optional
+  6: ['cvFileUrl'], // CV Upload - Now required
+  7: [], // Profile Photo - Optional
+  8: []  // Summary
 };
 
 // Check if the data has all required fields for a specific step
@@ -50,11 +49,7 @@ function hasRequiredFields(data: Record<string, any>, step: number): boolean {
       // Special case for pendidikan which is an array
       return Array.isArray(data[field]) && data[field].length > 0 && 
         data[field].every((p: any) => 
-          p.namaInstitusi && 
-          p.lokasi && 
-          p.jenjangPendidikan && 
-          p.bidangStudi && 
-          p.tanggalLulus
+          p.jenjangPendidikan
         );
     }
     
@@ -77,12 +72,12 @@ function determineNextStep(allData: Record<string, any>, currentStep: number): n
   }
   
   // If we're at the final step, stay there
-  if (currentStep >= 9) {
-    return 9;
+  if (currentStep >= 8) {
+    return 8;
   }
   
   // Standard progression: move to the next step
-  if (currentStep < 9) {
+  if (currentStep < 8) {
     return currentStep + 1;
   }
   

@@ -17,11 +17,11 @@ export const EXPERIENCE_LEVEL_CATEGORIES = [
  * Min work experience options for job posting
  */
 export const MIN_WORK_EXPERIENCE_OPTIONS = [
-  { value: 'LULUSAN_BARU', label: 'Lulusan Baru' },
-  { value: 'SATU_DUA_TAHUN', label: '1-2 tahun' },
-  { value: 'TIGA_LIMA_TAHUN', label: '3-5 tahun' },
-  { value: 'LIMA_SEPULUH_TAHUN', label: '5-10 tahun' },
-  { value: 'LEBIH_SEPULUH_TAHUN', label: '>10+ tahun' },
+  { value: 'LULUSAN_BARU', label: 'Lulusan Baru / Fresh Graduate' },
+  { value: 'SATU_DUA_TAHUN', label: '1-2 Tahun' },
+  { value: 'TIGA_LIMA_TAHUN', label: '3-5 Tahun' },
+  { value: 'LIMA_SEPULUH_TAHUN', label: '5> Tahun' },
+  { value: 'LEBIH_SEPULUH_TAHUN', label: '10+ Tahun' },
 ] as const;
 
 export type MinWorkExperienceEnum = typeof MIN_WORK_EXPERIENCE_OPTIONS[number]['value'];

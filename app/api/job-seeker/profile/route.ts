@@ -230,7 +230,7 @@ export async function PUT(req: NextRequest) {
         for (const pengalaman of updateData.pengalamanKerja) {
           await db.insert(userPengalamanKerja).values({
             userProfileId: userProfile.id,
-            levelPengalaman: pengalaman.levelPengalaman || 'Baru lulus',
+            levelPengalaman: pengalaman.levelPengalaman || 'Lulusan Baru / Fresh Graduate',
             namaPerusahaan: pengalaman.namaPerusahaan,
             posisi: pengalaman.posisi,
             tanggalMulai: pengalaman.tanggalMulai,

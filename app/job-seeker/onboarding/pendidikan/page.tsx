@@ -8,6 +8,7 @@ export default function PendidikanPage() {
     <OnboardingLayout
       title="Riwayat Pendidikan"
       description="Masukan pendidikan terakhir kamu untuk menunjukkan kualifikasi akademis kamu"
+      currentStep={3}
     >
       <PendidikanForm />
     </OnboardingLayout>

@@ -48,6 +48,7 @@ export default function InformasiLanjutanPage() {
     <OnboardingLayout
       title="Informasi Lanjutan"
       description="Lengkapi informasi tambahan untuk profil Anda"
+      currentStep={2}
     >
       <InformasiLanjutanForm />
     </OnboardingLayout>

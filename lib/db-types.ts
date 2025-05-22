@@ -33,7 +33,7 @@ export const onboardingSteps = [
 ];
 
 // Define which steps are optional
-export const optionalSteps = [5, 7]; // Pengalaman Kerja and Foto Profile are optional
+export const optionalSteps = [5, 7]; // Pengalaman Kerja (now step 5) and Foto Profile (now step 7) are optional
 
 // Enum definitions - these are safe to use in client components
 export const statusEnum = pgEnum('status', ['active', 'inactive', 'archived']);
@@ -42,13 +42,11 @@ export const lokasiKerjaEnum = pgEnum('lokasi_kerja', ['WFH', 'WFO', 'Hybrid']);
 export const tingkatKeahlianEnum = pgEnum('tingkat_keahlian', ['Pemula', 'Menengah', 'Mahir']);
 export const agamaEnum = pgEnum('agama', ['Islam', 'Kristen', 'Katolik', 'Hindu', 'Buddha', 'Konghucu']);
 export const levelPengalamanEnum = pgEnum('level_pengalaman', [
-  'Baru lulus',
-  'Pengalaman magang',
-  'Kurang dari 1 tahun',
-  '1-2 tahun',
-  '3-5 tahun',
-  '5-10 tahun',
-  '10 tahun lebih'
+  'Lulusan Baru / Fresh Graduate',
+  '1-2 Tahun',
+  '3-5 Tahun',
+  '5> Tahun',
+  '10+ Tahun'
 ]);
 export const willingToTravelEnum = pgEnum('willing_to_travel', ['wfh', 'wfo', 'travel', 'relocate', 'local_only', 'domestic', 'international']);
 export const applicationStatusEnum = pgEnum('application_status', [
@@ -151,7 +149,7 @@ export const userPendidikan = pgTable('user_pendidikan', {
     .references(() => userProfiles.id, { onDelete: 'cascade' }),
   namaInstitusi: text('nama_institusi').notNull(),
   jenjangPendidikan: text('jenjang_pendidikan').notNull(),
-  bidangStudi: text('bidang_studi').notNull(),
+  bidangStudi: text('bidang_studi'),
   tanggalLulus: text('tanggal_lulus').notNull(),
   nilaiAkhir: text('nilai_akhir'),
   lokasi: text('lokasi'),
@@ -225,7 +223,7 @@ export type Pendidikan = {
   namaInstitusi?: string;
   lokasi?: string;
   jenjangPendidikan: string;
-  bidangStudi: string;
+  bidangStudi?: string;
   tanggalLulus?: string; // "Masih Kuliah" | "Tidak Lulus" | actual date
   deskripsiTambahan?: string;
   nilaiAkhir?: string;
@@ -251,30 +249,30 @@ export type OnboardingData = {
   // Step 2: Informasi Lanjutan
   tanggalLahir: string;
   tempatLahir?: string | null;
-  jenisKelamin?: "Laki-laki" | "Perempuan" | "Lainnya";
+  jenisKelamin?: "Laki-laki" | "Perempuan" | "Lainnya" | null;
   
-  // Step 3: Alamat (now optional and moved out of the main flow)
+  // Alamat (Optional, not a dedicated step)
   alamat?: {
-    kota?: string;
-    provinsi?: string;
-    kodePos?: string;
-    jalan?: string;
-  };
+    kota?: string | null;
+    provinsi?: string | null;
+    kodePos?: string | null;
+    jalan?: string | null;
+  } | null;
   
   // Step 3: Pendidikan
   pendidikan: Pendidikan[];
   
   // Step 4: Level Pengalaman
-  levelPengalaman?: "LULUSAN_BARU" | "SATU_DUA_TAHUN" | "TIGA_LIMA_TAHUN" | "LIMA_SEPULUH_TAHUN" | "LEBIH_SEPULUH_TAHUN";
+  levelPengalaman?: typeof levelPengalamanEnum.enumValues[number] | null;
   
-  // Step 5: Pengalaman Kerja
+  // Step 5: Pengalaman Kerja (Optional)
   pengalamanKerja: PengalamanKerja[];
   
   // Step 6: CV Upload
   cvFile?: File;
   cvFileUrl?: string;
   
-  // Step 7: Profile Photo
+  // Step 7: Profile Photo (Optional)
   profilePhotoFile?: File;
   profilePhotoUrl?: string;
 }; 

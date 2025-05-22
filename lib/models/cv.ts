@@ -356,7 +356,7 @@ export function getSampleCV(): CV {
     pengalamanKerja: [
       {
         id: '1',
-        levelPengalaman: '5-10 tahun',
+        levelPengalaman: '5> Tahun',
         namaPerusahaan: 'Notion',
         posisi: 'Web Designer & Web Developer',
         tanggalMulai: '2023-01-01',
@@ -369,7 +369,7 @@ export function getSampleCV(): CV {
       },
       {
         id: '2',
-        levelPengalaman: '3-5 tahun',
+        levelPengalaman: '3-5 Tahun',
         namaPerusahaan: 'Mailchimp',
         posisi: 'Senior Software Engineer',
         tanggalMulai: '2021-02-15',
@@ -382,7 +382,7 @@ export function getSampleCV(): CV {
       },
       {
         id: '3',
-        levelPengalaman: '1-2 tahun',
+        levelPengalaman: '1-2 Tahun',
         namaPerusahaan: 'Slack',
         posisi: 'Junior Software Engineer',
         tanggalMulai: '2011-05-10',

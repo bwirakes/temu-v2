@@ -8,6 +8,7 @@ export default function PengalamanKerjaPage() {
     <OnboardingLayout
       title="Pengalaman Kerja"
       description="Tambahkan pengalaman kerja Anda untuk menunjukkan keahlian profesional"
+      currentStep={5}
     >
       <PengalamanKerjaForm />
     </OnboardingLayout>

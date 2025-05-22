@@ -10,11 +10,14 @@ export default function ProgressBar() {
   // Total number of steps in the onboarding process
   const totalSteps = onboardingSteps.length;
   
+  // Ensure displayed step doesn't exceed total steps
+  const displayStep = Math.min(currentStep, totalSteps);
+  
   // Calculate progress based on current step
   // Adjust the formula to show visible progress even at step 1
   const progressPercentage = Math.min(
     100, // Cap at 100%
-    Math.max(5, Math.floor((currentStep / totalSteps) * 100))
+    Math.max(5, Math.floor((displayStep / totalSteps) * 100))
   );
 
   return (
@@ -26,7 +29,7 @@ export default function ProgressBar() {
         aria-valuemin={0}
         aria-valuemax={100}
         role="progressbar"
-        aria-label={`Step ${currentStep} of ${totalSteps}`}
+        aria-label={`Step ${displayStep} of ${totalSteps}`}
       />
     </div>
   );

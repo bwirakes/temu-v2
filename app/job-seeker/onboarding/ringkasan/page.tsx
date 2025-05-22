@@ -12,7 +12,7 @@ export default function RingkasanPage() {
     <OnboardingLayout
       title="Ringkasan Profil"
       description="Tinjau informasi yang telah Anda berikan sebelum menyelesaikan pendaftaran"
-      currentStep={10} // Explicitly set to the correct step
+      currentStep={8} // Updated to the correct step (8)
     >
       <RingkasanProfil />
     </OnboardingLayout>

@@ -12,6 +12,7 @@ export default async function InformasiDasarPage() {
     <OnboardingLayout
       title="Informasi Dasar"
       description="Lengkapi data dasar untuk melanjutkan proses pendaftaran"
+      currentStep={1}
     >
       <InformasiDasarForm userName={userName} userEmail={userEmail} />
     </OnboardingLayout>

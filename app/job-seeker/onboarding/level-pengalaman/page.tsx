@@ -6,6 +6,7 @@ export default function LevelPengalamanPage() {
     <OnboardingLayout
       title="Level Pengalaman"
       description="Pilih level pengalaman kerja yang paling mendekati situasi Anda"
+      currentStep={4}
     >
       <LevelPengalamanForm />
     </OnboardingLayout>

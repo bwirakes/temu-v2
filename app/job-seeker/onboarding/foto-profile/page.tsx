@@ -6,7 +6,7 @@ export default function ProfilePhotoPage() {
     <OnboardingLayout
       title="Foto Profil"
       description="Unggah foto profil untuk melengkapi profil Anda (opsional)"
-      currentStep={9}
+      currentStep={7}
     >
       <ProfilePhotoForm />
     </OnboardingLayout>

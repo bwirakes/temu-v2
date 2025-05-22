@@ -42,7 +42,7 @@ const requiredProfileSchema = z.object({
   // Step 4: Level Pengalaman (Required)
   levelPengalaman: z.enum(['LULUSAN_BARU', 'SATU_DUA_TAHUN', 'TIGA_LIMA_TAHUN', 'LIMA_SEPULUH_TAHUN', 'LEBIH_SEPULUH_TAHUN']),
   
-  // Step 7: CV Upload (Required)
+  // Step 6: CV Upload (Required)
   cvFileUrl: z.string().min(1, "CV/Resume wajib diunggah"),
   
   // Optional fields
@@ -51,7 +51,7 @@ const requiredProfileSchema = z.object({
 
 // Make all address fields optional based on new requirements
 const addressSchema = z.object({
-  // Step 3: Alamat (All fields now optional)
+  // Alamat (All fields optional)
   kota: z.string().nullable().optional(),
   provinsi: z.string().nullable().optional(),
   kodePos: z.string().nullable().optional(),
@@ -62,11 +62,11 @@ const addressSchema = z.object({
 const pendidikanSchema = z.object({
   // Step 4: Pendidikan (Required)
   id: z.string(),  // Ensure this field is required to match the Pendidikan type
-  namaInstitusi: z.string().optional(),
+  namaInstitusi: z.string().nullable().optional(),
   jenjangPendidikan: z.string().min(1, "Jenjang pendidikan wajib diisi"),
-  bidangStudi: z.string().nullable().optional(),
-  tanggalLulus: z.string().optional(),
-  lokasi: z.string().optional(),
+  bidangStudi: z.string().default(""),
+  tanggalLulus: z.string().nullable().optional(),
+  lokasi: z.string().nullable().optional(),
   // Remove deskripsiTambahan field completely from validation
   // Remove nilaiAkhir field
 });
@@ -181,10 +181,10 @@ function standardizeOnboardingData(data: any): OnboardingData {
     // Ensure pendidikan is correctly formatted
     pendidikan: data.pendidikan?.map((p: any) => ({
       id: p.id || crypto.randomUUID(),
-      namaInstitusi: p.namaInstitusi || null,
+      namaInstitusi: p.namaInstitusi || "",
       lokasi: p.lokasi || null,
       jenjangPendidikan: p.jenjangPendidikan,
-      bidangStudi: p.bidangStudi || '',
+      bidangStudi: p.bidangStudi || "",
       tanggalLulus: p.tanggalLulus || null,
       tidakLulus: p.tidakLulus || false,
       // Explicitly setting these to null, ensuring they're removed
@@ -354,7 +354,7 @@ export async function POST(req: NextRequest) {
             .insert(userPendidikan)
             .values({
               userProfileId: userProfile.id,
-              namaInstitusi: cleanPendidikan.namaInstitusi || null,
+              namaInstitusi: cleanPendidikan.namaInstitusi || "",
               jenjangPendidikan: cleanPendidikan.jenjangPendidikan,
               bidangStudi: cleanPendidikan.bidangStudi || "",
               tanggalLulus: cleanPendidikan.tanggalLulus || null,
@@ -377,25 +377,25 @@ export async function POST(req: NextRequest) {
         for (const pengalaman of standardizedData.pengalamanKerja) {
           // Map to a valid levelPengalamanEnum value
           // Default to one of the valid enum values
-          let levelPengalamanValue: typeof levelPengalamanEnum.enumValues[number] = "Kurang dari 1 tahun";
+          let levelPengalamanValue: typeof levelPengalamanEnum.enumValues[number] = "Lulusan Baru / Fresh Graduate";
           
           // Map from MinWorkExperienceEnum to levelPengalamanEnum if possible
           if (pengalaman.levelPengalaman) {
             switch(pengalaman.levelPengalaman) {
               case "LULUSAN_BARU":
-                levelPengalamanValue = "Baru lulus";
+                levelPengalamanValue = "Lulusan Baru / Fresh Graduate";
                 break;
               case "SATU_DUA_TAHUN":
-                levelPengalamanValue = "1-2 tahun";
+                levelPengalamanValue = "1-2 Tahun";
                 break;
               case "TIGA_LIMA_TAHUN":
-                levelPengalamanValue = "3-5 tahun";
+                levelPengalamanValue = "3-5 Tahun";
                 break;
               case "LIMA_SEPULUH_TAHUN":
-                levelPengalamanValue = "5-10 tahun";
+                levelPengalamanValue = "5> Tahun";
                 break;
               case "LEBIH_SEPULUH_TAHUN":
-                levelPengalamanValue = "10 tahun lebih";
+                levelPengalamanValue = "10+ Tahun";
                 break;
             }
           }

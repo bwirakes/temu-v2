@@ -18,6 +18,10 @@ export default function ProgressBar({ forceCurrentStep }: ProgressBarProps) {
   
   // Use forceCurrentStep if provided, otherwise use the context value
   const currentStep = forceCurrentStep !== undefined ? forceCurrentStep : contextCurrentStep;
+  
+  // Ensure displayed step doesn't exceed total steps
+  const totalSteps = onboardingSteps.length;
+  const displayStep = Math.min(currentStep, totalSteps);
 
   // Synchronize the current step with the URL path, only if forceCurrentStep is not provided
   useEffect(() => {
@@ -36,7 +40,7 @@ export default function ProgressBar({ forceCurrentStep }: ProgressBarProps) {
   // Calculate progress percentage based on the current step position
   const progressPercentage = Math.min(
     100, // Cap at 100%
-    Math.max(5, Math.floor((currentStep / onboardingSteps.length) * 100))
+    Math.max(5, Math.floor((displayStep / totalSteps) * 100))
   );
 
   return (
@@ -44,10 +48,10 @@ export default function ProgressBar({ forceCurrentStep }: ProgressBarProps) {
       <div>
         <div className="flex justify-between items-center">
           <p className="text-sm font-medium text-blue-600">
-            Langkah {currentStep} dari {onboardingSteps.length}
+            Langkah {displayStep} dari {totalSteps}
           </p>
           <p className="text-xs text-gray-500">
-            {Math.max(0, currentStep - 1)} langkah telah dilalui
+            {Math.max(0, displayStep - 1)} langkah telah dilalui
           </p>
         </div>
         <div className="mt-2 w-full bg-gray-200 rounded-full h-2.5">

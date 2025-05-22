@@ -13,49 +13,57 @@ import {
 } from "@/components/ui/select";
 import FormNav from "@/components/FormNav";
 import { toast } from "sonner";
-import { MIN_WORK_EXPERIENCE_OPTIONS } from "@/lib/constants";
-import { OnboardingData } from "@/lib/db-types";
+import { OnboardingData, levelPengalamanEnum } from "@/lib/db-types";
 
-// Use consistent options from constants
-const levelPengalamanOptions = MIN_WORK_EXPERIENCE_OPTIONS;
+// Use levelPengalamanEnum to define options
+const levelPengalamanOptions = levelPengalamanEnum.enumValues.map(value => ({
+  value: value,
+  label: value, // Using the enum value as both value and label
+}));
 
-type LevelPengalamanEnum = typeof MIN_WORK_EXPERIENCE_OPTIONS[number]['value'];
+// Define the type for levelPengalaman based on the enum values
+type LevelPengalamanValueType = typeof levelPengalamanEnum.enumValues[number];
 
 interface LevelPengalamanFormData {
-  levelPengalaman: LevelPengalamanEnum;
+  levelPengalaman: LevelPengalamanValueType;
   jumlahPengalaman?: number;
   bidangKeahlian?: string;
   keterampilan?: string[];
 }
 
 export default function LevelPengalamanForm() {
-  // Initial empty state to avoid SSR issues
+  // Initialize with a valid value from levelPengalamanEnum
   const initialState: LevelPengalamanFormData = {
-    levelPengalaman: "LULUSAN_BARU"
+    levelPengalaman: levelPengalamanEnum.enumValues[0] || "" as LevelPengalamanValueType, // Default to the first enum value (now "Lulusan Baru / Fresh Graduate")
   };
   
   const [formData, setFormData] = useState<LevelPengalamanFormData>(initialState);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [contextError, setContextError] = useState<Error | null>(null);
   
-  // Access the context (this will work even with the default no-op context from SSR)
   const onboarding = useOnboarding();
   
-  // Initialize form state from existing data
   useEffect(() => {
     try {
       if (onboarding.data?.levelPengalaman) {
-        setFormData({ 
-          levelPengalaman: onboarding.data.levelPengalaman as LevelPengalamanEnum
-        });
+        // Ensure the value from context is a valid enum member
+        if (levelPengalamanEnum.enumValues.includes(onboarding.data.levelPengalaman)) {
+          setFormData(prev => ({ ...prev, levelPengalaman: onboarding.data.levelPengalaman as LevelPengalamanValueType }));
+        } else {
+          console.warn(`Invalid levelPengalaman value from context: ${onboarding.data.levelPengalaman}. Using default.`);
+          setFormData(prev => ({ ...prev, levelPengalaman: initialState.levelPengalaman }));
+        }
+      } else {
+        // If context has no value, ensure form is set to its initial state
+        setFormData(prev => ({ ...prev, levelPengalaman: initialState.levelPengalaman }));
       }
     } catch (error) {
       console.warn("Error initializing from context:", error);
       setContextError(error instanceof Error ? error : new Error(String(error)));
     }
-  }, [onboarding.data]);
+  }, [onboarding.data?.levelPengalaman, initialState.levelPengalaman]);
 
-  const handleChange = (field: keyof LevelPengalamanFormData, value: any) => {
+  const handleChange = (field: keyof LevelPengalamanFormData, value: LevelPengalamanValueType) => {
     setFormData(prev => ({
       ...prev,
       [field]: value
@@ -66,11 +74,9 @@ export default function LevelPengalamanForm() {
     try {
       setIsSubmitting(true);
       
-      // Make sure we have the context before updating
       if (onboarding.updateFormValues && onboarding.navigateToNextStep) {
-        // Update context with form values
         onboarding.updateFormValues({
-          levelPengalaman: formData.levelPengalaman
+          levelPengalaman: formData.levelPengalaman // This is now correctly typed
         });
         
         console.log("Saving level pengalaman:", formData.levelPengalaman);
@@ -106,10 +112,11 @@ export default function LevelPengalamanForm() {
         )}
         
         <div className="space-y-2">
-          <Label>Level Pengalaman Kerja</Label>
+          <Label htmlFor="levelPengalaman">Level Pengalaman Kerja</Label>
           <Select
+            name="levelPengalaman"
             value={formData.levelPengalaman}
-            onValueChange={(value: LevelPengalamanEnum) => handleChange('levelPengalaman', value)}
+            onValueChange={(value: LevelPengalamanValueType) => handleChange('levelPengalaman', value)}
           >
             <SelectTrigger className="w-full">
               <SelectValue placeholder="Pilih level pengalaman" />

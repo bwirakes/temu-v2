@@ -169,8 +169,16 @@ export default function RingkasanProfil() {
             <InfoItem label="Kecamatan" value={(data.alamat as any).kecamatan || "Tidak diisi"} />
           )}
           <p className="mt-2 text-sm text-gray-500 italic">
-            Alamat tidak lagi menjadi bagian dari alur pendaftaran utama dan dapat diperbarui nanti melalui profil Anda.
+            Alamat bersifat opsional dan dapat diperbarui nanti melalui profil Anda.
           </p>
+          <div className="mt-2">
+            <button 
+              onClick={() => navigateToStep(2)}
+              className="text-sm text-blue-600 hover:underline"
+            >
+              Edit Alamat (Bagian dari Informasi Lanjutan)
+            </button>
+          </div>
         </SectionCard>
       )}
 

@@ -68,13 +68,11 @@ export const lokasiKerjaEnum = pgEnum('lokasi_kerja', ['WFH', 'WFO', 'Hybrid']);
 export const tingkatKeahlianEnum = pgEnum('tingkat_keahlian', ['Pemula', 'Menengah', 'Mahir']);
 export const agamaEnum = pgEnum('agama', ['Islam', 'Kristen', 'Katolik', 'Hindu', 'Buddha', 'Konghucu']);
 export const levelPengalamanEnum = pgEnum('level_pengalaman', [
-  'Baru lulus',
-  'Pengalaman magang',
-  'Kurang dari 1 tahun',
-  '1-2 tahun',
-  '3-5 tahun',
-  '5-10 tahun',
-  '10 tahun lebih'
+  'Lulusan Baru / Fresh Graduate',
+  '1-2 Tahun',
+  '3-5 Tahun',
+  '5> Tahun',
+  '10+ Tahun'
 ]);
 export const willingToTravelEnum = pgEnum('willing_to_travel', ['wfh', 'wfo', 'travel', 'relocate', 'local_only', 'domestic', 'international']);
 export const applicationStatusEnum = pgEnum('application_status', [
@@ -226,7 +224,7 @@ export const userPendidikan = pgTable('user_pendidikan', {
     .references(() => userProfiles.id, { onDelete: 'cascade' }),
   namaInstitusi: text('nama_institusi'),
   jenjangPendidikan: text('jenjang_pendidikan').notNull(),
-  bidangStudi: text('bidang_studi').notNull(),
+  bidangStudi: text('bidang_studi'),
   tanggalLulus: text('tanggal_lulus'),
   nilaiAkhir: text('nilai_akhir'),
   lokasi: text('lokasi'),
@@ -981,9 +979,9 @@ export async function getJobSeekerOnboardingStatus(userId: string) {
       console.log(`DB: User ${userId} has onboardingCompleted=true in users table`);
       return {
         completed: true,
-        currentStep: 10, // All steps completed
+        currentStep: 9, // All steps completed
         redirectTo: '/job-seeker/dashboard',
-        completedSteps: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+        completedSteps: [1, 2, 3, 4, 5, 6, 7, 8, 9]
       };
     }
     
@@ -1015,56 +1013,37 @@ export async function getJobSeekerOnboardingStatus(userId: string) {
       completedSteps.push(2);
     }
     
-    // Step 3: Alamat
-    const userAddressesResult = await db
-      .select()
-      .from(userAddresses)
-      .where(eq(userAddresses.userProfileId, userProfile.id));
-    
-    if (userAddressesResult && userAddressesResult.length > 0) {
-      // At least one address is stored in the database
+    // Step 3: Pendidikan (was Step 4)
+    const educationRecords = await getUserPendidikanByProfileId(userProfile.id);
+    if (educationRecords && educationRecords.length > 0) {
       completedSteps.push(3);
     }
     
-    // Step 4: Pendidikan
-    const educationRecords = await getUserPendidikanByProfileId(userProfile.id);
-    if (educationRecords && educationRecords.length > 0) {
+    // Step 4: Level Pengalaman (was Step 5)
+    if (userProfile.levelPengalaman) {
       completedSteps.push(4);
     }
     
-    // Step 5: Level Pengalaman
-    if (userProfile.levelPengalaman) {
-      completedSteps.push(5);
-    }
-    
-    // Optional steps (6-9) follow the same pattern as in calculateCompletedSteps
-    // Step 6: Pengalaman Kerja (optional)
+    // Step 5: Pengalaman Kerja - optional (was Step 6)
     const experienceRecords = await getUserPengalamanKerjaByProfileId(userProfile.id);
     if (experienceRecords && experienceRecords.length > 0) {
       // Actual data provided
-      completedSteps.push(6);
-    } else if (completedSteps.includes(5)) {
+      completedSteps.push(5);
+    } else if (completedSteps.includes(4)) {
       // No data but the user has completed all required steps
+      completedSteps.push(5);
+    }
+    
+    // Step 6: CV Upload - required (was Step 8)
+    if (userProfile.cvFileUrl) {
       completedSteps.push(6);
     }
     
-    // Step 7: Ekspektasi Kerja (optional)
-    if (userProfile.ekspektasiKerja && Object.keys(userProfile.ekspektasiKerja).length > 0) {
+    // Step 7: Profile Photo - optional (was Step 9)
+    if (userProfile.profilePhotoUrl) {
       completedSteps.push(7);
     } else if (completedSteps.includes(6)) {
       completedSteps.push(7);
-    }
-    
-    // Step 8: CV Upload (now required)
-    if (userProfile.cvFileUrl) {
-      completedSteps.push(8);
-    }
-    
-    // Step 9: Profile Photo (optional)
-    if (userProfile.profilePhotoUrl) {
-      completedSteps.push(9);
-    } else if (completedSteps.includes(8)) {
-      completedSteps.push(9);
     }
     
     // Determine the current step based on completed steps
@@ -1073,7 +1052,7 @@ export async function getJobSeekerOnboardingStatus(userId: string) {
     let completed = false;
     
     // Find the first incomplete required step
-    for (let i = 1; i <= 5; i++) {
+    for (let i = 1; i <= 4; i++) {
       if (!completedSteps.includes(i)) {
         currentStep = i;
         const stepInfo = onboardingSteps.find(step => step.id === i);
@@ -1082,31 +1061,29 @@ export async function getJobSeekerOnboardingStatus(userId: string) {
       }
     }
     
-    // Check for CV Upload (Step 8) as it's now required
+    // Check for CV Upload (Step 6) as it's required
     if (completedSteps.includes(1) && 
         completedSteps.includes(2) && 
         completedSteps.includes(3) && 
         completedSteps.includes(4) && 
-        completedSteps.includes(5) && 
-        !completedSteps.includes(8)) {
-      currentStep = 8;
-      const stepInfo = onboardingSteps.find(step => step.id === 8);
-      redirectTo = stepInfo?.path || `/job-seeker/onboarding/${getPathForStepNumber(8)}`;
+        !completedSteps.includes(6)) {
+      currentStep = 6;
+      const stepInfo = onboardingSteps.find(step => step.id === 6);
+      redirectTo = stepInfo?.path || `/job-seeker/onboarding/${getPathForStepNumber(6)}`;
     }
     
     // If all required steps are complete
     if (completedSteps.includes(1) && 
         completedSteps.includes(2) && 
         completedSteps.includes(3) && 
-        completedSteps.includes(4) && 
-        completedSteps.includes(5) &&
-        completedSteps.includes(8)) {
+        completedSteps.includes(4) &&
+        completedSteps.includes(6)) {
       
-      // If we've reached here, all required steps (1-5, 8) are complete
+      // If we've reached here, all required steps (1-4, 6) are complete
       // Check for the first incomplete optional step
-      for (let i = 6; i <= 9; i++) {
-        // Skip step 8 as it's now required and already checked above
-        if (i === 8) continue;
+      for (let i = 5; i <= 7; i++) {
+        // Skip step 6 as it's now required and already checked above
+        if (i === 6) continue;
         
         if (!completedSteps.includes(i)) {
           currentStep = i;
@@ -1116,9 +1093,9 @@ export async function getJobSeekerOnboardingStatus(userId: string) {
         }
       }
       
-      // If all steps (1-9) are complete, redirect to summary
-      if (completedSteps.length === 9) {
-        currentStep = 10; // Summary step
+      // If all steps (1-7) are complete, redirect to summary
+      if (completedSteps.length === 7) {
+        currentStep = 8; // Summary step
         redirectTo = '/job-seeker/onboarding/ringkasan';
         completed = true;
         
@@ -1160,14 +1137,12 @@ function getPathForStepNumber(stepNumber: number): string {
   const pathMap: Record<number, string> = {
     1: 'informasi-dasar',
     2: 'informasi-lanjutan',
-    3: 'alamat',
-    4: 'pendidikan',
-    5: 'level-pengalaman',
-    6: 'pengalaman-kerja',
-    7: 'ekspektasi-kerja',
-    8: 'cv-upload',
-    9: 'foto-profile',
-    10: 'ringkasan'
+    3: 'pendidikan',
+    4: 'level-pengalaman',
+    5: 'pengalaman-kerja',
+    6: 'cv-upload',
+    7: 'foto-profile',
+    8: 'ringkasan'
   };
   
   return pathMap[stepNumber] || 'informasi-dasar';

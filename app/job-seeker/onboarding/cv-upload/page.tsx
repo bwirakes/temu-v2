@@ -6,6 +6,7 @@ export default function CVUploadPage() {
     <OnboardingLayout
       title="Unggah CV/Resume"
       description="CV/Resume Anda wajib diunggah dan akan dilihat oleh perekrut saat Anda melamar pekerjaan"
+      currentStep={6}
     >
       <CVUploadForm />
     </OnboardingLayout>

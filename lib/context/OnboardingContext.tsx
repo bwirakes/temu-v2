@@ -6,7 +6,8 @@ import {
   useContext, 
   ReactNode,
   useEffect,
-  useCallback
+  useCallback,
+  useRef
 } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -18,7 +19,8 @@ import {
   EkspektasiKerja,
   onboardingSteps,
   optionalSteps,
-  OnboardingData
+  OnboardingData,
+  levelPengalamanEnum
 } from "@/lib/db-types";
 
 const initialData: OnboardingData = {
@@ -27,16 +29,18 @@ const initialData: OnboardingData = {
   nomorTelepon: "",
   tempatLahir: null,
   tanggalLahir: "",
+  jenisKelamin: null,
   alamat: {
-    kota: "",
-    provinsi: "",
-    kodePos: "",
-    jalan: "",
+    kota: null,
+    provinsi: null,
+    kodePos: null,
+    jalan: null,
   },
-  levelPengalaman: undefined,
+  levelPengalaman: null,
   pendidikan: [],
   pengalamanKerja: [],
   profilePhotoUrl: undefined,
+  cvFileUrl: undefined,
 };
 
 type OnboardingContextType = {
@@ -87,30 +91,17 @@ export const OnboardingProvider = ({ children }: { children: ReactNode }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submissionError, setSubmissionError] = useState<string | null>(null);
+  const [isProgrammaticNavigation, setIsProgrammaticNavigation] = useState(false);
+  const [initialDataLoaded, setInitialDataLoaded] = useState(false);
   const router = useRouter();
   const { data: session, status } = useSession();
   const userId = session?.user?.id;
   
-  // Reset state when user changes or signs out
-  useEffect(() => {
-    if (status === 'loading') return;
-    
-    if (status === 'unauthenticated') {
-      // Reset state when user signs out
-      console.log('User signed out, resetting onboarding state');
-      setData(initialData);
-      setCurrentStep(1);
-    }
-    
-    // Load onboarding data when the user is authenticated or changes
-    if (status === 'authenticated' && userId) {
-      // If authenticated, ensure onboarding data is loaded from the API
-      loadSavedData();
-    }
-  }, [status, userId]);
-
+  // Track the previous userId to detect changes
+  const prevUserIdRef = useRef<string | undefined>(undefined);
+  
   // Load saved data from API when the context initializes or user changes
-  const loadSavedData = async () => {
+  const loadSavedData = useCallback(async () => {
     try {
       setIsLoading(true);
       
@@ -147,6 +138,9 @@ export const OnboardingProvider = ({ children }: { children: ReactNode }) => {
         // If no currentStep provided, default to first step
         setCurrentStep(1);
       }
+
+      // Mark that initial data has been loaded
+      setInitialDataLoaded(true);
     } catch (error) {
       console.error("Error loading onboarding data:", error);
       // On error, reset to initial state to avoid using stale data
@@ -154,8 +148,67 @@ export const OnboardingProvider = ({ children }: { children: ReactNode }) => {
       setCurrentStep(1);
     } finally {
       setIsLoading(false);
+      // Reset programmatic navigation flag after data is loaded
+      if (isProgrammaticNavigation) {
+        setIsProgrammaticNavigation(false);
+      }
     }
-  };
+  }, [isProgrammaticNavigation, initialData, setData, setCurrentStep, setIsLoading, setInitialDataLoaded]);
+  
+  // Reset state when user changes or signs out, or load data on initial authentication
+  useEffect(() => {
+    // Skip if we're still loading the session
+    if (status === 'loading') return;
+    
+    if (status === 'unauthenticated') {
+      // Reset state when user signs out
+      console.log('User signed out, resetting onboarding state');
+      setData(initialData);
+      setCurrentStep(1);
+      setInitialDataLoaded(false);
+      prevUserIdRef.current = undefined;
+      return;
+    }
+    
+    // Load onboarding data when the user is authenticated
+    if (status === 'authenticated' && userId) {
+      const userIdChanged = prevUserIdRef.current !== userId;
+      
+      // Only load data if:
+      // 1. It hasn't been loaded yet, or
+      // 2. The userId has changed
+      // But NEVER load if we're in programmatic navigation mode
+      if ((!initialDataLoaded || userIdChanged) && !isProgrammaticNavigation) {
+        console.log('Loading onboarding data for user:', userId);
+        
+        // Store in a variable to be able to abort if component unmounts
+        let isMounted = true;
+        const loadData = async () => {
+          try {
+            await loadSavedData();
+            if (isMounted) {
+              // Update the previous userId reference
+              prevUserIdRef.current = userId;
+            }
+          } catch (error) {
+            if (isMounted) {
+              console.error("Failed to load onboarding data:", error);
+            }
+          }
+        };
+        
+        loadData();
+        
+        // Cleanup function to prevent state updates after unmounting
+        return () => {
+          isMounted = false;
+        };
+      } else {
+        // Always update the previous userId reference even if we don't load data
+        prevUserIdRef.current = userId;
+      }
+    }
+  }, [status, userId, initialDataLoaded, isProgrammaticNavigation, loadSavedData]);
 
   const setFormValues = useCallback((stepName: keyof OnboardingData, values: any) => {
     setData((prev) => ({
@@ -184,32 +237,30 @@ export const OnboardingProvider = ({ children }: { children: ReactNode }) => {
         if (!data.tanggalLahir) errors.tanggalLahir = "Tanggal lahir wajib diisi";
         // tempatLahir is now optional
         break;
-      case 3: // Pendidikan
+      case 3: // Pendidikan (was Step 4)
         if (data.pendidikan.length === 0) {
           errors.pendidikan = "Minimal satu pendidikan harus diisi";
         } else {
           const pendidikanErrors = data.pendidikan.map((p, i) => {
             const itemErrors: Record<string, string> = {};
-            // Only jenjangPendidikan and bidangStudi are required
+            // Only jenjangPendidikan is required
             if (!p.jenjangPendidikan) itemErrors.jenjangPendidikan = "Jenjang pendidikan wajib diisi";
-            if (!p.bidangStudi) itemErrors.bidangStudi = "Bidang studi wajib diisi";
             return Object.keys(itemErrors).length > 0 ? { index: i, errors: itemErrors } : null;
           }).filter(Boolean);
           
           if (pendidikanErrors.length > 0) {
-            errors.pendidikanDetails = JSON.stringify(pendidikanErrors);
+            errors.pendidikan = `Ada ${pendidikanErrors.length} pendidikan yang belum lengkap`;
           }
         }
         break;
-      case 4: // Level Pengalaman
-        if (!data.levelPengalaman) errors.levelPengalaman = "Level pengalaman wajib diisi";
-        // Validate against the enum values
-        const validLevelValues = ['LULUSAN_BARU', 'SATU_DUA_TAHUN', 'TIGA_LIMA_TAHUN', 'LIMA_SEPULUH_TAHUN', 'LEBIH_SEPULUH_TAHUN'];
-        if (data.levelPengalaman && !validLevelValues.includes(data.levelPengalaman)) {
+      case 4: // Level Pengalaman (was Step 5)
+        if (!data.levelPengalaman) {
+          errors.levelPengalaman = "Level pengalaman wajib diisi";
+        } else if (!levelPengalamanEnum.enumValues.includes(data.levelPengalaman)) {
           errors.levelPengalaman = "Level pengalaman tidak valid";
         }
         break;
-      case 5: // Pengalaman Kerja - optional
+      case 5: // Pengalaman Kerja - optional (was Step 6)
         if (data.pengalamanKerja.length > 0) {
           const pengalamanErrors = data.pengalamanKerja.map((p, i) => {
             const itemErrors: Record<string, string> = {};
@@ -227,7 +278,7 @@ export const OnboardingProvider = ({ children }: { children: ReactNode }) => {
           }
         }
         break;
-      case 6: // CV Upload
+      case 6: // CV Upload (was Step 7)
         if (!data.cvFileUrl) errors.cvFileUrl = "CV/Resume wajib diunggah";
         break;
     }
@@ -242,8 +293,7 @@ export const OnboardingProvider = ({ children }: { children: ReactNode }) => {
     try {
       setIsSubmitting(true);
 
-      // Normalize any null or undefined fields
-      // Note: Server-side validation will handle required fields
+      // Normalize pendidikan data based on Pendidikan type from db-types.ts
       const normalizedPendidikan = data.pendidikan.map((pendidikan) => {
         // Create a clean object with only the fields we need
         const pendidikanObj = {
@@ -345,6 +395,8 @@ export const OnboardingProvider = ({ children }: { children: ReactNode }) => {
       // Handle successful submission
       console.log("Onboarding submission successful:", responseData);
       
+      // Set programmatic navigation flag before redirecting
+      setIsProgrammaticNavigation(true);
       setIsSubmitting(false);
       return true;
     } catch (error: any) {
@@ -372,6 +424,8 @@ export const OnboardingProvider = ({ children }: { children: ReactNode }) => {
   const navigateToNextStep = useCallback(() => {
     const nextStep = currentStep + 1;
     if (nextStep <= onboardingSteps.length) {
+      // Set navigation flag before changing state
+      setIsProgrammaticNavigation(true);
       setCurrentStep(nextStep);
       const path = getStepPath(nextStep);
       if (path) {
@@ -383,6 +437,8 @@ export const OnboardingProvider = ({ children }: { children: ReactNode }) => {
   const navigateToPreviousStep = useCallback(() => {
     const prevStep = currentStep - 1;
     if (prevStep >= 1) {
+      // Set navigation flag before changing state
+      setIsProgrammaticNavigation(true);
       setCurrentStep(prevStep);
       const path = getStepPath(prevStep);
       if (path) {
@@ -393,6 +449,8 @@ export const OnboardingProvider = ({ children }: { children: ReactNode }) => {
   
   const navigateToStep = useCallback((step: number) => {
     if (step >= 1 && step <= onboardingSteps.length) {
+      // Set navigation flag before changing state
+      setIsProgrammaticNavigation(true);
       setCurrentStep(step);
       const path = getStepPath(step);
       if (path) {
