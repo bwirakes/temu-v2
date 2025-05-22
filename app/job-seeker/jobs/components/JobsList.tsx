@@ -3,7 +3,6 @@ import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
 import EmployerLogo from './employer-logo';
 import { MinWorkExperienceEnum, getMinWorkExperienceLabel } from '@/lib/constants';
-import { minWorkExperienceEnum } from '@/lib/db';
 import { MapPinIcon, BriefcaseIcon, CalendarIcon } from '@heroicons/react/24/outline';
 import { mapDbWorkExperienceToFrontend, DbWorkExperienceEnum } from '@/lib/utils/enum-mappers';
 

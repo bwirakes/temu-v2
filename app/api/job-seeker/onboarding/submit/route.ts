@@ -62,11 +62,11 @@ const addressSchema = z.object({
 const pendidikanSchema = z.object({
   // Step 4: Pendidikan (Required)
   id: z.string(),  // Ensure this field is required to match the Pendidikan type
-  namaInstitusi: z.string().nullable().optional(), // Allow null values
+  namaInstitusi: z.string().optional(),
   jenjangPendidikan: z.string().min(1, "Jenjang pendidikan wajib diisi"),
   bidangStudi: z.string().nullable().optional(),
-  tanggalLulus: z.string().nullable().optional(), // Allow null values
-  lokasi: z.string().nullable().optional(), // Allow null values
+  tanggalLulus: z.string().optional(),
+  lokasi: z.string().optional(),
   // Remove deskripsiTambahan field completely from validation
   // Remove nilaiAkhir field
 });
@@ -113,31 +113,17 @@ async function validateCompleteOnboarding(data: any): Promise<{
       hasPendidikanDeskripsi: data.pendidikan?.some((p: any) => p.deskripsiTambahan !== undefined),
       hasPengalamanDeskripsi: data.pengalamanKerja?.some((p: any) => p.deskripsiPekerjaan !== undefined),
       pendidikanFields: data.pendidikan?.[0] ? Object.keys(data.pendidikan[0]) : [],
-      pendidikanValues: data.pendidikan?.[0] ? {
-        namaInstitusi: typeof data.pendidikan[0].namaInstitusi,
-        lokasi: typeof data.pendidikan[0].lokasi,
-        tanggalLulus: typeof data.pendidikan[0].tanggalLulus,
-        bidangStudi: typeof data.pendidikan[0].bidangStudi,
-      } : {},
       tempatLahir: data.tempatLahir === null ? "is null" : (data.tempatLahir === undefined ? "is undefined" : "has value"),
       hasAlamat: !!data.alamat,
       alamatFields: data.alamat ? Object.keys(data.alamat) : []
     }));
     
-    // Check for and ensure pendidikan fields are properly formatted
+    // Check for and remove deskripsiTambahan if it exists before validation
     if (data.pendidikan?.length > 0) {
       data.pendidikan = data.pendidikan.map((item: any) => {
         // Remove deskripsiTambahan and nilaiAkhir if they exist
         const { deskripsiTambahan, nilaiAkhir, ...rest } = item;
-        
-        // Ensure string fields are either strings or null, not undefined
-        return {
-          ...rest,
-          namaInstitusi: rest.namaInstitusi ?? null,
-          lokasi: rest.lokasi ?? null,
-          tanggalLulus: rest.tanggalLulus ?? null,
-          bidangStudi: rest.bidangStudi || '',
-        };
+        return rest;
       });
     }
     
@@ -145,10 +131,10 @@ async function validateCompleteOnboarding(data: any): Promise<{
     if (data.alamat && typeof data.alamat === 'object') {
       // Keep only the fields defined in addressSchema
       data.alamat = {
-        kota: data.alamat.kota ?? null,
-        provinsi: data.alamat.provinsi ?? null,
-        kodePos: data.alamat.kodePos ?? null,
-        jalan: data.alamat.jalan ?? null
+        kota: data.alamat.kota || null,
+        provinsi: data.alamat.provinsi || null,
+        kodePos: data.alamat.kodePos || null,
+        jalan: data.alamat.jalan || null
       };
     }
     
@@ -195,11 +181,11 @@ function standardizeOnboardingData(data: any): OnboardingData {
     // Ensure pendidikan is correctly formatted
     pendidikan: data.pendidikan?.map((p: any) => ({
       id: p.id || crypto.randomUUID(),
-      namaInstitusi: p.namaInstitusi ?? null,
-      lokasi: p.lokasi ?? null,
+      namaInstitusi: p.namaInstitusi || null,
+      lokasi: p.lokasi || null,
       jenjangPendidikan: p.jenjangPendidikan,
       bidangStudi: p.bidangStudi || '',
-      tanggalLulus: p.tanggalLulus ?? null,
+      tanggalLulus: p.tanggalLulus || null,
       tidakLulus: p.tidakLulus || false,
       // Explicitly setting these to null, ensuring they're removed
       nilaiAkhir: null,
@@ -368,14 +354,14 @@ export async function POST(req: NextRequest) {
             .insert(userPendidikan)
             .values({
               userProfileId: userProfile.id,
-              namaInstitusi: cleanPendidikan.namaInstitusi ?? null,
+              namaInstitusi: cleanPendidikan.namaInstitusi || null,
               jenjangPendidikan: cleanPendidikan.jenjangPendidikan,
               bidangStudi: cleanPendidikan.bidangStudi || "",
-              tanggalLulus: cleanPendidikan.tanggalLulus ?? null,
-              lokasi: cleanPendidikan.lokasi ?? null,
-              nilaiAkhir: null,
-              deskripsiTambahan: null,
-              tidakLulus: cleanPendidikan.tidakLulus || false
+              tanggalLulus: cleanPendidikan.tanggalLulus || null,
+              lokasi: cleanPendidikan.lokasi || null,
+              nilaiAkhir: null, // Explicitly set to null as requested
+              deskripsiTambahan: null, // Explicitly set to null as requested
+              tidakLulus: cleanPendidikan.tidakLulus || false // Default value
             });
         }
       }
