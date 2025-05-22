@@ -43,3 +43,6 @@ next-env.d.ts
 /created_employers_log.csv 
 /public/export_employer_data.csv
 /public/job_posting_upload.csv
+/public/employer_upload_20250222.csv
+/public/20250522_job_posting.csv
+/20250522_job_posting_errors.csv
