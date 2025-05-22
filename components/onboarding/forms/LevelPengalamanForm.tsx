@@ -36,30 +36,24 @@ export default function LevelPengalamanForm() {
   
   const [formData, setFormData] = useState<LevelPengalamanFormData>(initialState);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [contextError, setContextError] = useState<Error | null>(null);
   
-  // Try to access OnboardingContext, but handle the case when it doesn't exist
-  let onboardingData: OnboardingData | undefined;
-  let updateFormValues: ((values: Partial<OnboardingData>) => void) | undefined;
-  let navigateToNextStep: (() => void) | undefined;
+  // Access the context (this will work even with the default no-op context from SSR)
+  const onboarding = useOnboarding();
   
-  try {
-    const onboarding = useOnboarding();
-    onboardingData = onboarding.data;
-    updateFormValues = onboarding.updateFormValues;
-    navigateToNextStep = onboarding.navigateToNextStep;
-    
-    // Initialize form state from existing data (but only after the context is available)
-    useEffect(() => {
-      if (onboardingData?.levelPengalaman) {
+  // Initialize form state from existing data
+  useEffect(() => {
+    try {
+      if (onboarding.data?.levelPengalaman) {
         setFormData({ 
-          levelPengalaman: onboardingData.levelPengalaman as LevelPengalamanEnum
+          levelPengalaman: onboarding.data.levelPengalaman as LevelPengalamanEnum
         });
       }
-    }, [onboardingData]);
-  } catch (error) {
-    // Context not available (during SSR or if component is used outside provider)
-    console.warn("OnboardingContext not available. Component will render with default values.");
-  }
+    } catch (error) {
+      console.warn("Error initializing from context:", error);
+      setContextError(error instanceof Error ? error : new Error(String(error)));
+    }
+  }, [onboarding.data]);
 
   const handleChange = (field: keyof LevelPengalamanFormData, value: any) => {
     setFormData(prev => ({
@@ -73,18 +67,18 @@ export default function LevelPengalamanForm() {
       setIsSubmitting(true);
       
       // Make sure we have the context before updating
-      if (updateFormValues && navigateToNextStep) {
+      if (onboarding.updateFormValues && onboarding.navigateToNextStep) {
         // Update context with form values
-        updateFormValues({
+        onboarding.updateFormValues({
           levelPengalaman: formData.levelPengalaman
         });
         
         console.log("Saving level pengalaman:", formData.levelPengalaman);
         
         toast.success("Level pengalaman berhasil disimpan");
-        navigateToNextStep();
+        onboarding.navigateToNextStep();
       } else {
-        console.error("Cannot submit form: OnboardingContext not available");
+        console.error("Cannot submit form: OnboardingContext methods not available");
         toast.error("Terjadi kesalahan. Mohon refresh halaman dan coba lagi.");
       }
     } catch (error) {
@@ -104,6 +98,12 @@ export default function LevelPengalamanForm() {
             Pilih level pengalaman kerja Anda untuk membantu kami menemukan pekerjaan yang sesuai dengan keahlian Anda.
           </p>
         </div>
+        
+        {contextError && (
+          <div className="p-4 border border-red-200 bg-red-50 text-red-700 rounded-md">
+            <p>Terjadi kesalahan saat memuat data. Mohon refresh halaman atau coba lagi nanti.</p>
+          </div>
+        )}
         
         <div className="space-y-2">
           <Label>Level Pengalaman Kerja</Label>
