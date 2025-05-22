@@ -57,7 +57,7 @@ export default function NotionHeader() {
   if (userType === 'employer') {
     dashboardLink = onboardingCompleted ? '/employer/dashboard' : '/employer/onboarding';
   } else if (userType === 'job_seeker') {
-    dashboardLink = onboardingCompleted ? '/job-seeker/dashboard' : '/job-seeker/onboarding';
+    dashboardLink = '/job-seeker/dashboard'; // Always redirect to dashboard for job seekers
   }
 
   // Don't render the header in logged-in areas, but AFTER all hooks are called
