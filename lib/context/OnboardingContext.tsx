@@ -58,7 +58,28 @@ type OnboardingContextType = {
   submitOnboardingData: () => Promise<boolean>;
 };
 
-const OnboardingContext = createContext<OnboardingContextType | undefined>(undefined);
+// Create a default context with no-op functions to avoid null checks
+const defaultContextValue: OnboardingContextType = {
+  data: initialData,
+  setFormValues: () => {},
+  updateFormValues: () => {},
+  currentStep: 1,
+  setCurrentStep: () => {},
+  getStepValidationErrors: () => ({}),
+  isLoading: false,
+  navigateToNextStep: () => {},
+  navigateToPreviousStep: () => {},
+  navigateToStep: () => {},
+  getStepById: () => undefined,
+  getStepPath: () => undefined,
+  isOptionalStep: () => false,
+  isSubmitting: false,
+  submissionError: null,
+  submitOnboardingData: async () => false,
+};
+
+// Use default context value to prevent null errors during SSR
+const OnboardingContext = createContext<OnboardingContextType>(defaultContextValue);
 
 export const OnboardingProvider = ({ children }: { children: ReactNode }) => {
   const [data, setData] = useState<OnboardingData>(initialData);
@@ -408,8 +429,6 @@ export const OnboardingProvider = ({ children }: { children: ReactNode }) => {
 
 export const useOnboarding = () => {
   const context = useContext(OnboardingContext);
-  if (context === undefined) {
-    throw new Error("useOnboarding must be used within an OnboardingProvider");
-  }
+  // This check is no longer needed as we're providing default values
   return context;
 };

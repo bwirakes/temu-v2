@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useOnboarding } from "@/lib/context/OnboardingContext";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -14,6 +14,7 @@ import {
 import FormNav from "@/components/FormNav";
 import { toast } from "sonner";
 import { MIN_WORK_EXPERIENCE_OPTIONS } from "@/lib/constants";
+import { OnboardingData } from "@/lib/db-types";
 
 // Use consistent options from constants
 const levelPengalamanOptions = MIN_WORK_EXPERIENCE_OPTIONS;
@@ -28,24 +29,37 @@ interface LevelPengalamanFormData {
 }
 
 export default function LevelPengalamanForm() {
-  const { data, updateFormValues, navigateToNextStep } = useOnboarding();
+  // Initial empty state to avoid SSR issues
+  const initialState: LevelPengalamanFormData = {
+    levelPengalaman: "LULUSAN_BARU"
+  };
+  
+  const [formData, setFormData] = useState<LevelPengalamanFormData>(initialState);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  // Initialize form state from existing data
-  const initialLevelData: LevelPengalamanFormData = (() => {
-    // If we have a stored value, use it
-    if (data.levelPengalaman) {
-      return { 
-        levelPengalaman: data.levelPengalaman as LevelPengalamanEnum
-      };
-    } 
-    // Default value
-    else {
-      return { levelPengalaman: "LULUSAN_BARU" };
-    }
-  })();
+  // Try to access OnboardingContext, but handle the case when it doesn't exist
+  let onboardingData: OnboardingData | undefined;
+  let updateFormValues: ((values: Partial<OnboardingData>) => void) | undefined;
+  let navigateToNextStep: (() => void) | undefined;
   
-  const [formData, setFormData] = useState<LevelPengalamanFormData>(initialLevelData);
+  try {
+    const onboarding = useOnboarding();
+    onboardingData = onboarding.data;
+    updateFormValues = onboarding.updateFormValues;
+    navigateToNextStep = onboarding.navigateToNextStep;
+    
+    // Initialize form state from existing data (but only after the context is available)
+    useEffect(() => {
+      if (onboardingData?.levelPengalaman) {
+        setFormData({ 
+          levelPengalaman: onboardingData.levelPengalaman as LevelPengalamanEnum
+        });
+      }
+    }, [onboardingData]);
+  } catch (error) {
+    // Context not available (during SSR or if component is used outside provider)
+    console.warn("OnboardingContext not available. Component will render with default values.");
+  }
 
   const handleChange = (field: keyof LevelPengalamanFormData, value: any) => {
     setFormData(prev => ({
@@ -58,15 +72,21 @@ export default function LevelPengalamanForm() {
     try {
       setIsSubmitting(true);
       
-      // Update context with form values
-      updateFormValues({
-        levelPengalaman: formData.levelPengalaman
-      });
-      
-      console.log("Saving level pengalaman:", formData.levelPengalaman);
-      
-      toast.success("Level pengalaman berhasil disimpan");
-      navigateToNextStep();
+      // Make sure we have the context before updating
+      if (updateFormValues && navigateToNextStep) {
+        // Update context with form values
+        updateFormValues({
+          levelPengalaman: formData.levelPengalaman
+        });
+        
+        console.log("Saving level pengalaman:", formData.levelPengalaman);
+        
+        toast.success("Level pengalaman berhasil disimpan");
+        navigateToNextStep();
+      } else {
+        console.error("Cannot submit form: OnboardingContext not available");
+        toast.error("Terjadi kesalahan. Mohon refresh halaman dan coba lagi.");
+      }
     } catch (error) {
       console.error("Form submission error:", error);
       toast.error("Gagal menyimpan level pengalaman. Silakan coba lagi.");
