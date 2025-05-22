@@ -39,11 +39,6 @@ export default function Sidebar({ isOpen, isMobile, onClose }: SidebarProps) {
       icon: <Briefcase size={20} />
     },
     {
-      label: "Pelamar",
-      href: "/employer/applicants",
-      icon: <Users size={20} />
-    },
-    {
       label: "Pengaturan",
       href: "/employer/settings",
       icon: <Settings size={20} />

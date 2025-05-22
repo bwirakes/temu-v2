@@ -43,6 +43,10 @@ const BYPASS_ROUTES = [
   // Completely bypass all job application routes to prevent redirect loops
   '/job-application/',
   '/job-seeker/job-application/',
+  // Add employer job posting routes to bypass middleware
+  '/employer/job-posting/',
+  // Add employer applicants routes to bypass middleware
+  '/employer/applicants/',
 ];
 
 export async function middleware(request: NextRequest) {
@@ -147,7 +151,12 @@ export async function middleware(request: NextRequest) {
     const otherUserTypePrefix = userType === 'job_seeker' ? '/employer' : '/job-seeker';
     
     // Prevent accessing the wrong user type's area
-    if (pathname.startsWith(otherUserTypePrefix) && !pathname.startsWith(`${otherUserTypePrefix}/onboarding/success`)) { // Allow success page for both
+    if (pathname.startsWith(otherUserTypePrefix) && 
+        !pathname.startsWith(`${otherUserTypePrefix}/onboarding/success`) && 
+        !(userType === 'employer' && (
+          pathname.startsWith('/employer/job-posting') || 
+          pathname.startsWith('/employer/applicants')
+        ))) { // Allow employers to access job posting and applicants
       console.log(`Redirecting user with type ${userType} from ${pathname} to /`);
       return NextResponse.redirect(new URL('/', request.url)); // Redirect to homepage, which will then redirect to correct dashboard
     }
@@ -195,6 +204,16 @@ function shouldBypassMiddleware(pathname: string): boolean {
     pathname.startsWith('/job-seeker/job-application/') ||
     pathname === '/job-application' ||
     pathname === '/job-seeker/job-application'
+  ) {
+    return true;
+  }
+  
+  // Bypass employer job posting routes to prevent redirect loops
+  if (
+    pathname === '/employer/job-posting' || 
+    pathname.startsWith('/employer/job-posting/') ||
+    pathname === '/employer/applicants' ||
+    pathname.startsWith('/employer/applicants/')
   ) {
     return true;
   }
