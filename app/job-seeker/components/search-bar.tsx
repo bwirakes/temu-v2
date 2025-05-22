@@ -1,18 +1,41 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 interface SearchBarProps {
   placeholder?: string;
+  initialQuery?: string;
 }
 
-export default function SearchBar({ placeholder = "Cari posisi kerja atau skill yang dibutuhkan..." }: SearchBarProps) {
-  const [query, setQuery] = useState('');
+export default function SearchBar({ 
+  placeholder = "Cari lowongan (judul, perusahaan, lokasi, keahlian)...",
+  initialQuery = ''
+}: SearchBarProps) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [query, setQuery] = useState(initialQuery);
+
+  // Sync with initialQuery prop when it changes (e.g., during navigation)
+  useEffect(() => {
+    setQuery(initialQuery);
+  }, [initialQuery]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    // In a real implementation, this would filter jobs
-    console.log('Mencari:', query);
+    
+    // Construct new URL with search parameters
+    const params = new URLSearchParams(searchParams.toString());
+    
+    // Set or delete search query parameter
+    if (query.trim()) {
+      params.set('q', query.trim());
+    } else {
+      params.delete('q');
+    }
+    
+    // Navigate to the updated URL
+    router.push(`/job-seeker/jobs?${params.toString()}`);
   };
 
   return (

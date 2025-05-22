@@ -90,6 +90,31 @@ export async function middleware(request: NextRequest) {
   }
 
   // ##########################################
+  // ADMIN ROUTE PROTECTION
+  // ##########################################
+  if (pathname.startsWith('/admin')) {
+    try {
+      // Get the session with auth data
+      const session = await auth();
+      
+      // If no user is logged in or the user is not the admin, redirect to signin
+      if (!session?.user || session.user.email !== 'brandon.r.wirakesuma@gmail.com') {
+        // Redirect to signin page with callback URL
+        const signinUrl = new URL('/auth/signin', request.url);
+        signinUrl.searchParams.set('callbackUrl', pathname);
+        return NextResponse.redirect(signinUrl);
+      }
+      
+      // Allow access for admin
+      return NextResponse.next();
+    } catch (error) {
+      console.error('Admin middleware error:', error);
+      // On error, redirect to homepage
+      return NextResponse.redirect(new URL('/', request.url));
+    }
+  }
+
+  // ##########################################
   // AUTHENTICATION CHECK
   // ##########################################
   try {
@@ -228,5 +253,8 @@ export const config = {
     '/api/onboarding/:path*',
     '/onboarding/:path*',
     '/employer-onboarding/:path*',
+    // Admin routes
+    '/admin',
+    '/admin/:path*'
   ]
 };

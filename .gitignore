@@ -46,3 +46,5 @@ next-env.d.ts
 /public/employer_upload_20250222.csv
 /public/20250522_job_posting.csv
 /20250522_job_posting_errors.csv
+/public/jobposting-v2.csv
+/jobposting-v2_errors.csv

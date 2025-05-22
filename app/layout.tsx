@@ -7,6 +7,7 @@ import NotionHeader from './components/notion-header';
 import NotionFooter from './components/notion-footer';
 import { SpeedInsights } from "@vercel/speed-insights/next"
 import { Analytics } from "@vercel/analytics/next"
+import ConditionalLayout from '@/components/conditional-layout';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -30,9 +31,12 @@ export default function RootLayout({
         <SessionProvider>
           <ToastProvider />
           <Analytics/>
-          <NotionHeader />
-          {children}
-          <NotionFooter />
+          <ConditionalLayout 
+            header={<NotionHeader />}
+            footer={<NotionFooter />}
+          >
+            {children}
+          </ConditionalLayout>
         </SessionProvider>
         <SpeedInsights />
       </body>

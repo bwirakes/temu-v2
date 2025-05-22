@@ -1,7 +1,7 @@
 import { Metadata } from 'next';
 import { db } from '@/lib/db';
 import { jobs, employers } from '@/lib/db';
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, ilike, or, and, SQL } from 'drizzle-orm';
 import SearchBar from '../components/search-bar';
 import { Suspense } from 'react';
 import JobsLoader from './components/jobs-loader';
@@ -17,7 +17,27 @@ export const metadata: Metadata = {
 };
 
 // Jobs list content component
-async function JobsContent() {
+async function JobsContent({ searchQuery }: { searchQuery?: string }) {
+  const trimmedSearchQuery = searchQuery ? searchQuery.trim() : '';
+  
+  // Create the base conditions
+  const baseCondition = eq(jobs.isConfirmed, true);
+  
+  // Build search conditions if there's a search query
+  const searchConditions = trimmedSearchQuery 
+    ? [
+        or(
+          ilike(jobs.jobTitle, `%${trimmedSearchQuery}%`),
+          ilike(employers.namaPerusahaan, `%${trimmedSearchQuery}%`),
+          ilike(jobs.lokasiKerja, `%${trimmedSearchQuery}%`),
+          ilike(jobs.requiredCompetencies, `%${trimmedSearchQuery}%`)
+        )
+      ] 
+    : [];
+  
+  // Combine all conditions
+  const allConditions = [baseCondition, ...searchConditions];
+  
   // Fetch jobs with their employers
   const dbJobsWithEmployers = await db
     .select({
@@ -43,16 +63,21 @@ async function JobsContent() {
     })
     .from(jobs)
     .leftJoin(employers, eq(jobs.employerId, employers.id))
-    .where(eq(jobs.isConfirmed, true))
+    .where(and(...allConditions))
     .orderBy(desc(jobs.postedDate));
-
-  // We don't need to manually map the jobs as the JobsList component will handle that
-  // The JobsList component has the mapDbJobToFrontendJob function to correctly map enum values
+  
   return <JobsList jobsData={dbJobsWithEmployers} />;
 }
 
 // Main page component
-export default function JobsPage() {
+export default function JobsPage({
+  searchParams,
+}: {
+  searchParams?: { q?: string };
+}) {
+  // Extract search query from search params, default to empty string if not present
+  const searchQuery = searchParams?.q || '';
+
   return (
     <main className="container mx-auto px-4 sm:px-6 py-8 max-w-7xl">
       <div className="text-center mb-12">
@@ -63,11 +88,11 @@ export default function JobsPage() {
       </div>
 
       <div className="max-w-2xl mx-auto mb-12">
-        <SearchBar />
+        <SearchBar initialQuery={searchQuery} />
       </div>
 
       <Suspense fallback={<JobsLoader />}>
-        <JobsContent />
+        <JobsContent searchQuery={searchQuery} />
       </Suspense>
     </main>
   );
